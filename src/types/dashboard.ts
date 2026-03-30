@@ -48,7 +48,15 @@ export interface FeedEvent {
     | "governance_monthly_run"
     | "governance_quarterly_run"
     | "autonomy_state_changed"
-    | "governance_issue_detected";
+    | "governance_issue_detected"
+    | "department_created"
+    | "department_updated"
+    | "department_paused"
+    | "department_resumed"
+    | "specialist_spawned"
+    | "specialist_completed"
+    | "specialist_terminated"
+    | "specialist_promoted_recommended";
   source: string;
   summary: string;
   related_task_id: string | null;
@@ -75,4 +83,42 @@ export interface SystemStatus {
   blocked_tasks: number;
   last_event: string | null;
   checked_at: string;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  short_id: string;
+  emoji: string;
+  mandate: string;
+  domain: string;
+  status: "active" | "paused";
+  priority: "high" | "medium" | "low";
+  agent_count: number;
+  created_at: string;
+}
+
+export type SpecialistStatus = "active" | "completed" | "terminated";
+
+export interface Specialist {
+  id: string;
+  name: string;
+  type: string;
+  mission: string;
+  status: SpecialistStatus;
+  department_id: string | null;
+  assigned_task_id: string | null;
+  spawn_source: string;
+  started_at: string;
+  ended_at: string | null;
+  output_summary: string | null;
+}
+
+export interface SpecialistType {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  spawn_count: number;
+  last_spawned: string | null;
 }

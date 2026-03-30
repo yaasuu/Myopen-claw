@@ -13,6 +13,8 @@ import {
   Inbox,
   UserPlus,
   Shield,
+  Building2,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +34,8 @@ const navItems = [
   { title: "Overview", href: "/overview", icon: LayoutDashboard },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Agents", href: "/agents", icon: Bot },
+  { title: "Departments", href: "/departments", icon: Building2 },
+  { title: "Specialists", href: "/specialists", icon: Zap },
   { title: "Org Chart", href: "/org-chart", icon: Network },
   { title: "Live Feed", href: "/live-feed", icon: Radio },
   { title: "Alerts", href: "/alerts", icon: Bell },

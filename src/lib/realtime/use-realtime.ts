@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase/client";
 
-type TableName = "tasks" | "agents" | "feed_events" | "system_status" | "audit_log" | "notifications";
+type TableName = "tasks" | "agents" | "feed_events" | "system_status" | "audit_log" | "notifications" | "departments" | "specialists" | "specialist_types";
 
 /**
  * Subscribes to Supabase realtime changes on a table.
