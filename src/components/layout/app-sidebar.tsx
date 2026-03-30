@@ -16,6 +16,7 @@ import {
   Building2,
   Zap,
   GraduationCap,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +39,7 @@ const navItems = [
   { title: "Departments", href: "/departments", icon: Building2 },
   { title: "Specialists", href: "/specialists", icon: Zap },
   { title: "Skills", href: "/skills", icon: GraduationCap },
+  { title: "Notes", href: "/notes", icon: BookOpen },
   { title: "Org Chart", href: "/org-chart", icon: Network },
   { title: "Live Feed", href: "/live-feed", icon: Radio },
   { title: "Alerts", href: "/alerts", icon: Bell },
