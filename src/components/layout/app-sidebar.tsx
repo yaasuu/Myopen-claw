@@ -41,24 +41,30 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b px-6 py-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🦀</span>
+    <Sidebar className="border-r">
+      <SidebarHeader className="border-b px-5 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg">
+            🦀
+          </div>
           <div>
-            <h1 className="text-sm font-semibold leading-tight">
+            <h1 className="text-sm font-semibold leading-tight tracking-tight">
               Yas Claw
             </h1>
-            <p className="text-xs text-muted-foreground">Mission Control</p>
+            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+              Mission Control
+            </p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-3 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Navigation
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-0.5">
               {navItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
@@ -70,12 +76,17 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       className={cn(
-                        isActive &&
-                          "bg-accent text-accent-foreground font-medium"
+                        "h-9 rounded-lg px-3 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
                       <Link href={item.href}>
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className={cn(
+                          "h-4 w-4",
+                          isActive ? "text-primary" : "text-muted-foreground/60"
+                        )} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -87,10 +98,12 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t px-4 py-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="h-2 w-2 rounded-full bg-emerald-500" />
-          <span>System operational</span>
+      <SidebarFooter className="border-t px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="status-dot bg-emerald-500" />
+          <span className="text-xs font-medium text-muted-foreground">
+            System operational
+          </span>
         </div>
       </SidebarFooter>
     </Sidebar>

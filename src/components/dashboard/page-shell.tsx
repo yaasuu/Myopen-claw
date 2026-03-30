@@ -8,11 +8,11 @@ interface PageShellProps {
 
 export function PageShell({ title, description, children }: PageShellProps) {
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 lg:p-8 max-w-[1400px]">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         {description && (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="page-description">{description}</p>
         )}
       </div>
       {children}

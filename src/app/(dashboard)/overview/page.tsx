@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Bot,
   CheckCircle2,
@@ -22,6 +21,7 @@ import {
   ArrowRight,
   ShieldAlert,
   Activity,
+  TrendingUp,
 } from "lucide-react";
 import { getSystemStatus } from "@/lib/data/system";
 import { getTaskStats, getBlockedTasks } from "@/lib/data/tasks";
@@ -127,38 +127,39 @@ export default function OverviewPage() {
       value: String(status?.active_agents ?? 0),
       icon: Bot,
       description: status?.active_agents ? "Operational" : "None active",
-      highlight: false,
+      color: "text-violet-600",
+      bg: "bg-violet-50",
     },
     {
       title: "Open Tasks",
       value: String(taskStats.total - taskStats.done),
-      icon: Clock,
+      icon: TrendingUp,
       description: `${taskStats.inProgress} in progress`,
-      highlight: false,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
     },
     {
       title: "Blocked",
       value: String(taskStats.blocked),
       icon: AlertTriangle,
       description: taskStats.blocked > 0 ? "Needs attention" : "All clear",
-      highlight: taskStats.blocked > 0,
+      color: taskStats.blocked > 0 ? "text-red-600" : "text-muted-foreground",
+      bg: taskStats.blocked > 0 ? "bg-red-50" : "bg-muted/50",
     },
     {
       title: "Completed",
       value: String(taskStats.done),
       icon: CheckCircle2,
       description: `${taskStats.total} total tasks`,
-      highlight: false,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
     },
   ];
 
   return (
-    <PageShell
-      title="Overview"
-      description={`Operating summary — last updated ${status?.checked_at ? new Date(status.checked_at).toLocaleTimeString() : "just now"}`}
-    >
+    <PageShell title="Overview" description="Operating summary">
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">
           Some data may be stale: {error}
         </div>
       )}
@@ -166,36 +167,43 @@ export default function OverviewPage() {
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
-          <Card key={card.title} className={card.highlight ? "border-red-200" : undefined}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
-                {card.title}
-              </CardTitle>
-              <card.icon className={`h-4 w-4 ${card.highlight ? "text-red-500" : "text-muted-foreground"}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${card.highlight ? "text-red-600" : ""}`}>{card.value}</div>
-              <p className="text-xs text-muted-foreground">{card.description}</p>
+          <Card key={card.title} className="stat-card">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  {card.title}
+                </span>
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${card.bg}`}>
+                  <card.icon className={`h-4 w-4 ${card.color}`} />
+                </div>
+              </div>
+              <div className={`text-2xl font-bold tracking-tight ${card.color === "text-muted-foreground" ? "" : card.color}`}>
+                {card.value}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Attention needed — unified alert bar */}
+      {/* Attention needed */}
       {needsAttention && (
-        <Link href="/alerts">
-          <Card className="border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-3 py-4">
-              <Bell className="h-5 w-5 text-amber-600" />
+        <Link href="/alerts" className="block">
+          <Card className="border-amber-200/60 bg-gradient-to-r from-amber-50/80 to-orange-50/40 hover:from-amber-50 hover:to-orange-50/60 transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-4 py-4 px-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
+                <Bell className="h-4 w-4 text-amber-600" />
+              </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-amber-800">Attention Needed</p>
-                <p className="text-xs text-amber-600">
+                <p className="text-sm font-semibold text-amber-900">Attention Needed</p>
+                <p className="text-xs text-amber-700">
                   {taskStats.blocked > 0 && `${taskStats.blocked} blocked task${taskStats.blocked !== 1 ? "s" : ""}`}
                   {taskStats.blocked > 0 && pausedAgents.length > 0 && " · "}
                   {pausedAgents.length > 0 && `${pausedAgents.length} paused agent${pausedAgents.length !== 1 ? "s" : ""}`}
                 </p>
               </div>
-              <Badge className="bg-amber-200 text-amber-800">{taskStats.blocked + pausedAgents.length}</Badge>
+              <Badge className="bg-amber-200/80 text-amber-800 font-semibold">{taskStats.blocked + pausedAgents.length}</Badge>
+              <ArrowRight className="h-4 w-4 text-amber-500" />
             </CardContent>
           </Card>
         </Link>
@@ -204,32 +212,39 @@ export default function OverviewPage() {
       {/* Three-column signal row */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Blocked tasks */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              Blocked Tasks
-            </CardTitle>
-            {blocked.length > 0 && <Badge variant="destructive" className="text-xs">{blocked.length}</Badge>}
+        <Card className="stat-card">
+          <CardHeader className="pb-3 px-5 pt-5">
+            <div className="flex items-center justify-between">
+              <CardTitle className="section-title flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-red-50">
+                  <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                </div>
+                Blocked Tasks
+              </CardTitle>
+              {blocked.length > 0 && <Badge variant="destructive" className="text-xs">{blocked.length}</Badge>}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {blocked.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">All clear</p>
+              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                All clear
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {blocked.slice(0, 3).map((task) => (
-                  <div key={task.id} className="rounded-md border p-3 space-y-1">
+                  <div key={task.id} className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
                     <p className="text-sm font-medium truncate">{task.title}</p>
                     <p className="text-xs text-muted-foreground truncate">{task.blocker}</p>
                     {task.assigned_agent_name && (
-                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs text-blue-600 hover:underline">
+                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs text-primary hover:underline inline-flex items-center gap-1">
                         {task.assigned_agent_emoji} {task.assigned_agent_name}
                       </Link>
                     )}
                   </div>
                 ))}
                 {blocked.length > 3 && (
-                  <Link href="/alerts" className="text-xs text-blue-600 hover:underline block text-center pt-1">
+                  <Link href="/alerts" className="text-xs text-primary hover:underline block text-center pt-1 font-medium">
                     View all {blocked.length} blocked →
                   </Link>
                 )}
@@ -239,28 +254,35 @@ export default function OverviewPage() {
         </Card>
 
         {/* Paused agents */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Bot className="h-4 w-4 text-amber-500" />
-              Paused Agents
-            </CardTitle>
-            {pausedAgents.length > 0 && <Badge className="bg-amber-100 text-amber-700 text-xs">{pausedAgents.length}</Badge>}
+        <Card className="stat-card">
+          <CardHeader className="pb-3 px-5 pt-5">
+            <div className="flex items-center justify-between">
+              <CardTitle className="section-title flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50">
+                  <Bot className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                Paused Agents
+              </CardTitle>
+              {pausedAgents.length > 0 && <Badge className="bg-amber-100 text-amber-700 text-xs">{pausedAgents.length}</Badge>}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {pausedAgents.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">All agents active</p>
+              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                All agents active
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {pausedAgents.map((agent) => (
-                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-md border p-3 hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-2">
+                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-lg border bg-muted/30 p-3 hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2.5">
                       <span className="text-lg">{agent.emoji}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">{agent.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{agent.domain}</p>
                       </div>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
                     </div>
                   </Link>
                 ))}
@@ -269,33 +291,40 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Recent critical events */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-orange-500" />
-              Critical Events
-            </CardTitle>
-            {criticalEvents.length > 0 && (
-              <Link href="/alerts">
-                <Badge className="bg-orange-100 text-orange-700 text-xs cursor-pointer hover:bg-orange-200">
-                  {criticalEvents.length}
-                </Badge>
-              </Link>
-            )}
+        {/* Critical events */}
+        <Card className="stat-card">
+          <CardHeader className="pb-3 px-5 pt-5">
+            <div className="flex items-center justify-between">
+              <CardTitle className="section-title flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-50">
+                  <ShieldAlert className="h-3.5 w-3.5 text-orange-500" />
+                </div>
+                Critical Events
+              </CardTitle>
+              {criticalEvents.length > 0 && (
+                <Link href="/alerts">
+                  <Badge className="bg-orange-100 text-orange-700 text-xs cursor-pointer hover:bg-orange-200 transition-colors">
+                    {criticalEvents.length}
+                  </Badge>
+                </Link>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {criticalEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">No critical events</p>
+              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                No critical events
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {criticalEvents.map((event) => (
-                  <div key={event.id} className="rounded-md border p-3 space-y-1">
+                  <div key={event.id} className="rounded-lg border bg-muted/30 p-3 space-y-1">
                     <p className="text-sm truncate">{event.summary}</p>
                     <p className="text-xs text-muted-foreground">{timeAgo(event.created_at)}</p>
                   </div>
                 ))}
-                <Link href="/alerts" className="text-xs text-blue-600 hover:underline block text-center pt-1">
+                <Link href="/alerts" className="text-xs text-primary hover:underline block text-center pt-1 font-medium">
                   View all alerts →
                 </Link>
               </div>
@@ -304,26 +333,28 @@ export default function OverviewPage() {
         </Card>
       </div>
 
-      {/* Recent activity + last system activity */}
+      {/* Activity + system */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Activity className="h-4 w-4 text-muted-foreground" />
+        <Card className="stat-card">
+          <CardHeader className="pb-3 px-5 pt-5">
+            <CardTitle className="section-title flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted">
+                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
               Recent Activity
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {events.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No events yet</p>
+              <p className="py-4 text-sm text-muted-foreground">No events yet</p>
             ) : (
               <div className="space-y-3">
                 {events.map((event) => (
                   <div key={event.id} className="flex items-start gap-3 text-sm">
-                    <span className="w-16 shrink-0 text-xs text-muted-foreground">
+                    <span className="w-14 shrink-0 text-xs text-muted-foreground font-medium tabular-nums">
                       {timeAgo(event.created_at)}
                     </span>
-                    <span className="flex-1">{event.summary}</span>
+                    <span className="flex-1 text-muted-foreground">{event.summary}</span>
                   </div>
                 ))}
               </div>
@@ -331,20 +362,42 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Last System Activity</CardTitle>
+        <Card className="stat-card">
+          <CardHeader className="pb-3 px-5 pt-5">
+            <CardTitle className="section-title flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              System Status
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {status?.last_event ? (
-              <div className="space-y-2">
-                <p className="text-sm">{new Date(status.last_event).toLocaleString()}</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`status-dot ${status.status === "healthy" ? "bg-emerald-500" : "bg-red-500"}`} />
+                  <span className="text-sm font-medium capitalize">{status.status}</span>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  System status: <span className={status.status === "healthy" ? "text-emerald-600" : "text-red-600"}>{status.status}</span>
+                  Last activity: {new Date(status.last_event).toLocaleString()}
                 </p>
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="rounded-lg bg-muted/50 p-2.5 text-center">
+                    <div className="text-lg font-bold">{status.open_tasks}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Open</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-2.5 text-center">
+                    <div className="text-lg font-bold text-red-600">{status.blocked_tasks}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Blocked</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-2.5 text-center">
+                    <div className="text-lg font-bold text-emerald-600">{status.active_agents}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Active</div>
+                  </div>
+                </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No system activity recorded</p>
+              <p className="py-4 text-sm text-muted-foreground">No system activity recorded</p>
             )}
           </CardContent>
         </Card>
