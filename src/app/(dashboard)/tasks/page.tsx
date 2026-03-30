@@ -47,6 +47,8 @@ import {
   Archive,
   ArchiveRestore,
   CheckCircle2,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import {
   getTasks,
@@ -90,6 +92,7 @@ export default function TasksPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterAgent, setFilterAgent] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
+  const [viewMode, setViewMode] = useState<"board" | "table">("board");
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -445,6 +448,26 @@ export default function TasksPage() {
           )}
         </Button>
 
+        {/* View toggle */}
+        <div className="flex items-center border rounded-lg overflow-hidden">
+          <Button
+            variant={viewMode === "board" ? "secondary" : "ghost"}
+            size="sm"
+            className="rounded-none h-8 px-3"
+            onClick={() => setViewMode("board")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant={viewMode === "table" ? "secondary" : "ghost"}
+            size="sm"
+            className="rounded-none h-8 px-3"
+            onClick={() => setViewMode("table")}
+          >
+            <List className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
         <div className="flex-1" />
 
         {/* Create dialog */}
@@ -566,14 +589,143 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* Task count */}
-      <p className="text-xs text-muted-foreground">
-        {filtered.length} task{filtered.length !== 1 ? "s" : ""}
-        {filterStatus !== "all" || filterAgent !== "all" ? ` (filtered from ${tasks.length})` : ""}
-        {showArchived ? " — including archived" : ""}
-      </p>
+      {/* Task count + view */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          {filtered.length} task{filtered.length !== 1 ? "s" : ""}
+          {filterStatus !== "all" || filterAgent !== "all" ? ` (filtered from ${tasks.length})` : ""}
+          {showArchived ? " — including archived" : ""}
+        </p>
+      </div>
 
-      {/* Table */}
+      {/* Board View */}
+      {viewMode === "board" && (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+          {STATUSES.map((status) => {
+            const columnTasks = filtered.filter((t) => t.status === status);
+            const columnColors: Record<string, string> = {
+              pending: "border-t-slate-300",
+              "in-progress": "border-t-blue-400",
+              blocked: "border-t-red-400",
+              done: "border-t-emerald-400",
+            };
+
+            return (
+              <div key={status} className="space-y-3">
+                {/* Column header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${statusColors[status]}`}>
+                      {status}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{columnTasks.length}</span>
+                  </div>
+                </div>
+
+                {/* Column cards */}
+                <div className="space-y-2 min-h-[100px]">
+                  {columnTasks.length === 0 ? (
+                    <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
+                      No tasks
+                    </div>
+                  ) : (
+                    columnTasks.map((task) => (
+                      <Card key={task.id} className={`stat-card border-t-2 ${columnColors[status]} ${task.is_archived ? "opacity-50" : ""}`}>
+                        <CardContent className="p-3 space-y-2">
+                          {/* Title */}
+                          <p className="text-sm font-medium leading-snug">{task.title}</p>
+
+                          {/* Priority + blocker */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs font-medium inline-flex items-center gap-1 ${priorityColors[task.priority].text}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
+                              {task.priority}
+                            </span>
+                            {task.blocker && (
+                              <span className="text-xs text-red-600 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                blocked
+                              </span>
+                            )}
+                            {task.is_archived && (
+                              <Badge variant="outline" className="text-[10px]">archived</Badge>
+                            )}
+                          </div>
+
+                          {/* Agent */}
+                          <div className="flex items-center justify-between pt-1 border-t">
+                            <span className="text-xs text-muted-foreground">
+                              {task.assigned_agent_name ? (
+                                <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
+                              ) : (
+                                <span className="italic">Unassigned</span>
+                              )}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(task.updated_at).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          {/* Quick actions */}
+                          {canWrite && !task.is_archived && (
+                            <div className="flex gap-1 pt-1">
+                              {status !== "done" && (
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  className="text-[10px] h-6"
+                                  onClick={() => handleStatusChange(task.id, "done")}
+                                  disabled={updatingId === task.id}
+                                >
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+                                </Button>
+                              )}
+                              {status === "blocked" && (
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  className="text-[10px] h-6"
+                                  onClick={() => handleUnblock(task.id)}
+                                  disabled={updatingId === task.id}
+                                >
+                                  Unblock
+                                </Button>
+                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="xs" className="h-6 w-6 p-0">
+                                    <MoreHorizontal className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEdit(task)}>
+                                    <Pencil className="mr-2 h-3 w-3" /> Edit
+                                  </DropdownMenuItem>
+                                  {STATUSES.filter((s) => s !== status).map((s) => (
+                                    <DropdownMenuItem key={s} onClick={() => handleStatusChange(task.id, s)}>
+                                      Move to {s}
+                                    </DropdownMenuItem>
+                                  ))}
+                                  <DropdownMenuItem onClick={() => handleArchive(task.id)}>
+                                    <Archive className="mr-2 h-3 w-3" /> Archive
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Table View */}
+      {viewMode === "table" && (
       <Card>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
@@ -731,6 +883,7 @@ export default function TasksPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit dialog */}
       {canWrite && (
