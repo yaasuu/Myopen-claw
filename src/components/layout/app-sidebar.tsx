@@ -12,6 +12,7 @@ import {
   Bell,
   Inbox,
   UserPlus,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +37,7 @@ const navItems = [
   { title: "Alerts", href: "/alerts", icon: Bell },
   { title: "Notifications", href: "/notifications", icon: Inbox },
   { title: "Hiring", href: "/hiring", icon: UserPlus },
+  { title: "Autonomy", href: "/autonomy", icon: Shield },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

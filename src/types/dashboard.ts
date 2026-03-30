@@ -42,7 +42,13 @@ export interface FeedEvent {
     | "agent_hired"
     | "system_alert"
     | "blocker_detected"
-    | "blocker_resolved";
+    | "blocker_resolved"
+    | "governance_daily_run"
+    | "governance_weekly_run"
+    | "governance_monthly_run"
+    | "governance_quarterly_run"
+    | "autonomy_state_changed"
+    | "governance_issue_detected";
   source: string;
   summary: string;
   related_task_id: string | null;
