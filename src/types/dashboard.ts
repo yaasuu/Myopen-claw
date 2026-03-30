@@ -56,7 +56,13 @@ export interface FeedEvent {
     | "specialist_spawned"
     | "specialist_completed"
     | "specialist_terminated"
-    | "specialist_promoted_recommended";
+    | "specialist_promoted_recommended"
+    | "skill_requested"
+    | "skill_approved"
+    | "skill_rejected"
+    | "skill_installed"
+    | "skill_scan_clean"
+    | "skill_scan_flagged";
   source: string;
   summary: string;
   related_task_id: string | null;
@@ -121,4 +127,46 @@ export interface SpecialistType {
   description: string;
   spawn_count: number;
   last_spawned: string | null;
+}
+
+export type SkillScanResult = "pending" | "clean" | "suspicious" | "blocked";
+
+export type SkillRequestStatus = "pending" | "approved" | "rejected" | "installed";
+
+export interface Skill {
+  id: string;
+  name: string;
+  source: string; // "clawhub" or "manual"
+  category: string;
+  description: string;
+  installed_at: string;
+}
+
+export interface AgentSkill {
+  agent_id: string;
+  skill_id: string;
+  skill_name: string;
+  skill_category: string;
+  installed_at: string;
+  month_installed: string; // "2026-03" for quota tracking
+}
+
+export interface SkillRequest {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  agent_emoji: string;
+  skill_name: string;
+  skill_source: string;
+  skill_category: string;
+  skill_description: string;
+  reason: string;
+  evidence_task_ids: string[];
+  urgency: "high" | "medium" | "low";
+  status: SkillRequestStatus;
+  scan_result: SkillScanResult;
+  scan_notes: string;
+  requested_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
 }
