@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Bell,
   Inbox,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -34,6 +35,7 @@ const navItems = [
   { title: "Live Feed", href: "/live-feed", icon: Radio },
   { title: "Alerts", href: "/alerts", icon: Bell },
   { title: "Notifications", href: "/notifications", icon: Inbox },
+  { title: "Hiring", href: "/hiring", icon: UserPlus },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

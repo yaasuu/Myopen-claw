@@ -39,6 +39,7 @@ export interface FeedEvent {
     | "agent_routed"
     | "agent_paused"
     | "agent_resumed"
+    | "agent_hired"
     | "system_alert"
     | "blocker_detected"
     | "blocker_resolved";

@@ -10,6 +10,7 @@ const NOTIFICATION_MAP: Record<string, { type: NotificationType; title: string }
   blocker_resolved: { type: "blocker_resolved", title: "Blocker Resolved" },
   agent_paused: { type: "agent_paused", title: "Agent Paused" },
   agent_resumed: { type: "agent_resumed", title: "Agent Resumed" },
+  agent_hired: { type: "agent_resumed", title: "Agent Hired" },
   system_alert: { type: "system_alert", title: "System Alert" },
   agent_routed: { type: "task_reassigned", title: "Task Reassigned" },
   task_completed: { type: "task_completed", title: "Task Completed" },

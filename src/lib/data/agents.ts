@@ -137,3 +137,44 @@ export async function updateAgentStatus(
 
   return { data: agent, error: null };
 }
+
+export async function createAgent(input: {
+  name: string;
+  emoji: string;
+  description: string;
+  domain: string;
+}): Promise<{ data: Agent | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const shortId = input.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  const { data, error } = await supabase
+    .from("agents")
+    .insert({
+      name: input.name,
+      short_id: shortId,
+      emoji: input.emoji || "🤖",
+      description: input.description,
+      domain: input.domain,
+      status: "active",
+    })
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+
+  const agent = data as Agent;
+
+  await logFeedEvent({
+    event_type: "agent_hired",
+    source: "system",
+    summary: `New agent '${agent.name}' hired`,
+    related_agent_id: agent.id,
+  });
+
+  return { data: agent, error: null };
+}
