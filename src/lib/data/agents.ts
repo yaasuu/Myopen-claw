@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/client";
+import { logFeedEvent } from "@/lib/data/feed-events";
 import type { Agent } from "@/types/dashboard";
 
 export async function getAgents(): Promise<{ data: Agent[]; error: string | null }> {
@@ -76,4 +77,34 @@ export async function getAgentById(id: string): Promise<{ data: Agent | null; er
 
   if (error) return { data: null, error: error.message };
   return { data: data as Agent, error: null };
+}
+
+export async function updateAgentStatus(
+  id: string,
+  status: "active" | "paused"
+): Promise<{ data: Agent | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("agents")
+    .update({ status })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+
+  const agent = data as Agent;
+
+  await logFeedEvent({
+    event_type: status === "paused" ? "agent_paused" : "agent_resumed",
+    source: "system",
+    summary: status === "paused"
+      ? `Agent '${agent.name}' paused`
+      : `Agent '${agent.name}' resumed`,
+    related_agent_id: agent.id,
+  });
+
+  return { data: agent, error: null };
 }

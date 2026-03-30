@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -9,11 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, CheckCircle2, AlertTriangle, Clock, Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Bot, CheckCircle2, AlertTriangle, Clock, Loader2, RefreshCw, Bell } from "lucide-react";
 import { getSystemStatus } from "@/lib/data/system";
 import { getTaskStats, getBlockedTasks } from "@/lib/data/tasks";
 import { getFeedEvents } from "@/lib/data/feed";
-import type { SystemStatus, TaskWithAgent, FeedEvent } from "@/types/dashboard";
+import { getPausedAgents } from "@/lib/data/alerts";
+import type { SystemStatus, TaskWithAgent, FeedEvent, Agent } from "@/types/dashboard";
 
 export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
@@ -22,19 +25,21 @@ export default function OverviewPage() {
   const [taskStats, setTaskStats] = useState({ total: 0, pending: 0, inProgress: 0, blocked: 0, done: 0 });
   const [blocked, setBlocked] = useState<TaskWithAgent[]>([]);
   const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [pausedAgents, setPausedAgents] = useState<Agent[]>([]);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [sResult, stats, bResult, eResult] = await Promise.all([
+      const [sResult, stats, bResult, eResult, pausedResult] = await Promise.all([
         getSystemStatus(),
         getTaskStats(),
         getBlockedTasks(),
         getFeedEvents(4),
+        getPausedAgents(),
       ]);
 
-      const errors = [sResult.error, bResult.error, eResult.error].filter(Boolean);
+      const errors = [sResult.error, bResult.error, eResult.error, pausedResult.error].filter(Boolean);
       if (errors.length > 0) {
         setError(errors.join("; "));
       }
@@ -43,6 +48,7 @@ export default function OverviewPage() {
       setTaskStats(stats);
       setBlocked(bResult.data);
       setEvents(eResult.data);
+      setPausedAgents(pausedResult.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -138,6 +144,25 @@ export default function OverviewPage() {
           </Card>
         ))}
       </div>
+
+      {(taskStats.blocked > 0 || pausedAgents.length > 0) && (
+        <Link href="/alerts">
+          <Card className="border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 py-4">
+              <Bell className="h-5 w-5 text-amber-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-800">Open Alerts</p>
+                <p className="text-xs text-amber-600">
+                  {taskStats.blocked > 0 && `${taskStats.blocked} blocked task${taskStats.blocked !== 1 ? "s" : ""}`}
+                  {taskStats.blocked > 0 && pausedAgents.length > 0 && " · "}
+                  {pausedAgents.length > 0 && `${pausedAgents.length} paused agent${pausedAgents.length !== 1 ? "s" : ""}`}
+                </p>
+              </div>
+              <Badge className="bg-amber-200 text-amber-800">{taskStats.blocked + pausedAgents.length}</Badge>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

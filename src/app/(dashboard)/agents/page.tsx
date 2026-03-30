@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -103,7 +104,8 @@ export default function AgentsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {agents.map((agent) => (
-            <Card key={agent.id}>
+            <Link key={agent.id} href={`/agents/${agent.id}`} className="block">
+              <Card className="transition-colors hover:border-primary/40 cursor-pointer h-full">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-sm font-medium">
@@ -129,7 +131,8 @@ export default function AgentsPage() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

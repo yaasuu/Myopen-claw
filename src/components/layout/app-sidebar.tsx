@@ -9,6 +9,7 @@ import {
   Radio,
   Settings,
   CheckSquare,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +31,7 @@ const navItems = [
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Org Chart", href: "/org-chart", icon: Network },
   { title: "Live Feed", href: "/live-feed", icon: Radio },
+  { title: "Alerts", href: "/alerts", icon: Bell },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 

@@ -40,7 +40,7 @@ import {
   RefreshCw,
   ChevronDown,
 } from "lucide-react";
-import { getTasks, createTask, updateTaskStatus, unblockTask } from "@/lib/data/tasks";
+import { getTasks, createTask, updateTaskStatus, unblockTask, updateTaskAssignment } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
 import type { TaskWithAgent, Agent } from "@/types/dashboard";
 
@@ -169,6 +169,35 @@ export default function TasksPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to unblock task");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleReassign(taskId: string, agentId: string | null) {
+    setUpdatingId(taskId);
+    try {
+      const result = await updateTaskAssignment(taskId, agentId);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        const agent = agentId ? agents.find((a) => a.id === agentId) : null;
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  assigned_agent_id: agentId,
+                  assigned_agent_name: agent?.name ?? null,
+                  assigned_agent_emoji: agent?.emoji ?? null,
+                  updated_at: new Date().toISOString(),
+                }
+              : t
+          )
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reassign task");
     } finally {
       setUpdatingId(null);
     }
@@ -393,13 +422,29 @@ export default function TasksPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {task.assigned_agent_name ? (
-                        <span>
-                          {task.assigned_agent_emoji} {task.assigned_agent_name}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      <Select
+                        value={task.assigned_agent_id ?? "unassigned"}
+                        onValueChange={(v) => handleReassign(task.id, v === "unassigned" ? null : v)}
+                        disabled={updatingId === task.id}
+                      >
+                        <SelectTrigger className="h-7 w-44 text-xs">
+                          <SelectValue>
+                            {task.assigned_agent_name ? (
+                              <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">Unassigned</span>
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned" className="text-xs">Unassigned</SelectItem>
+                          {agents.map((a) => (
+                            <SelectItem key={a.id} value={a.id} className="text-xs">
+                              {a.emoji} {a.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{task.owner}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">

@@ -63,6 +63,24 @@ export async function getFeedEvents(limit = 20): Promise<{ data: FeedEvent[]; er
   return { data: (data ?? []) as FeedEvent[], error: null };
 }
 
+export async function getCriticalFeedEvents(limit = 20): Promise<{ data: FeedEvent[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    const criticalTypes = ["blocker_detected", "system_alert", "agent_paused"];
+    return { data: MOCK_EVENTS.filter((e) => criticalTypes.includes(e.event_type)).slice(0, limit), error: null };
+  }
+
+  const { data, error } = await supabase
+    .from("feed_events")
+    .select("*")
+    .in("event_type", ["blocker_detected", "system_alert", "agent_paused"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) return { data: [], error: error.message };
+  return { data: (data ?? []) as FeedEvent[], error: null };
+}
+
 export async function getFeedEventsByType(
   type: FeedEvent["event_type"],
   limit = 20

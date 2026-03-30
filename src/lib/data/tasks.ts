@@ -120,6 +120,11 @@ export async function getTasksByStatus(status: Task["status"]): Promise<{ data: 
   return { data: result.data.filter((t) => t.status === status), error: result.error };
 }
 
+export async function getTasksByAgent(agentId: string): Promise<{ data: TaskWithAgent[]; error: string | null }> {
+  const result = await getTasks();
+  return { data: result.data.filter((t) => t.assigned_agent_id === agentId), error: result.error };
+}
+
 export async function getBlockedTasks(): Promise<{ data: TaskWithAgent[]; error: string | null }> {
   return getTasksByStatus("blocked");
 }
@@ -290,4 +295,40 @@ export async function updateTask(
 
   if (error) return { data: null, error: error.message };
   return { data: data as Task, error: null };
+}
+
+export async function updateTaskAssignment(
+  taskId: string,
+  agentId: string | null
+): Promise<{ data: Task | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ assigned_agent_id: agentId, updated_at: new Date().toISOString() })
+    .eq("id", taskId)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+
+  const task = data as Task;
+
+  // Build agent map for summary
+  let agentName = "unassigned";
+  if (agentId) {
+    const agentMap = await buildAgentMap(supabase);
+    agentName = agentMap[agentId]?.name ?? agentId;
+  }
+
+  await logFeedEvent({
+    event_type: "agent_routed",
+    source: "system",
+    summary: `Task '${task.title}' assigned to ${agentName}`,
+    related_task_id: task.id,
+    related_agent_id: agentId,
+  });
+
+  return { data: task, error: null };
 }
