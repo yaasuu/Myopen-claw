@@ -18,6 +18,7 @@ const MOCK_TASKS: Task[] = [
     assigned_agent_id: "mock-1",
     blocker: null,
     owner: "Yas",
+    is_archived: false,
     created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
     updated_at: new Date(Date.now() - 30 * 60000).toISOString(),
   },
@@ -30,6 +31,7 @@ const MOCK_TASKS: Task[] = [
     assigned_agent_id: "mock-1",
     blocker: null,
     owner: "Yas",
+    is_archived: false,
     created_at: new Date(Date.now() - 1 * 3600000).toISOString(),
     updated_at: new Date(Date.now() - 1 * 3600000).toISOString(),
   },
@@ -42,6 +44,7 @@ const MOCK_TASKS: Task[] = [
     assigned_agent_id: "mock-2",
     blocker: null,
     owner: "Yas",
+    is_archived: false,
     created_at: new Date(Date.now() - 24 * 3600000).toISOString(),
     updated_at: new Date(Date.now() - 15 * 60000).toISOString(),
   },
@@ -54,6 +57,7 @@ const MOCK_TASKS: Task[] = [
     assigned_agent_id: "mock-1",
     blocker: "Waiting on supplier quote — 3 days overdue",
     owner: "Yas",
+    is_archived: false,
     created_at: new Date(Date.now() - 72 * 3600000).toISOString(),
     updated_at: new Date(Date.now() - 3 * 24 * 3600000).toISOString(),
   },
@@ -66,6 +70,7 @@ const MOCK_TASKS: Task[] = [
     assigned_agent_id: "mock-3",
     blocker: null,
     owner: "Yas",
+    is_archived: false,
     created_at: new Date(Date.now() - 6 * 3600000).toISOString(),
     updated_at: new Date(Date.now() - 2 * 3600000).toISOString(),
   },
@@ -97,15 +102,20 @@ async function buildAgentMap(
   return map;
 }
 
-export async function getTasks(): Promise<{ data: TaskWithAgent[]; error: string | null }> {
+export async function getTasks(options?: { includeArchived?: boolean }): Promise<{ data: TaskWithAgent[]; error: string | null }> {
   const supabase = getSupabase();
 
   if (!supabase) {
     return { data: attachAgentNames(MOCK_TASKS, MOCK_AGENT_MAP), error: null };
   }
 
+  let query = supabase.from("tasks").select("*");
+  if (!options?.includeArchived) {
+    query = query.or("is_archived.is.null,is_archived.eq.false");
+  }
+
   const [tasksResult, agentMap] = await Promise.all([
-    supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+    query.order("created_at", { ascending: false }),
     buildAgentMap(supabase),
   ]);
 
@@ -331,4 +341,34 @@ export async function updateTaskAssignment(
   });
 
   return { data: task, error: null };
+}
+
+export async function archiveTask(id: string): Promise<{ data: Task | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ is_archived: true, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Task, error: null };
+}
+
+export async function unarchiveTask(id: string): Promise<{ data: Task | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ is_archived: false, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Task, error: null };
 }

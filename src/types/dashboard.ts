@@ -20,6 +20,7 @@ export interface Task {
   assigned_agent_id: string | null;
   blocker: string | null;
   owner: string;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
