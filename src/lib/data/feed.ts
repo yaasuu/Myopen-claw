@@ -81,6 +81,29 @@ export async function getCriticalFeedEvents(limit = 20): Promise<{ data: FeedEve
   return { data: (data ?? []) as FeedEvent[], error: null };
 }
 
+export async function getFeedEventsByAgent(
+  agentId: string,
+  limit = 5
+): Promise<{ data: FeedEvent[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return {
+      data: MOCK_EVENTS.filter((e) => e.related_agent_id === agentId).slice(0, limit),
+      error: null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("feed_events")
+    .select("*")
+    .eq("related_agent_id", agentId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) return { data: [], error: error.message };
+  return { data: (data ?? []) as FeedEvent[], error: null };
+}
+
 export async function getFeedEventsByType(
   type: FeedEvent["event_type"],
   limit = 20

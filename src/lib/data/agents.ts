@@ -79,6 +79,24 @@ export async function getAgentById(id: string): Promise<{ data: Agent | null; er
   return { data: data as Agent, error: null };
 }
 
+export async function updateAgentProfile(
+  id: string,
+  updates: Partial<Pick<Agent, "name" | "emoji" | "description" | "domain">>
+): Promise<{ data: Agent | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("agents")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Agent, error: null };
+}
+
 export async function updateAgentStatus(
   id: string,
   status: "active" | "paused"

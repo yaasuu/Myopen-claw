@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -11,6 +12,12 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -28,10 +35,15 @@ import {
   Pause,
   Clock,
   Activity,
+  Pencil,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
 } from "lucide-react";
-import { getAgentById, updateAgentStatus } from "@/lib/data/agents";
+import { getAgentById, updateAgentStatus, updateAgentProfile } from "@/lib/data/agents";
 import { getTasksByAgent } from "@/lib/data/tasks";
-import type { Agent, TaskWithAgent } from "@/types/dashboard";
+import { getFeedEventsByAgent } from "@/lib/data/feed";
+import type { Agent, TaskWithAgent, FeedEvent } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
   active: "bg-emerald-500",
@@ -70,17 +82,30 @@ export default function AgentDetailPage() {
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
+  const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
+
+  // Edit dialog
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmoji, setEditEmoji] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDomain, setEditDomain] = useState("");
+
+  // Pause/resume confirmation
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [agentResult, tasksResult] = await Promise.all([
+      const [agentResult, tasksResult, feedResult] = await Promise.all([
         getAgentById(agentId),
         getTasksByAgent(agentId),
+        getFeedEventsByAgent(agentId, 5),
       ]);
       if (agentResult.error) {
         setError(agentResult.error);
@@ -93,6 +118,7 @@ export default function AgentDetailPage() {
         setError(tasksResult.error);
       }
       setTasks(tasksResult.data);
+      setFeedEvents(feedResult.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load agent");
     } finally {
@@ -104,16 +130,53 @@ export default function AgentDetailPage() {
     load();
   }, [agentId]);
 
+  function openEdit() {
+    if (!agent) return;
+    setEditName(agent.name);
+    setEditEmoji(agent.emoji);
+    setEditDescription(agent.description);
+    setEditDomain(agent.domain);
+    setEditOpen(true);
+  }
+
+  async function handleEditSave() {
+    if (!agent || !editName.trim()) return;
+    setEditing(true);
+    setError(null);
+    try {
+      const result = await updateAgentProfile(agent.id, {
+        name: editName.trim(),
+        emoji: editEmoji.trim() || agent.emoji,
+        description: editDescription.trim(),
+        domain: editDomain.trim(),
+      });
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setAgent(result.data);
+        setEditOpen(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update agent");
+    } finally {
+      setEditing(false);
+    }
+  }
+
   async function handleToggleStatus() {
     if (!agent || agent.status === "retired") return;
     const newStatus = agent.status === "active" ? "paused" : "active";
     setToggling(true);
+    setConfirmOpen(false);
     try {
       const result = await updateAgentStatus(agent.id, newStatus);
       if (result.error) {
         setError(result.error);
       } else {
         setAgent((prev) => (prev ? { ...prev, status: newStatus } : prev));
+        // Refresh feed to show new event
+        const feedResult = await getFeedEventsByAgent(agentId, 5);
+        setFeedEvents(feedResult.data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update agent status");
@@ -155,11 +218,13 @@ export default function AgentDetailPage() {
   if (!agent) return null;
 
   const canToggle = agent.status !== "retired";
+  const blockedTasks = tasks.filter((t) => t.status === "blocked");
+  const completedTasks = tasks.filter((t) => t.status === "done");
 
   return (
     <PageShell
       title={`${agent.emoji} ${agent.name}`}
-      description={agent.domain}
+      description="Agent detail and task management"
     >
       {error && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
@@ -173,28 +238,34 @@ export default function AgentDetailPage() {
         Back to Agents
       </Button>
 
-      {/* Agent info card */}
+      {/* Agent profile card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium flex items-center gap-2">
-              <span className="text-2xl">{agent.emoji}</span>
+            <CardTitle className="text-base font-medium flex items-center gap-3">
+              <span className="text-3xl">{agent.emoji}</span>
               <div>
-                <div>{agent.name}</div>
+                <div className="text-lg">{agent.name}</div>
                 <div className="text-xs font-normal text-muted-foreground">{agent.short_id}</div>
               </div>
             </CardTitle>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Badge variant="outline" className="gap-1.5">
                 <span className={`h-1.5 w-1.5 rounded-full ${statusColor[agent.status]}`} />
                 {agent.status}
               </Badge>
               {canToggle && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={openEdit}>
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </Button>
+              )}
+              {canToggle && (
                 <Button
                   variant={agent.status === "active" ? "outline" : "default"}
                   size="sm"
                   className="gap-1.5"
-                  onClick={handleToggleStatus}
+                  onClick={() => setConfirmOpen(true)}
                   disabled={toggling}
                 >
                   {toggling ? (
@@ -216,11 +287,20 @@ export default function AgentDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{agent.description}</p>
-          <div className="flex items-center gap-6 text-xs text-muted-foreground">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Domain</p>
+              <p className="text-sm">{agent.domain || "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+              <p className="text-sm text-muted-foreground">{agent.description || "—"}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-6 text-xs text-muted-foreground pt-2 border-t">
             <div className="flex items-center gap-1.5">
               <Activity className="h-3.5 w-3.5" />
-              <span>{agent.task_count} tasks</span>
+              <span>{agent.task_count} total tasks</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
@@ -230,9 +310,46 @@ export default function AgentDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Task insights */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Assigned Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{tasks.length}</div>
+            <p className="text-xs text-muted-foreground">total assigned</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Blocked</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{blockedTasks.length}</div>
+            {blockedTasks.length > 0 ? (
+              <Link href="/tasks" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                View in tasks <ExternalLink className="h-3 w-3" />
+              </Link>
+            ) : (
+              <p className="text-xs text-muted-foreground">no blockers</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-emerald-600">{completedTasks.length}</div>
+            <p className="text-xs text-muted-foreground">tasks done</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Assigned Tasks */}
-      <div>
-        <h2 className="text-sm font-medium mb-3">Assigned Tasks</h2>
+      <section>
+        <h2 className="text-sm font-semibold mb-3">Assigned Tasks</h2>
         <Card>
           <CardContent className="p-0">
             {tasks.length === 0 ? (
@@ -284,7 +401,143 @@ export default function AgentDetailPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </section>
+
+      {/* Recent agent activity */}
+      <section>
+        <h2 className="text-sm font-semibold mb-3">Recent Activity</h2>
+        <Card>
+          <CardContent className="p-0">
+            {feedEvents.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No recent activity for this agent
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-36">Type</TableHead>
+                    <TableHead>Summary</TableHead>
+                    <TableHead className="w-36">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {feedEvents.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {event.event_type.replace(/_/g, " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{event.summary}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(event.created_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Agent</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-[60px_1fr] gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Emoji</label>
+                <input
+                  className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm text-center"
+                  placeholder="🤖"
+                  value={editEmoji}
+                  onChange={(e) => setEditEmoji(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Name *</label>
+                <input
+                  className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  placeholder="Agent name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Domain</label>
+              <input
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                placeholder="e.g. Export execution, lead generation"
+                value={editDomain}
+                onChange={(e) => setEditDomain(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Description</label>
+              <textarea
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                rows={3}
+                placeholder="What this agent handles"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleEditSave} disabled={editing || !editName.trim()} className="w-full">
+              {editing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pause/Resume confirmation dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {agent.status === "active" ? "Pause Agent?" : "Resume Agent?"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              {agent.status === "active"
+                ? `Are you sure you want to pause ${agent.emoji} ${agent.name}? It will stop receiving new tasks.`
+                : `Are you sure you want to resume ${agent.emoji} ${agent.name}? It will become active again.`}
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 gap-1.5"
+                variant={agent.status === "active" ? "outline" : "default"}
+                onClick={handleToggleStatus}
+                disabled={toggling}
+              >
+                {toggling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : agent.status === "active" ? (
+                  <>
+                    <Pause className="h-3.5 w-3.5" />
+                    Pause Agent
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5" />
+                    Resume Agent
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }
