@@ -11,30 +11,31 @@ const MOCK_STATUS: SystemStatus = {
   checked_at: new Date().toISOString(),
 };
 
-export async function getSystemStatus(): Promise<{ data: SystemStatus | null; error: string | null }> {
+export async function getSystemStatus(): Promise<{
+  data: SystemStatus | null;
+  error: string | null;
+}> {
   const supabase = getSupabase();
-  if (!supabase) return { data: MOCK_STATUS, error: null };
+
+  if (!supabase) {
+    return { data: MOCK_STATUS, error: null };
+  }
 
   const { data, error } = await supabase
     .from("system_status")
     .select("*")
     .order("checked_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
 
-  if (error) return { data: null, error: error.message };
-  return { data: (data as SystemStatus) ?? MOCK_STATUS, error: null };
-}
+  const row = data?.[0] ?? null;
 
-  .from("system_status")
-  .select("*")
-  .order("checked_at", { ascending: false })
-  .limit(1);
-
-const row = data?.[0] ?? null;
-
-if (error || !row) return MOCK_STATUS;
-return row as SystemStatus;
-
-
+  if (error) {
+    return { data: MOCK_STATUS, error: error.message };
   }
+
+  if (!row) {
+    return { data: MOCK_STATUS, error: null };
+  }
+
+  return { data: row as SystemStatus, error: null };
+}
