@@ -16,6 +16,7 @@ export async function getSystemStatus(): Promise<{ data: SystemStatus | null; er
   if (!supabase) return { data: MOCK_STATUS, error: null };
 
   const { data, error } = await supabase
+<<<<<<< HEAD
     .from("system_status")
     .select("*")
     .order("checked_at", { ascending: false })
@@ -25,3 +26,17 @@ export async function getSystemStatus(): Promise<{ data: SystemStatus | null; er
   if (error) return { data: null, error: error.message };
   return { data: (data as SystemStatus) ?? MOCK_STATUS, error: null };
 }
+=======
+  .from("system_status")
+  .select("*")
+  .order("checked_at", { ascending: false })
+  .limit(1);
+
+const row = data?.[0] ?? null;
+
+if (error || !row) return MOCK_STATUS;
+return row as SystemStatus;
+
+
+  }
+>>>>>>> 554a22f (Fix system status single-row query)
