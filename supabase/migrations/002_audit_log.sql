@@ -1,23 +1,40 @@
--- Phase 5A: Audit log table
--- Run this in Supabase SQL Editor
-
-CREATE TABLE IF NOT EXISTS audit_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_id UUID,
-  actor_email TEXT DEFAULT 'unknown',
-  action TEXT NOT NULL,
-  target_type TEXT NOT NULL CHECK (target_type IN ('task', 'agent', 'system')),
-  target_id TEXT NOT NULL,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now()
+create table if not exists public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_user_id uuid,
+  actor_email text,
+  actor_role text,
+  action text not null,
+  target_type text not null,
+  target_id text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log (actor_id);
-CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log (action);
+create index if not exists idx_audit_logs_created_at
+  on public.audit_logs (created_at desc);
 
--- RLS: allow anon insert (for logging), admin read
-ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+create index if not exists idx_audit_logs_actor_user_id
+  on public.audit_logs (actor_user_id);
 
-CREATE POLICY "anon_insert_audit" ON audit_log FOR INSERT TO anon WITH CHECK (true);
-CREATE POLICY "anon_select_audit" ON audit_log FOR SELECT TO anon USING (true);
+create index if not exists idx_audit_logs_action
+  on public.audit_logs (action);
+
+create index if not exists idx_audit_logs_target
+  on public.audit_logs (target_type, target_id);
+
+alter table public.audit_logs enable row level security;
+
+drop policy if exists "audit_logs_read_authenticated" on public.audit_logs;
+drop policy if exists "audit_logs_insert_authenticated" on public.audit_logs;
+
+create policy "audit_logs_read_authenticated"
+on public.audit_logs
+for select
+to authenticated
+using (true);
+
+create policy "audit_logs_insert_authenticated"
+on public.audit_logs
+for insert
+to authenticated
+with check (true);
