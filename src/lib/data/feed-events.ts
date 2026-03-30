@@ -1,7 +1,19 @@
 import { getSupabase } from "@/lib/supabase/client";
+import { createNotification, type NotificationType } from "@/lib/data/notifications";
 import type { FeedEvent } from "@/types/dashboard";
 
 export type FeedEventType = FeedEvent["event_type"];
+
+// Maps feed event types to notification types (only critical ones)
+const NOTIFICATION_MAP: Record<string, { type: NotificationType; title: string }> = {
+  blocker_detected: { type: "blocker_detected", title: "Task Blocked" },
+  blocker_resolved: { type: "blocker_resolved", title: "Blocker Resolved" },
+  agent_paused: { type: "agent_paused", title: "Agent Paused" },
+  agent_resumed: { type: "agent_resumed", title: "Agent Resumed" },
+  system_alert: { type: "system_alert", title: "System Alert" },
+  agent_routed: { type: "task_reassigned", title: "Task Reassigned" },
+  task_completed: { type: "task_completed", title: "Task Completed" },
+};
 
 export async function logFeedEvent(params: {
   event_type: FeedEventType;
@@ -26,5 +38,18 @@ export async function logFeedEvent(params: {
     .single();
 
   if (error) return { data: null, error: error.message };
+
+  // Auto-generate notification for relevant event types
+  const notifConfig = NOTIFICATION_MAP[params.event_type];
+  if (notifConfig) {
+    await createNotification({
+      type: notifConfig.type,
+      title: notifConfig.title,
+      message: params.summary,
+      related_task_id: params.related_task_id,
+      related_agent_id: params.related_agent_id,
+    });
+  }
+
   return { data: data as FeedEvent, error: null };
 }
