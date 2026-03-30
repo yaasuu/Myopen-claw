@@ -29,6 +29,7 @@ import {
   Clock,
   Bot,
   TrendingUp,
+  XCircle,
 } from "lucide-react";
 import { getAgents, createAgent, updateAgentStatus } from "@/lib/data/agents";
 import { getTasks, updateTaskAssignment } from "@/lib/data/tasks";
@@ -49,9 +50,10 @@ const urgencyStyles: Record<string, { badge: string; border: string }> = {
 };
 
 const actionLabels: Record<string, { label: string; icon: typeof UserPlus }> = {
-  hire_new: { label: "Hire New Agent", icon: UserPlus },
+  hire_new: { label: "Hire Agent", icon: UserPlus },
   activate_existing: { label: "Activate Agent", icon: Zap },
-  auto_assign: { label: "Auto-Assign Tasks", icon: ArrowRight },
+  auto_assign: { label: "Assign Tasks", icon: ArrowRight },
+  dismiss: { label: "Dismiss", icon: XCircle },
 };
 
 const loadStyles: Record<string, { color: string; bg: string; label: string }> = {
@@ -68,6 +70,7 @@ export default function HiringPage() {
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [recommendations, setRecommendations] = useState<HiringRecommendation[]>([]);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   // Hire dialog
   const [hireOpen, setHireOpen] = useState(false);
@@ -184,6 +187,12 @@ export default function HiringPage() {
     }
   }
 
+  function handleDismiss(rec: HiringRecommendation) {
+    setDismissed((prev) => new Set(prev).add(rec.id));
+  }
+
+  const visibleRecommendations = recommendations.filter((r) => !dismissed.has(r.id));
+
   const unassigned = getUnassignedTasks(tasks);
   const capacity = getAgentCapacity(tasks, agents);
 
@@ -232,12 +241,12 @@ export default function HiringPage() {
             <TrendingUp className="h-4 w-4 text-violet-600" />
           </div>
           <h2 className="section-title">Hiring Recommendations</h2>
-          {recommendations.length > 0 && (
-            <Badge className="bg-violet-100 text-violet-700 text-xs">{recommendations.length}</Badge>
+          {visibleRecommendations.length > 0 && (
+            <Badge className="bg-violet-100 text-violet-700 text-xs">{visibleRecommendations.length}</Badge>
           )}
         </div>
 
-        {recommendations.length === 0 ? (
+        {visibleRecommendations.length === 0 ? (
           <Card className="stat-card">
             <CardContent className="flex items-center gap-3 py-8 px-5">
               <CheckCircle2 className="h-5 w-5 text-emerald-500" />
@@ -249,7 +258,7 @@ export default function HiringPage() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {recommendations.map((rec) => {
+            {visibleRecommendations.map((rec) => {
               const urg = urgencyStyles[rec.urgency];
               const act = actionLabels[rec.action];
               const ActIcon = act.icon;
@@ -263,6 +272,7 @@ export default function HiringPage() {
                         <div>
                           <p className="text-sm font-semibold">{rec.suggestedName}</p>
                           <p className="text-xs text-muted-foreground">{rec.suggestedDomain}</p>
+                          <Badge variant="outline" className="text-[10px] mt-1">{rec.department}</Badge>
                         </div>
                       </div>
                       <Badge className={`text-xs ${urg.badge}`}>{rec.urgency}</Badge>
@@ -276,27 +286,43 @@ export default function HiringPage() {
                           <Users className="h-3 w-3" />
                           {rec.matchedTaskCount} tasks
                         </span>
+                        {rec.blockedTaskCount > 0 && (
+                          <span className="flex items-center gap-1 text-red-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            {rec.blockedTaskCount} blocked
+                          </span>
+                        )}
                       </div>
 
                       {canWrite && (
-                        <Button
-                          size="sm"
-                          variant={rec.action === "hire_new" ? "default" : "outline"}
-                          className="gap-1.5"
-                          disabled={processing === rec.id}
-                          onClick={() => {
-                            if (rec.action === "hire_new") openHireDialog(rec);
-                            else if (rec.action === "activate_existing") handleActivate(rec);
-                            else handleAutoAssign(rec);
-                          }}
-                        >
-                          {processing === rec.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <ActIcon className="h-3.5 w-3.5" />
-                          )}
-                          {act.label}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant={rec.action === "hire_new" ? "default" : "outline"}
+                            className="gap-1.5"
+                            disabled={processing === rec.id}
+                            onClick={() => {
+                              if (rec.action === "hire_new") openHireDialog(rec);
+                              else if (rec.action === "activate_existing") handleActivate(rec);
+                              else handleAutoAssign(rec);
+                            }}
+                          >
+                            {processing === rec.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ActIcon className="h-3.5 w-3.5" />
+                            )}
+                            {act.label}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-muted-foreground"
+                            onClick={() => handleDismiss(rec)}
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardContent>
