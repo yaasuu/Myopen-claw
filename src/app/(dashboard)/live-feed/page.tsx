@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { getFeedEvents } from "@/lib/data/feed";
 import { getAgents } from "@/lib/data/agents";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { FeedEvent, Agent } from "@/types/dashboard";
 
 const EVENT_TYPES: FeedEvent["event_type"][] = [
@@ -121,6 +122,9 @@ export default function LiveFeedPage() {
       setLoading(false);
     }
   }
+
+  const loadRef = useCallback(() => load(), []);
+  useRealtimeMulti(["feed_events", "agents", "tasks"], loadRef);
 
   useEffect(() => {
     load();

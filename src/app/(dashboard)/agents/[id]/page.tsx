@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
@@ -44,6 +44,7 @@ import { getAgentById, updateAgentStatus, updateAgentProfile } from "@/lib/data/
 import { getTasksByAgent } from "@/lib/data/tasks";
 import { getFeedEventsByAgent } from "@/lib/data/feed";
 import { useCanWrite } from "@/lib/auth/use-can-write";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent, FeedEvent } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
@@ -127,6 +128,9 @@ export default function AgentDetailPage() {
       setLoading(false);
     }
   }
+
+  const loadRef = useCallback(() => load(), [agentId]);
+  useRealtimeMulti(["agents", "tasks", "feed_events"], loadRef);
 
   useEffect(() => {
     load();

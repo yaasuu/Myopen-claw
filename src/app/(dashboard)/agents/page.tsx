@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Activity, Clock, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
+import { useRealtime } from "@/lib/realtime/use-realtime";
 import type { Agent } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
@@ -49,6 +50,9 @@ export default function AgentsPage() {
       setLoading(false);
     }
   }
+
+  const loadRef = useCallback(() => load(), []);
+  useRealtime("agents", loadRef);
 
   useEffect(() => {
     load();

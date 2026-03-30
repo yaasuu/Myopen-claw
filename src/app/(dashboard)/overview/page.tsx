@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
@@ -27,6 +27,7 @@ import { getSystemStatus } from "@/lib/data/system";
 import { getTaskStats, getBlockedTasks } from "@/lib/data/tasks";
 import { getFeedEvents, getCriticalFeedEvents } from "@/lib/data/feed";
 import { getPausedAgents } from "@/lib/data/alerts";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { SystemStatus, TaskWithAgent, FeedEvent, Agent } from "@/types/dashboard";
 
 function timeAgo(iso: string): string {
@@ -77,6 +78,12 @@ export default function OverviewPage() {
       setLoading(false);
     }
   }
+
+  const loadRef = useCallback(() => load(), []);
+  const { connected, lastSynced } = useRealtimeMulti(
+    ["tasks", "agents", "feed_events", "system_status"],
+    loadRef
+  );
 
   useEffect(() => {
     load();

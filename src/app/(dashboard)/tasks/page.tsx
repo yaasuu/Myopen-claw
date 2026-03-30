@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -60,6 +60,7 @@ import {
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
 import { useCanWrite } from "@/lib/auth/use-can-write";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, Agent } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
@@ -134,6 +135,9 @@ export default function TasksPage() {
       setLoading(false);
     }
   }
+
+  const loadRef = useCallback(() => load(), [showArchived]);
+  useRealtimeMulti(["tasks", "agents", "feed_events"], loadRef);
 
   useEffect(() => {
     load();

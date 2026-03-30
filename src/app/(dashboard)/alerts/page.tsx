@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
@@ -23,6 +23,7 @@ import { getBlockedTasks } from "@/lib/data/tasks";
 import { getCriticalFeedEvents } from "@/lib/data/feed";
 import { getPausedAgents } from "@/lib/data/alerts";
 import { getSystemStatus } from "@/lib/data/system";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, FeedEvent, Agent, SystemStatus } from "@/types/dashboard";
 
 const prioritySeverity: Record<string, { label: string; color: string; dot: string }> = {
@@ -74,6 +75,9 @@ export default function AlertsPage() {
       setLoading(false);
     }
   }
+
+  const loadRef = useCallback(() => load(), []);
+  useRealtimeMulti(["tasks", "agents", "feed_events", "system_status"], loadRef);
 
   useEffect(() => {
     load();
