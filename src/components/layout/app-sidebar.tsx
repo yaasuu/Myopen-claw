@@ -8,7 +8,7 @@ import {
   Network,
   Radio,
   Settings,
-  ChevronDown,
+  CheckSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +26,7 @@ import {
 
 const navItems = [
   { title: "Overview", href: "/overview", icon: LayoutDashboard },
+  { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Org Chart", href: "/org-chart", icon: Network },
   { title: "Live Feed", href: "/live-feed", icon: Radio },

@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -6,41 +9,119 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
-
-const summaryCards = [
-  {
-    title: "Active Agents",
-    value: "3",
-    icon: Bot,
-    description: "All operational",
-  },
-  {
-    title: "Open Tasks",
-    value: "12",
-    icon: Clock,
-    description: "4 in progress",
-  },
-  {
-    title: "Blocked",
-    value: "1",
-    icon: AlertTriangle,
-    description: "Needs attention",
-  },
-  {
-    title: "Completed (7d)",
-    value: "24",
-    icon: CheckCircle2,
-    description: "On track",
-  },
-];
+import { Bot, CheckCircle2, AlertTriangle, Clock, Loader2, RefreshCw } from "lucide-react";
+import { getSystemStatus } from "@/lib/data/system";
+import { getTaskStats, getBlockedTasks } from "@/lib/data/tasks";
+import { getFeedEvents } from "@/lib/data/feed";
+import type { SystemStatus, TaskWithAgent, FeedEvent } from "@/types/dashboard";
 
 export default function OverviewPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [taskStats, setTaskStats] = useState({ total: 0, pending: 0, inProgress: 0, blocked: 0, done: 0 });
+  const [blocked, setBlocked] = useState<TaskWithAgent[]>([]);
+  const [events, setEvents] = useState<FeedEvent[]>([]);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [sResult, stats, bResult, eResult] = await Promise.all([
+        getSystemStatus(),
+        getTaskStats(),
+        getBlockedTasks(),
+        getFeedEvents(4),
+      ]);
+
+      const errors = [sResult.error, bResult.error, eResult.error].filter(Boolean);
+      if (errors.length > 0) {
+        setError(errors.join("; "));
+      }
+
+      setStatus(sResult.data);
+      setTaskStats(stats);
+      setBlocked(bResult.data);
+      setEvents(eResult.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <PageShell title="Overview" description="Loading...">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading dashboard...
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (error && !status) {
+    return (
+      <PageShell title="Overview" description="Error loading data">
+        <Card>
+          <CardContent className="flex items-center gap-3 py-6">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Failed to load dashboard</p>
+              <p className="text-xs text-muted-foreground">{error}</p>
+            </div>
+            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
+  const summaryCards = [
+    {
+      title: "Active Agents",
+      value: String(status?.active_agents ?? 0),
+      icon: Bot,
+      description: status?.active_agents ? "Operational" : "None active",
+    },
+    {
+      title: "Open Tasks",
+      value: String(taskStats.total - taskStats.done),
+      icon: Clock,
+      description: `${taskStats.inProgress} in progress`,
+    },
+    {
+      title: "Blocked",
+      value: String(taskStats.blocked),
+      icon: AlertTriangle,
+      description: taskStats.blocked > 0 ? "Needs attention" : "All clear",
+    },
+    {
+      title: "Completed",
+      value: String(taskStats.done),
+      icon: CheckCircle2,
+      description: `${taskStats.total} total tasks`,
+    },
+  ];
+
   return (
     <PageShell
       title="Overview"
-      description="Operating summary — last updated just now"
+      description={`Operating summary — last updated ${status?.checked_at ? new Date(status.checked_at).toLocaleTimeString() : "just now"}`}
     >
+      {error && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Some data may be stale: {error}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
           <Card key={card.title}>
@@ -52,9 +133,7 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{card.value}</div>
-              <p className="text-xs text-muted-foreground">
-                {card.description}
-              </p>
+              <p className="text-xs text-muted-foreground">{card.description}</p>
             </CardContent>
           </Card>
         ))}
@@ -63,68 +142,54 @@ export default function OverviewPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Recent Activity
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                {
-                  time: "2m ago",
-                  event: "Task 'Review export docs' assigned to Export-Growth",
-                },
-                {
-                  time: "15m ago",
-                  event: "Agent Ops-Improvement completed workflow review",
-                },
-                {
-                  time: "1h ago",
-                  event: "New task 'Supplier readiness check' created",
-                },
-                {
-                  time: "2h ago",
-                  event: "Agent Architecture-Systems paused",
-                },
-              ].map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 text-sm"
-                >
-                  <span className="w-16 shrink-0 text-xs text-muted-foreground">
-                    {item.time}
-                  </span>
-                  <span>{item.event}</span>
-                </div>
-              ))}
-            </div>
+            {events.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No events yet</p>
+            ) : (
+              <div className="space-y-3">
+                {events.map((event) => (
+                  <div key={event.id} className="flex items-start gap-3 text-sm">
+                    <span className="w-16 shrink-0 text-xs text-muted-foreground">
+                      {new Date(event.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <span>{event.summary}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Blocked Items
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Blocked Items</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 rounded-md border p-3">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    Buyer follow-up: Acme Corp
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Waiting on supplier quote — 3 days overdue
-                  </p>
-                </div>
-                <Badge variant="destructive">High</Badge>
+            {blocked.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No blocked items — all clear</p>
+            ) : (
+              <div className="space-y-3">
+                {blocked.map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 rounded-md border p-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        {task.title}
+                        {task.assigned_agent_name && (
+                          <span className="ml-1.5 text-xs text-muted-foreground">
+                            — {task.assigned_agent_emoji} {task.assigned_agent_name}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{task.blocker}</p>
+                    </div>
+                    <Badge variant="destructive">{task.priority}</Badge>
+                  </div>
+                ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                1 item needs attention
-              </p>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

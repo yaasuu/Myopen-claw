@@ -1,14 +1,14 @@
 export interface Agent {
   id: string;
   name: string;
-  shortId: string;
+  short_id: string;
   emoji: string;
   description: string;
   status: "active" | "paused" | "retired";
   domain: string;
-  taskCount: number;
-  lastActivity: string | null;
-  createdAt: string;
+  task_count: number;
+  last_activity: string | null;
+  created_at: string;
 }
 
 export interface Task {
@@ -17,17 +17,21 @@ export interface Task {
   description: string;
   status: "pending" | "in-progress" | "blocked" | "done";
   priority: "high" | "medium" | "low";
-  assignedAgent: string | null;
+  assigned_agent_id: string | null;
   blocker: string | null;
   owner: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskWithAgent extends Task {
+  assigned_agent_name: string | null;
+  assigned_agent_emoji: string | null;
 }
 
 export interface FeedEvent {
   id: string;
-  timestamp: string;
-  type:
+  event_type:
     | "task_created"
     | "task_updated"
     | "task_completed"
@@ -39,8 +43,9 @@ export interface FeedEvent {
     | "blocker_resolved";
   source: string;
   summary: string;
-  relatedTaskId?: string;
-  relatedAgentId?: string;
+  related_task_id: string | null;
+  related_agent_id: string | null;
+  created_at: string;
 }
 
 export interface OrgNode {
@@ -49,13 +54,17 @@ export interface OrgNode {
   role: string;
   emoji: string;
   status: "active" | "paused" | "retired";
-  children: OrgNode[];
+  parent_id: string | null;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface SystemStatus {
+  id: string;
   status: "healthy" | "degraded" | "down";
-  activeAgents: number;
-  openTasks: number;
-  blockedTasks: number;
-  lastEvent: string | null;
+  active_agents: number;
+  open_tasks: number;
+  blocked_tasks: number;
+  last_event: string | null;
+  checked_at: string;
 }
