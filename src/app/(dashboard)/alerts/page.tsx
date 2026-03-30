@@ -6,28 +6,18 @@ import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   AlertTriangle,
   Bell,
   ShieldAlert,
-  Clock,
   Loader2,
   RefreshCw,
   Bot,
   ArrowRight,
+  Clock,
 } from "lucide-react";
 import { getBlockedTasks } from "@/lib/data/tasks";
 import { getCriticalFeedEvents } from "@/lib/data/feed";
@@ -35,17 +25,21 @@ import { getPausedAgents } from "@/lib/data/alerts";
 import { getSystemStatus } from "@/lib/data/system";
 import type { TaskWithAgent, FeedEvent, Agent, SystemStatus } from "@/types/dashboard";
 
-const priorityColors: Record<string, string> = {
-  high: "bg-red-100 text-red-700",
-  medium: "bg-amber-100 text-amber-700",
-  low: "bg-gray-100 text-gray-700",
+const prioritySeverity: Record<string, { label: string; color: string; dot: string }> = {
+  high: { label: "High", color: "bg-red-100 text-red-700 border-red-200", dot: "bg-red-500" },
+  medium: { label: "Medium", color: "bg-amber-100 text-amber-700 border-amber-200", dot: "bg-amber-500" },
+  low: { label: "Low", color: "bg-gray-100 text-gray-700 border-gray-200", dot: "bg-gray-400" },
 };
 
-const eventBadgeColors: Record<string, string> = {
-  blocker_detected: "bg-red-100 text-red-700",
-  system_alert: "bg-orange-100 text-orange-700",
-  agent_paused: "bg-yellow-100 text-yellow-700",
-};
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
@@ -62,7 +56,7 @@ export default function AlertsPage() {
     try {
       const [blockedResult, eventsResult, pausedResult, statusResult] = await Promise.all([
         getBlockedTasks(),
-        getCriticalFeedEvents(15),
+        getCriticalFeedEvents(10),
         getPausedAgents(),
         getSystemStatus(),
       ]);
@@ -128,7 +122,7 @@ export default function AlertsPage() {
         </div>
       )}
 
-      {/* Alert summary */}
+      {/* Alert summary bar */}
       <div className="flex items-center gap-3">
         <Bell className="h-5 w-5 text-muted-foreground" />
         <span className="text-sm font-medium">
@@ -139,7 +133,7 @@ export default function AlertsPage() {
         {totalAlerts > 0 && <Badge variant="destructive">{totalAlerts}</Badge>}
       </div>
 
-      {/* Section 1: Active Blockers */}
+      {/* Section 1: Active Blockers — actionable cards */}
       <section>
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -147,63 +141,120 @@ export default function AlertsPage() {
           {blocked.length > 0 && <Badge variant="destructive" className="text-xs">{blocked.length}</Badge>}
         </div>
 
-        <Card>
-          <CardContent className="p-0">
-            {blocked.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No blocked tasks — all work is moving
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Task</TableHead>
-                    <TableHead className="w-24">Priority</TableHead>
-                    <TableHead className="w-40">Agent</TableHead>
-                    <TableHead>Blocker</TableHead>
-                    <TableHead className="w-28">Updated</TableHead>
-                    <TableHead className="w-16"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {blocked.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell className="font-medium">{task.title}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${priorityColors[task.priority]}`}>
-                          {task.priority}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {task.assigned_agent_name ? (
-                          <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
-                        ) : (
-                          <span className="text-muted-foreground">Unassigned</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate">
-                        {task.blocker ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(task.updated_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <Link href="/tasks">
-                          <Button variant="ghost" size="sm" className="h-7 px-2">
-                            <ArrowRight className="h-3 w-3" />
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        {blocked.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No blocked tasks — all work is moving
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {blocked.map((task) => {
+              const sev = prioritySeverity[task.priority] ?? prioritySeverity.medium;
+              return (
+                <Card key={task.id} className={`border-l-4 ${task.priority === "high" ? "border-l-red-500" : task.priority === "medium" ? "border-l-amber-500" : "border-l-gray-300"}`}>
+                  <CardContent className="py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{task.title}</span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${sev.color}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${sev.dot} mr-1`} />
+                            {sev.label} priority
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          {task.blocker}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          {task.assigned_agent_name && (
+                            <Link href={`/agents/${task.assigned_agent_id}`} className="hover:underline flex items-center gap-1">
+                              {task.assigned_agent_emoji} {task.assigned_agent_name}
+                            </Link>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {timeAgo(task.updated_at)}
+                          </span>
+                        </div>
+                      </div>
+                      <Link href="/tasks">
+                        <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                          View in Tasks
+                          <ArrowRight className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* Section 2: Recent Critical Events */}
+      {/* Section 2: System & Agent Warnings */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <Bot className="h-4 w-4 text-yellow-500" />
+          <h2 className="text-sm font-semibold">System &amp; Agent Warnings</h2>
+          {(pausedAgents.length > 0 || (systemStatus && systemStatus.status !== "healthy")) && (
+            <Badge className="bg-yellow-100 text-yellow-700 text-xs">
+              {pausedAgents.length + (systemStatus && systemStatus.status !== "healthy" ? 1 : 0)}
+            </Badge>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {/* System status warning */}
+          {systemStatus && systemStatus.status !== "healthy" && (
+            <Card className="border-l-4 border-l-red-500">
+              <CardContent className="flex items-center gap-3 py-4">
+                <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-800">System Status: {systemStatus.status}</p>
+                  <p className="text-xs text-red-600">
+                    {systemStatus.blocked_tasks} blocked · {systemStatus.open_tasks} open tasks
+                  </p>
+                </div>
+                <Badge variant="destructive">{systemStatus.status}</Badge>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Paused agents */}
+          {pausedAgents.map((agent) => (
+            <Card key={agent.id} className="border-l-4 border-l-amber-400">
+              <CardContent className="flex items-center gap-3 py-4">
+                <span className="text-xl">{agent.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{agent.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{agent.domain}</p>
+                </div>
+                <Badge className="bg-yellow-100 text-yellow-700 shrink-0">Paused</Badge>
+                <Link href={`/agents/${agent.id}`}>
+                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                    Manage
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* All clear */}
+          {pausedAgents.length === 0 && (!systemStatus || systemStatus.status === "healthy") && (
+            <Card>
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                No active warnings — all agents operational, system healthy
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </section>
+
+      {/* Section 3: Recent Critical Events */}
       <section>
         <div className="flex items-center gap-2 mb-3">
           <ShieldAlert className="h-4 w-4 text-orange-500" />
@@ -218,85 +269,33 @@ export default function AlertsPage() {
                 No critical events recorded
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-36">Type</TableHead>
-                    <TableHead>Summary</TableHead>
-                    <TableHead className="w-28">Source</TableHead>
-                    <TableHead className="w-36">Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {criticalEvents.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${eventBadgeColors[event.event_type] ?? "bg-gray-100 text-gray-700"}`}>
+              <div className="divide-y">
+                {criticalEvents.map((event) => (
+                  <div key={event.id} className="flex items-start gap-3 px-5 py-3">
+                    <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
+                      event.event_type === "blocker_detected" ? "bg-red-500" :
+                      event.event_type === "system_alert" ? "bg-orange-500" :
+                      "bg-yellow-500"
+                    }`} />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <p className="text-sm">{event.summary}</p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs">
                           {event.event_type.replace(/_/g, " ")}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{event.summary}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{event.source}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(event.created_at).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Section 3: System / Agent Warnings */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <Bot className="h-4 w-4 text-yellow-500" />
-          <h2 className="text-sm font-semibold">System &amp; Agent Warnings</h2>
-          {pausedAgents.length > 0 && <Badge className="bg-yellow-100 text-yellow-700 text-xs">{pausedAgents.length}</Badge>}
-        </div>
-
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            {/* System status warning */}
-            {systemStatus && systemStatus.status !== "healthy" && (
-              <div className="flex items-center gap-3 rounded-md border border-red-200 bg-red-50 p-3">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                <div>
-                  <p className="text-sm font-medium text-red-800">System Status: {systemStatus.status}</p>
-                  <p className="text-xs text-red-600">
-                    {systemStatus.blocked_tasks} blocked tasks · {systemStatus.open_tasks} open tasks
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Paused agents */}
-            {pausedAgents.length > 0 ? (
-              <div className="space-y-2">
-                {pausedAgents.map((agent) => (
-                  <div key={agent.id} className="flex items-center gap-3 rounded-md border p-3">
-                    <span className="text-lg">{agent.emoji}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{agent.name}</p>
-                      <p className="text-xs text-muted-foreground">{agent.domain}</p>
+                        </Badge>
+                        <span>{timeAgo(event.created_at)}</span>
+                        <span>{event.source}</span>
+                      </div>
                     </div>
-                    <Badge className="bg-yellow-100 text-yellow-700">Paused</Badge>
-                    <Link href={`/agents/${agent.id}`}>
-                      <Button variant="ghost" size="sm" className="h-7 px-2">
-                        <ArrowRight className="h-3 w-3" />
-                      </Button>
-                    </Link>
+                    {event.related_agent_id && (
+                      <Link href={`/agents/${event.related_agent_id}`}>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 shrink-0">
+                          <ArrowRight className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 ))}
-              </div>
-            ) : null}
-
-            {/* All clear */}
-            {pausedAgents.length === 0 && (!systemStatus || systemStatus.status === "healthy") && (
-              <div className="py-4 text-center text-sm text-muted-foreground">
-                No active warnings — all agents operational, system healthy
               </div>
             )}
           </CardContent>

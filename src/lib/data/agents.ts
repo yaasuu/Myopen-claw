@@ -94,7 +94,17 @@ export async function updateAgentProfile(
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Agent, error: null };
+
+  const agent = data as Agent;
+
+  await logFeedEvent({
+    event_type: "task_updated",
+    source: "system",
+    summary: `Agent '${agent.name}' profile updated`,
+    related_agent_id: agent.id,
+  });
+
+  return { data: agent, error: null };
 }
 
 export async function updateAgentStatus(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -9,66 +10,111 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Bot,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Plus,
+  ArrowRightLeft,
   CheckCircle2,
   AlertTriangle,
-  Plus,
-  ArrowRight,
+  Bot,
+  ShieldAlert,
+  ShieldCheck,
+  Pencil,
+  Archive,
+  ArchiveRestore,
   Loader2,
   RefreshCw,
 } from "lucide-react";
 import { getFeedEvents } from "@/lib/data/feed";
-import type { FeedEvent } from "@/types/dashboard";
+import { getAgents } from "@/lib/data/agents";
+import type { FeedEvent, Agent } from "@/types/dashboard";
+
+const EVENT_TYPES: FeedEvent["event_type"][] = [
+  "task_created",
+  "task_updated",
+  "task_completed",
+  "agent_routed",
+  "agent_paused",
+  "agent_resumed",
+  "system_alert",
+  "blocker_detected",
+  "blocker_resolved",
+];
 
 const iconMap: Record<string, typeof Plus> = {
   task_created: Plus,
-  task_updated: ArrowRight,
+  task_updated: Pencil,
   task_completed: CheckCircle2,
-  agent_routed: ArrowRight,
+  agent_routed: ArrowRightLeft,
   agent_paused: Bot,
   agent_resumed: Bot,
-  system_alert: AlertTriangle,
+  system_alert: ShieldAlert,
   blocker_detected: AlertTriangle,
-  blocker_resolved: CheckCircle2,
+  blocker_resolved: ShieldCheck,
 };
 
 const colorMap: Record<string, string> = {
-  task_created: "text-blue-500",
-  task_updated: "text-violet-500",
-  task_completed: "text-emerald-500",
-  agent_routed: "text-violet-500",
-  agent_paused: "text-gray-500",
-  agent_resumed: "text-emerald-500",
-  system_alert: "text-red-500",
-  blocker_detected: "text-amber-500",
-  blocker_resolved: "text-emerald-500",
+  task_created: "text-blue-500 bg-blue-50",
+  task_updated: "text-violet-500 bg-violet-50",
+  task_completed: "text-emerald-500 bg-emerald-50",
+  agent_routed: "text-indigo-500 bg-indigo-50",
+  agent_paused: "text-gray-500 bg-gray-50",
+  agent_resumed: "text-emerald-500 bg-emerald-50",
+  system_alert: "text-red-500 bg-red-50",
+  blocker_detected: "text-amber-500 bg-amber-50",
+  blocker_resolved: "text-emerald-500 bg-emerald-50",
 };
 
-const typeBadge: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  task_created: { label: "Created", variant: "default" },
-  task_updated: { label: "Updated", variant: "secondary" },
-  task_completed: { label: "Done", variant: "outline" },
-  agent_routed: { label: "Routed", variant: "secondary" },
-  agent_paused: { label: "Paused", variant: "secondary" },
-  agent_resumed: { label: "Resumed", variant: "outline" },
-  system_alert: { label: "Alert", variant: "destructive" },
-  blocker_detected: { label: "Blocked", variant: "destructive" },
-  blocker_resolved: { label: "Resolved", variant: "outline" },
+const typeLabels: Record<string, string> = {
+  task_created: "Task Created",
+  task_updated: "Task Updated",
+  task_completed: "Task Completed",
+  agent_routed: "Task Reassigned",
+  agent_paused: "Agent Paused",
+  agent_resumed: "Agent Resumed",
+  system_alert: "System Alert",
+  blocker_detected: "Blocker Detected",
+  blocker_resolved: "Blocker Resolved",
 };
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function LiveFeedPage() {
   const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filters
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterAgent, setFilterAgent] = useState<string>("all");
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getFeedEvents(20);
-      setEvents(result.data);
-      setError(result.error);
+      const [eventsResult, agentsResult] = await Promise.all([
+        getFeedEvents(50),
+        getAgents(),
+      ]);
+      setEvents(eventsResult.data);
+      setAgents(agentsResult.data);
+      if (eventsResult.error) setError(eventsResult.error);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load events");
     } finally {
@@ -79,6 +125,12 @@ export default function LiveFeedPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const filtered = events.filter((e) => {
+    if (filterType !== "all" && e.event_type !== filterType) return false;
+    if (filterAgent !== "all" && e.related_agent_id !== filterAgent) return false;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -110,52 +162,119 @@ export default function LiveFeedPage() {
     );
   }
 
+  // Build a name lookup for linked entities
+  const agentMap = new Map(agents.map((a) => [a.id, a]));
+
   return (
     <PageShell title="Live Feed" description="Real-time event stream">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Event type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All events</SelectItem>
+            {EVENT_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>
+                {typeLabels[t] ?? t}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterAgent} onValueChange={setFilterAgent}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Agent" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All agents</SelectItem>
+            {agents.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.emoji} {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex-1" />
+
+        <Badge variant="outline" className="gap-1.5">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          {filtered.length} event{filtered.length !== 1 ? "s" : ""}
+        </Badge>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Some data may be stale: {error}
+        </div>
+      )}
+
+      {/* Event list */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium">Events</CardTitle>
-          <Badge variant="outline" className="gap-1.5">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            Live
-          </Badge>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Some data may be stale: {error}
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              {events.length === 0
+                ? "No events recorded yet"
+                : "No events match the current filters"}
             </div>
-          )}
-
-          {events.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">No events yet</p>
           ) : (
-            <div className="space-y-0">
-              {events.map((event) => {
+            <div className="divide-y">
+              {filtered.map((event) => {
                 const Icon = iconMap[event.event_type] ?? Plus;
-                const color = colorMap[event.event_type] ?? "text-gray-500";
-                const badge = typeBadge[event.event_type] ?? { label: event.event_type, variant: "outline" as const };
+                const colors = colorMap[event.event_type] ?? "text-gray-500 bg-gray-50";
+                const label = typeLabels[event.event_type] ?? event.event_type;
+                const linkedAgent = event.related_agent_id ? agentMap.get(event.related_agent_id) : null;
 
-                return (
-                  <div
-                    key={event.id}
-                    className="flex items-start gap-4 border-b py-3 last:border-0"
-                  >
-                    <span className="w-14 shrink-0 pt-0.5 text-xs text-muted-foreground">
-                      {new Date(event.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} />
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm">{event.summary}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={badge.variant} className="text-xs">
-                          {badge.label}
+                const hasLink = !!event.related_agent_id;
+
+                const inner = (
+                  <div className="flex items-start gap-4 px-5 py-4 hover:bg-muted/50 transition-colors">
+                    {/* Icon */}
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${colors}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {label}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">{event.source}</span>
+                        {linkedAgent && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            {linkedAgent.emoji} {linkedAgent.name}
+                          </span>
+                        )}
+                        {event.related_task_id && !linkedAgent && (
+                          <span className="text-xs text-muted-foreground">
+                            Task #{event.related_task_id.slice(0, 8)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm">{event.summary}</p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{timeAgo(event.created_at)}</span>
+                        <span>·</span>
+                        <span>{new Date(event.created_at).toLocaleString()}</span>
+                        <span>·</span>
+                        <span>{event.source}</span>
                       </div>
                     </div>
                   </div>
                 );
+
+                if (hasLink) {
+                  return (
+                    <Link key={event.id} href={`/agents/${event.related_agent_id}`} className="block">
+                      {inner}
+                    </Link>
+                  );
+                }
+
+                return <div key={event.id}>{inner}</div>;
               })}
             </div>
           )}

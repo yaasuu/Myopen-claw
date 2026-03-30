@@ -355,7 +355,18 @@ export async function archiveTask(id: string): Promise<{ data: Task | null; erro
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Task, error: null };
+
+  const task = data as Task;
+
+  await logFeedEvent({
+    event_type: "task_updated",
+    source: "system",
+    summary: `Task '${task.title}' archived`,
+    related_task_id: task.id,
+    related_agent_id: task.assigned_agent_id,
+  });
+
+  return { data: task, error: null };
 }
 
 export async function unarchiveTask(id: string): Promise<{ data: Task | null; error: string | null }> {
@@ -370,5 +381,16 @@ export async function unarchiveTask(id: string): Promise<{ data: Task | null; er
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Task, error: null };
+
+  const task = data as Task;
+
+  await logFeedEvent({
+    event_type: "task_updated",
+    source: "system",
+    summary: `Task '${task.title}' unarchived`,
+    related_task_id: task.id,
+    related_agent_id: task.assigned_agent_id,
+  });
+
+  return { data: task, error: null };
 }
