@@ -27,17 +27,22 @@ export default function LoginPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: password.trim(),
     });
 
-    if (error) {
-      setError(error.message);
+    if (authError) {
+      setError(authError.message);
       setLoading(false);
+    } else if (data.session) {
+      // Session is established — hard redirect to ensure middleware
+      // sees the auth cookies on the next request.
+      window.location.href = "/overview";
     } else {
-      router.push("/overview");
-      router.refresh();
+      // Edge case: login succeeded but no session returned
+      setError("Login succeeded but no session was created. Check Supabase auth config.");
+      setLoading(false);
     }
   }
 
