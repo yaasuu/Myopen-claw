@@ -43,6 +43,7 @@ import {
 import { getAgentById, updateAgentStatus, updateAgentProfile } from "@/lib/data/agents";
 import { getTasksByAgent } from "@/lib/data/tasks";
 import { getFeedEventsByAgent } from "@/lib/data/feed";
+import { useCanWrite } from "@/lib/auth/use-can-write";
 import type { Agent, TaskWithAgent, FeedEvent } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
@@ -76,6 +77,7 @@ function timeAgo(iso: string | null): string {
 }
 
 export default function AgentDetailPage() {
+  const canWrite = useCanWrite();
   const params = useParams();
   const router = useRouter();
   const agentId = params.id as string;
@@ -217,7 +219,7 @@ export default function AgentDetailPage() {
 
   if (!agent) return null;
 
-  const canToggle = agent.status !== "retired";
+  const canToggle = canWrite && agent.status !== "retired";
   const blockedTasks = tasks.filter((t) => t.status === "blocked");
   const completedTasks = tasks.filter((t) => t.status === "done");
 

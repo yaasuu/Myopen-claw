@@ -2,7 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useAuth } from "@/lib/auth/context";
+import { LogOut, Shield, Eye } from "lucide-react";
 
 const pageTitles: Record<string, string> = {
   "/overview": "Overview",
@@ -10,11 +13,13 @@ const pageTitles: Record<string, string> = {
   "/agents": "Agents",
   "/org-chart": "Org Chart",
   "/live-feed": "Live Feed",
+  "/alerts": "Alerts",
   "/settings": "Settings",
 };
 
 export function AppHeader() {
   const pathname = usePathname();
+  const { user, role, signOut } = useAuth();
   const title = pageTitles[pathname] ?? "Mission Control";
 
   return (
@@ -32,6 +37,33 @@ export function AppHeader() {
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           Healthy
         </Badge>
+
+        {user && (
+          <>
+            <Badge variant="outline" className="gap-1.5">
+              {role === "admin" ? (
+                <Shield className="h-3 w-3" />
+              ) : (
+                <Eye className="h-3 w-3" />
+              )}
+              {role}
+            </Badge>
+
+            <span className="text-xs text-muted-foreground max-w-[160px] truncate">
+              {user.email}
+            </span>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 h-7 text-muted-foreground"
+              onClick={signOut}
+            >
+              <LogOut className="h-3 w-3" />
+              Sign out
+            </Button>
+          </>
+        )}
       </div>
     </header>
   );

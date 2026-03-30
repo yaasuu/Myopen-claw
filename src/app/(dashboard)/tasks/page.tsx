@@ -59,6 +59,7 @@ import {
   unarchiveTask,
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
+import { useCanWrite } from "@/lib/auth/use-can-write";
 import type { TaskWithAgent, Agent } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
@@ -78,6 +79,7 @@ const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked"
 const PRIORITIES: TaskWithAgent["priority"][] = ["high", "medium", "low"];
 
 export default function TasksPage() {
+  const canWrite = useCanWrite();
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -442,6 +444,7 @@ export default function TasksPage() {
         <div className="flex-1" />
 
         {/* Create dialog */}
+        {canWrite && (
         <Dialog open={createOpen} onOpenChange={(open) => {
           setCreateOpen(open);
           if (!open) setCreateSuccess(false);
@@ -556,6 +559,7 @@ export default function TasksPage() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {/* Task count */}
@@ -607,7 +611,7 @@ export default function TasksPage() {
                       <Select
                         value={task.status}
                         onValueChange={(v) => handleStatusChange(task.id, v)}
-                        disabled={updatingId === task.id || task.is_archived}
+                        disabled={!canWrite || updatingId === task.id || task.is_archived}
                       >
                         <SelectTrigger className="h-7 w-28 text-xs">
                           <SelectValue />
@@ -632,7 +636,7 @@ export default function TasksPage() {
                       <Select
                         value={task.assigned_agent_id ?? "unassigned"}
                         onValueChange={(v) => handleReassign(task.id, v === "unassigned" ? null : v)}
-                        disabled={updatingId === task.id || task.is_archived}
+                        disabled={!canWrite || updatingId === task.id || task.is_archived}
                       >
                         <SelectTrigger className="h-7 w-44 text-xs">
                           <SelectValue>
@@ -669,7 +673,7 @@ export default function TasksPage() {
                               variant="outline"
                               size="xs"
                               onClick={() => handleUnblock(task.id)}
-                              disabled={updatingId === task.id}
+                              disabled={!canWrite || updatingId === task.id}
                             >
                               Unblock
                             </Button>
@@ -680,7 +684,7 @@ export default function TasksPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {!task.is_archived && (
+                      {canWrite && !task.is_archived && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -699,7 +703,7 @@ export default function TasksPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      {task.is_archived && (
+                      {canWrite && task.is_archived && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -724,6 +728,7 @@ export default function TasksPage() {
       </Card>
 
       {/* Edit dialog */}
+      {canWrite && (
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
@@ -820,6 +825,7 @@ export default function TasksPage() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </PageShell>
   );
 }
