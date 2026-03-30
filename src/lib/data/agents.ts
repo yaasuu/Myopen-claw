@@ -73,9 +73,10 @@ export async function getAgentById(id: string): Promise<{ data: Agent | null; er
     .from("agents")
     .select("*")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (error) return { data: null, error: error.message };
+  if (!data) return { data: null, error: "Agent not found" };
   return { data: data as Agent, error: null };
 }
 

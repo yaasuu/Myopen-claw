@@ -20,8 +20,8 @@ export async function getSystemStatus(): Promise<{ data: SystemStatus | null; er
     .select("*")
     .order("checked_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as SystemStatus, error: null };
+  return { data: (data as SystemStatus) ?? MOCK_STATUS, error: null };
 }
