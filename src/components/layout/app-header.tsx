@@ -46,32 +46,54 @@ export function AppHeader() {
   }, [loadCount]);
 
   return (
-    <header className="flex h-[52px] items-center justify-between border-b border-white/[0.06] bg-[#0E1116]/80 backdrop-blur-xl px-6">
+    <header
+      className="flex h-[52px] items-center justify-between border-b px-6"
+      style={{
+        borderColor: "var(--border)",
+        background: "var(--bg)",
+      }}
+    >
       <div className="flex items-center gap-3">
-        <SidebarTrigger className="h-7 w-7 rounded-lg hover:bg-white/[0.06] transition-colors text-muted-foreground" />
-        <h2 className="text-[13px] font-semibold tracking-tight text-foreground">{title}</h2>
+        <SidebarTrigger
+          className="h-7 w-7 rounded-lg hover-surface focus-ring"
+          style={{ color: "var(--text-muted)" }}
+        />
+        <h2 className="text-[13px] font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+          {title}
+        </h2>
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Notification bell */}
         <Link href="/notifications">
-          <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-lg p-0 hover:bg-white/[0.06]">
-            <Bell className="h-[18px] w-[18px] text-[#7F8A9A]" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="relative h-8 w-8 rounded-lg p-0 hover-surface focus-ring"
+          >
+            <Bell className="h-[18px] w-[18px]" style={{ color: "var(--text-quiet)" }} />
             {unread > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-[#0E1116] ring-2 ring-[#0E1116]">
+              <span
+                className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                style={{ background: "var(--accent)", color: "var(--bg)" }}
+              >
                 {unread > 99 ? "99+" : unread}
               </span>
             )}
           </Button>
         </Link>
 
-        <div className="divider-executive" />
+        <div className="divider" />
 
         <Badge
           variant="outline"
-          className="gap-1.5 border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-400 text-[11px] font-medium"
+          className="gap-1.5 text-[11px] font-medium"
+          style={{
+            borderColor: "rgba(16, 185, 129, 0.2)",
+            background: "rgba(16, 185, 129, 0.08)",
+            color: "var(--success)",
+          }}
         >
-          <span className="status-dot status-dot-green" />
+          <div className="h-1.5 w-1.5 rounded-full dot-green" />
           Healthy
         </Badge>
       </div>

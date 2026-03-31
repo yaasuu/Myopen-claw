@@ -57,17 +57,17 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar className="border-r border-white/[0.06] bg-[#0E1116]">
-      <SidebarHeader className="border-b border-white/[0.06] px-5 py-5">
+    <Sidebar className="border-r" style={{ borderColor: "var(--border)", background: "var(--sidebar-bg)" }}>
+      <SidebarHeader className="border-b px-5 py-5" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">
-            🦀
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)" }}>
+            <span className="text-lg">🦀</span>
           </div>
           <div>
-            <h1 className="text-sm font-semibold tracking-tight text-foreground">
+            <h1 className="text-sm font-semibold tracking-tight" style={{ color: "var(--text)" }}>
               Yas Claw
             </h1>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
               Mission Control
             </p>
           </div>
@@ -76,7 +76,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-3 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest ds-label">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -91,18 +91,17 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className={cn(
-                        "h-8 rounded-lg px-3 text-[13px] font-medium transition-all duration-150",
-                        isActive
-                          ? "bg-primary/[0.08] text-primary"
-                          : "text-[#A7B0BE] hover:bg-white/[0.04] hover:text-foreground"
-                      )}
+                      className="h-8 rounded-lg px-3 text-[13px] font-medium transition-colors duration-150"
+                      style={{
+                        background: isActive ? "var(--sidebar-active)" : "transparent",
+                        color: isActive ? "var(--accent)" : "var(--text-muted)",
+                      }}
                     >
                       <Link href={item.href}>
-                        <item.icon className={cn(
-                          "h-[16px] w-[16px]",
-                          isActive ? "text-primary" : "text-[#7F8A9A]"
-                        )} />
+                        <item.icon
+                          className="h-4 w-4"
+                          style={{ color: isActive ? "var(--accent)" : "var(--text-quiet)" }}
+                        />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -114,10 +113,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-white/[0.06] px-5 py-4">
+      <SidebarFooter className="border-t px-5 py-4" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2.5">
-          <div className="status-dot status-dot-green" />
-          <span className="text-xs font-medium text-muted-foreground">
+          <div className="h-2 w-2 rounded-full dot-green" />
+          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
             System operational
           </span>
         </div>

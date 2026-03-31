@@ -38,6 +38,14 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function StatusIcon({ children, color }: { children: React.ReactNode; color: string }) {
+  return (
+    <div className="icon-box" style={{ background: `${color}12` }}>
+      {children}
+    </div>
+  );
+}
+
 export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +95,7 @@ export default function OverviewPage() {
   if (loading) {
     return (
       <PageShell title="Overview" description="Loading...">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading dashboard...
         </div>
@@ -98,18 +106,18 @@ export default function OverviewPage() {
   if (error && !status) {
     return (
       <PageShell title="Overview" description="Error loading data">
-        <Card className="ds-card">
+        <div className="surface-card">
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5" style={{ color: "var(--danger)" }} />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load dashboard</p>
-              <p className="ds-caption">{error}</p>
+              <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-primary hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm hover:underline flex items-center gap-1" style={{ color: "var(--accent)" }}>
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
-        </Card>
+        </div>
       </PageShell>
     );
   }
@@ -122,39 +130,38 @@ export default function OverviewPage() {
       value: String(status?.active_agents ?? 0),
       sub: status?.active_agents ? "Operational" : "None active",
       icon: Bot,
-      accent: "text-primary",
-      iconBg: "bg-primary/[0.08]",
+      color: "var(--accent)",
     },
     {
       label: "Open Tasks",
       value: String(taskStats.total - taskStats.done),
       sub: `${taskStats.inProgress} in progress`,
       icon: TrendingUp,
-      accent: "text-blue-400",
-      iconBg: "bg-blue-500/[0.08]",
+      color: "var(--info)",
     },
     {
       label: "Blocked",
       value: String(taskStats.blocked),
       sub: taskStats.blocked > 0 ? "Needs attention" : "All clear",
       icon: AlertTriangle,
-      accent: taskStats.blocked > 0 ? "text-red-400" : "text-muted-foreground",
-      iconBg: taskStats.blocked > 0 ? "bg-red-500/[0.08]" : "bg-white/[0.04]",
+      color: taskStats.blocked > 0 ? "var(--danger)" : "var(--text-quiet)",
     },
     {
       label: "Completed",
       value: String(taskStats.done),
       sub: `${taskStats.total} total`,
       icon: CheckCircle2,
-      accent: "text-emerald-400",
-      iconBg: "bg-emerald-500/[0.08]",
+      color: "var(--success)",
     },
   ];
 
   return (
     <PageShell title="Overview" description="Operating summary">
       {error && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-4 py-2.5 text-xs text-amber-400">
+        <div
+          className="rounded-lg border px-4 py-2.5 text-xs"
+          style={{ borderColor: "rgba(245, 158, 11, 0.2)", background: "rgba(245, 158, 11, 0.06)", color: "var(--warning)" }}
+        >
           Some data may be stale: {error}
         </div>
       )}
@@ -162,17 +169,19 @@ export default function OverviewPage() {
       {/* Summary cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
-          <div key={card.label} className="stat-ds-card">
+          <div key={card.label} className="surface-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="ds-label">{card.label}</span>
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${card.iconBg}`}>
-                <card.icon className={`h-4 w-4 ${card.accent}`} />
-              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
+                {card.label}
+              </span>
+              <StatusIcon color={card.color}>
+                <card.icon className="h-4 w-4" style={{ color: card.color }} />
+              </StatusIcon>
             </div>
-            <div className={`text-2xl font-bold tracking-tight ${card.accent}`}>
+            <div className="text-2xl font-bold tracking-tight tabular-nums" style={{ color: card.color }}>
               {card.value}
             </div>
-            <p className="ds-caption mt-1">{card.sub}</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>{card.sub}</p>
           </div>
         ))}
       </div>
@@ -180,21 +189,23 @@ export default function OverviewPage() {
       {/* Attention needed */}
       {needsAttention && (
         <Link href="/alerts" className="block">
-          <div className="stat-ds-card border-l-2 border-l-amber-500 hover:border-l-amber-400 transition-colors cursor-pointer">
-            <div className="flex items-center gap-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/[0.08]">
-                <Bell className="h-4 w-4 text-amber-400" />
+          <div className="surface-card border-critical hover:border-warning transition-colors cursor-pointer">
+            <div className="flex items-center gap-4 p-4">
+              <div className="icon-box" style={{ background: "rgba(245, 158, 11, 0.08)" }}>
+                <Bell className="h-4 w-4" style={{ color: "var(--warning)" }} />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-300">Attention Needed</p>
-                <p className="ds-caption">
+                <p className="text-sm font-semibold" style={{ color: "var(--warning)" }}>Attention Needed</p>
+                <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
                   {taskStats.blocked > 0 && `${taskStats.blocked} blocked task${taskStats.blocked !== 1 ? "s" : ""}`}
                   {taskStats.blocked > 0 && pausedAgents.length > 0 && " · "}
                   {pausedAgents.length > 0 && `${pausedAgents.length} paused agent${pausedAgents.length !== 1 ? "s" : ""}`}
                 </p>
               </div>
-              <Badge className="bg-amber-500/[0.12] text-amber-400 text-xs font-semibold">{taskStats.blocked + pausedAgents.length}</Badge>
-              <ArrowRight className="h-4 w-4 text-amber-500/50" />
+              <Badge style={{ background: "rgba(245, 158, 11, 0.12)", color: "var(--warning)" }}>
+                {taskStats.blocked + pausedAgents.length}
+              </Badge>
+              <ArrowRight className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
             </div>
           </div>
         </Link>
@@ -203,39 +214,41 @@ export default function OverviewPage() {
       {/* Three-column signal row */}
       <div className="grid gap-3 lg:grid-cols-3">
         {/* Blocked tasks */}
-        <div className="ds-card">
+        <div className="surface-card">
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-red-500/[0.08]">
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                <div className="icon-box-sm" style={{ background: "rgba(239, 68, 68, 0.08)" }}>
+                  <AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--danger)" }} />
                 </div>
-                <span className="ds-section-title">Blocked Tasks</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Blocked Tasks</span>
               </div>
-              {blocked.length > 0 && <Badge className="bg-red-500/[0.12] text-red-400 text-[10px]">{blocked.length}</Badge>}
+              {blocked.length > 0 && (
+                <Badge style={{ background: "rgba(239, 68, 68, 0.12)", color: "var(--danger)" }}>{blocked.length}</Badge>
+              )}
             </div>
           </div>
           <div className="px-5 pb-5">
             {blocked.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 ds-caption">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
+                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
                 All clear
               </div>
             ) : (
               <div className="space-y-2.5">
                 {blocked.slice(0, 3).map((task) => (
-                  <div key={task.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-1.5">
-                    <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
-                    <p className="ds-caption truncate">{task.blocker}</p>
+                  <div key={task.id} className="rounded-lg p-3 space-y-1.5" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{task.title}</p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-quiet)" }}>{task.blocker}</p>
                     {task.assigned_agent_name && (
-                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs text-primary hover:underline">
+                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs hover:underline" style={{ color: "var(--accent)" }}>
                         {task.assigned_agent_emoji} {task.assigned_agent_name}
                       </Link>
                     )}
                   </div>
                 ))}
                 {blocked.length > 3 && (
-                  <Link href="/alerts" className="text-xs text-primary hover:underline block text-center pt-1 font-medium">
+                  <Link href="/alerts" className="text-xs hover:underline block text-center pt-1 font-medium" style={{ color: "var(--accent)" }}>
                     View all {blocked.length} blocked →
                   </Link>
                 )}
@@ -245,35 +258,37 @@ export default function OverviewPage() {
         </div>
 
         {/* Paused agents */}
-        <div className="ds-card">
+        <div className="surface-card">
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/[0.08]">
-                  <Bot className="h-3.5 w-3.5 text-amber-400" />
+                <div className="icon-box-sm" style={{ background: "rgba(245, 158, 11, 0.08)" }}>
+                  <Bot className="h-3.5 w-3.5" style={{ color: "var(--warning)" }} />
                 </div>
-                <span className="ds-section-title">Paused Agents</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Paused Agents</span>
               </div>
-              {pausedAgents.length > 0 && <Badge className="bg-amber-500/[0.12] text-amber-400 text-[10px]">{pausedAgents.length}</Badge>}
+              {pausedAgents.length > 0 && (
+                <Badge style={{ background: "rgba(245, 158, 11, 0.12)", color: "var(--warning)" }}>{pausedAgents.length}</Badge>
+              )}
             </div>
           </div>
           <div className="px-5 pb-5">
             {pausedAgents.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 ds-caption">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
+                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
                 All agents active
               </div>
             ) : (
               <div className="space-y-2.5">
                 {pausedAgents.map((agent) => (
-                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors">
+                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-lg p-3 hover-surface transition-colors" style={{ border: "1px solid var(--border)" }}>
                     <div className="flex items-center gap-2.5">
                       <span className="text-lg">{agent.emoji}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">{agent.name}</p>
-                        <p className="ds-caption truncate">{agent.domain}</p>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{agent.name}</p>
+                        <p className="text-xs truncate" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
                       </div>
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--text-quiet)" }} />
                     </div>
                   </Link>
                 ))}
@@ -283,18 +298,18 @@ export default function OverviewPage() {
         </div>
 
         {/* Critical events */}
-        <div className="ds-card">
+        <div className="surface-card">
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/[0.08]">
-                  <ShieldAlert className="h-3.5 w-3.5 text-orange-400" />
+                <div className="icon-box-sm" style={{ background: "rgba(59, 130, 246, 0.08)" }}>
+                  <ShieldAlert className="h-3.5 w-3.5" style={{ color: "var(--info)" }} />
                 </div>
-                <span className="ds-section-title">Critical Events</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Critical Events</span>
               </div>
               {criticalEvents.length > 0 && (
                 <Link href="/alerts">
-                  <Badge className="bg-orange-500/[0.12] text-orange-400 text-[10px] cursor-pointer hover:bg-orange-500/[0.18] transition-colors">
+                  <Badge className="cursor-pointer hover:opacity-80 transition-opacity" style={{ background: "rgba(59, 130, 246, 0.12)", color: "var(--info)" }}>
                     {criticalEvents.length}
                   </Badge>
                 </Link>
@@ -303,19 +318,19 @@ export default function OverviewPage() {
           </div>
           <div className="px-5 pb-5">
             {criticalEvents.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 ds-caption">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
+                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
                 No critical events
               </div>
             ) : (
               <div className="space-y-2.5">
                 {criticalEvents.map((event) => (
-                  <div key={event.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-1">
-                    <p className="text-sm text-foreground truncate">{event.summary}</p>
-                    <p className="ds-caption">{timeAgo(event.created_at)}</p>
+                  <div key={event.id} className="rounded-lg p-3 space-y-1" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+                    <p className="text-sm truncate" style={{ color: "var(--text)" }}>{event.summary}</p>
+                    <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</p>
                   </div>
                 ))}
-                <Link href="/alerts" className="text-xs text-primary hover:underline block text-center pt-1 font-medium">
+                <Link href="/alerts" className="text-xs hover:underline block text-center pt-1 font-medium" style={{ color: "var(--accent)" }}>
                   View all alerts →
                 </Link>
               </div>
@@ -326,26 +341,26 @@ export default function OverviewPage() {
 
       {/* Activity + System */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="ds-card">
+        <div className="surface-card">
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04]">
-                <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <div className="icon-box-sm" style={{ background: "rgba(255, 255, 255, 0.04)" }}>
+                <Activity className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
               </div>
-              <span className="ds-section-title">Recent Activity</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Recent Activity</span>
             </div>
           </div>
           <div className="px-5 pb-5">
             {events.length === 0 ? (
-              <p className="py-4 ds-caption">No events yet</p>
+              <p className="py-4 text-xs" style={{ color: "var(--text-quiet)" }}>No events yet</p>
             ) : (
               <div className="space-y-3">
                 {events.map((event) => (
                   <div key={event.id} className="flex items-start gap-3 text-sm">
-                    <span className="w-14 shrink-0 ds-caption font-medium tabular-nums">
+                    <span className="w-14 shrink-0 text-xs font-medium tabular-nums" style={{ color: "var(--text-quiet)" }}>
                       {timeAgo(event.created_at)}
                     </span>
-                    <span className="flex-1 text-[#A7B0BE]">{event.summary}</span>
+                    <span className="flex-1" style={{ color: "var(--text-muted)" }}>{event.summary}</span>
                   </div>
                 ))}
               </div>
@@ -353,42 +368,42 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        <div className="ds-card">
+        <div className="surface-card">
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04]">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <div className="icon-box-sm" style={{ background: "rgba(255, 255, 255, 0.04)" }}>
+                <Clock className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
               </div>
-              <span className="ds-section-title">System Status</span>
+              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>System Status</span>
             </div>
           </div>
           <div className="px-5 pb-5">
             {status?.last_event ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className={`status-dot ${status.status === "healthy" ? "status-dot-green" : "status-dot-red"}`} />
-                  <span className="text-sm font-medium capitalize text-foreground">{status.status}</span>
+                  <div className={`h-2 w-2 rounded-full ${status.status === "healthy" ? "dot-green" : "dot-red"}`} />
+                  <span className="text-sm font-medium capitalize" style={{ color: "var(--text)" }}>{status.status}</span>
                 </div>
-                <p className="ds-caption">
+                <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
                   Last activity: {new Date(status.last_event).toLocaleString()}
                 </p>
                 <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
-                    <div className="text-lg font-bold text-foreground">{status.open_tasks}</div>
-                    <div className="ds-label">Open</div>
+                  <div className="rounded-lg p-2.5 text-center" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+                    <div className="text-lg font-bold" style={{ color: "var(--text)" }}>{status.open_tasks}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Open</div>
                   </div>
-                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
-                    <div className="text-lg font-bold text-red-400">{status.blocked_tasks}</div>
-                    <div className="ds-label">Blocked</div>
+                  <div className="rounded-lg p-2.5 text-center" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+                    <div className="text-lg font-bold" style={{ color: "var(--danger)" }}>{status.blocked_tasks}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Blocked</div>
                   </div>
-                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
-                    <div className="text-lg font-bold text-primary">{status.active_agents}</div>
-                    <div className="ds-label">Active</div>
+                  <div className="rounded-lg p-2.5 text-center" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+                    <div className="text-lg font-bold" style={{ color: "var(--accent)" }}>{status.active_agents}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Active</div>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="py-4 ds-caption">No system activity recorded</p>
+              <p className="py-4 text-xs" style={{ color: "var(--text-quiet)" }}>No system activity recorded</p>
             )}
           </div>
         </div>

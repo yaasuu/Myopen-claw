@@ -1,82 +1,46 @@
-/* ═══════════════════════════════════════════════════════
-   YAS CLAW — DESIGN SYSTEM FOUNDATION
-   Premium Dark Executive Dashboard
-   ═══════════════════════════════════════════════════════ */
-
-/* ── 1. PALETTE ──────────────────────────────────────
-   
-   Surfaces (lighter = more elevated):
-     bg-void:       #0A0D11  (deepest background)
-     bg-base:       #0E1116  (app background)
-     bg-surface:    #121820  (primary surface / cards)
-     bg-raised:     #151C25  (secondary surface / panels)
-     bg-overlay:    #1A2230  (tertiary / overlays / hover)
-   
-   Borders:
-     border-subtle: rgba(255,255,255,0.06)  (default cards)
-     border-default: rgba(255,255,255,0.08)  (dividers)
-     border-strong: rgba(255,255,255,0.12)   (inputs, focus)
-   
-   Text:
-     text-primary:   #F5F7FA  (headings, key data)
-     text-secondary: #A7B0BE  (body, descriptions)
-     text-muted:     #7F8A9A  (labels, meta, timestamps)
-     text-disabled:  #4A5568  (disabled states)
-   
-   Accent:
-     accent:         #22C7B8  (primary teal)
-     accent-hover:   #1AB3A5
-     accent-subtle:  rgba(34,199,184,0.08)
-     accent-muted:   rgba(34,199,184,0.15)
-   
-   Semantics:
-     success:        #10B981  (done, healthy, completed)
-     warning:        #F59E0B  (paused, medium risk, watch)
-     danger:         #EF4444  (blocked, critical, error)
-     info:           #3B82F6  (neutral, system, routing)
-     ────────────────────────────────────────────────── */
-
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── shadcn Theme Config ──────────────────────────── */
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-body);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
+  --font-heading: var(--font-heading);
+  --color-sidebar-ring: var(--accent);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-accent-foreground: var(--text);
+  --color-sidebar-accent: var(--surface-muted);
+  --color-sidebar-primary-foreground: var(--bg);
+  --color-sidebar-primary: var(--accent);
+  --color-sidebar-foreground: var(--text-muted);
+  --color-sidebar: var(--bg);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
+  --color-ring: var(--accent);
+  --color-input: var(--border-strong);
   --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--danger);
+  --color-accent-foreground: var(--bg);
   --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
+  --color-muted-foreground: var(--text-muted);
+  --color-muted: var(--surface-muted);
+  --color-secondary-foreground: var(--text);
+  --color-secondary: var(--surface-muted);
+  --color-primary-foreground: var(--bg);
+  --color-primary: var(--accent);
+  --color-popover-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-card: var(--surface);
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.625rem;
@@ -84,38 +48,40 @@
   --radius-2xl: 1rem;
 }
 
-/* ── 2. CSS VARIABLES (DARK DEFAULT) ──────────────── */
+/* ═══════════════════════════════════════════════════════
+   DESIGN SYSTEM — CSS Custom Properties
+   Premium Dark Executive Dashboard
+   ═══════════════════════════════════════════════════════ */
 
 :root {
-  /* Surfaces */
-  --background: #0E1116;
-  --foreground: #F5F7FA;
-  --card: #121820;
-  --card-foreground: #F5F7FA;
-  --popover: #151C25;
-  --popover-foreground: #F5F7FA;
-
-  /* Accent */
-  --primary: #22C7B8;
-  --primary-foreground: #0E1116;
+  color-scheme: dark;
 
   /* Surfaces */
-  --secondary: #1A2230;
-  --secondary-foreground: #F5F7FA;
-  --muted: #1A2230;
-  --muted-foreground: #7F8A9A;
-  --accent: #1A2230;
-  --accent-foreground: #F5F7FA;
-
-  /* Semantics */
-  --destructive: #EF4444;
+  --bg: #0E1116;
+  --surface: #121820;
+  --surface-muted: #151C25;
+  --surface-strong: #1A2230;
 
   /* Borders */
   --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.12);
 
-  /* Focus */
-  --ring: #22C7B8;
+  /* Text */
+  --text: #F5F7FA;
+  --text-muted: #A7B0BE;
+  --text-quiet: #7F8A9A;
+
+  /* Accent */
+  --accent: #22C7B8;
+  --accent-hover: #1AB3A5;
+  --accent-soft: rgba(34, 199, 184, 0.08);
+  --accent-muted: rgba(34, 199, 184, 0.15);
+
+  /* Semantics */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #3B82F6;
 
   /* Charts */
   --chart-1: #22C7B8;
@@ -124,338 +90,187 @@
   --chart-4: #EF4444;
   --chart-5: #8B5CF6;
 
-  /* Radius */
-  --radius: 0.625rem;
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
 
   /* Sidebar */
-  --sidebar: #0E1116;
-  --sidebar-foreground: #A7B0BE;
-  --sidebar-primary: #22C7B8;
-  --sidebar-primary-foreground: #0E1116;
-  --sidebar-accent: #1A2230;
-  --sidebar-accent-foreground: #F5F7FA;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #22C7B8;
+  --sidebar-bg: #0A0D11;
+  --sidebar-active: rgba(34, 199, 184, 0.08);
 }
 
-/* ── 3. LIGHT MODE OVERRIDE ───────────────────────── */
+/* ── Light Mode Override ──────────────────────────── */
 
 .light {
-  --background: #F8F9FB;
-  --foreground: #0E1116;
-  --card: #FFFFFF;
-  --card-foreground: #0E1116;
-  --popover: #FFFFFF;
-  --popover-foreground: #0E1116;
-  --primary: #0D9488;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0E1116;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --accent: #F1F5F9;
-  --accent-foreground: #0E1116;
-  --destructive: #DC2626;
+  color-scheme: light;
+  --bg: #F8F9FB;
+  --surface: #FFFFFF;
+  --surface-muted: #F1F5F9;
+  --surface-strong: #E2E8F0;
   --border: rgba(0, 0, 0, 0.08);
-  --input: rgba(0, 0, 0, 0.10);
-  --ring: #0D9488;
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --text: #0F172A;
+  --text-muted: #64748B;
+  --text-quiet: #94A3B8;
+  --accent: #0D9488;
+  --accent-hover: #0F766E;
+  --accent-soft: rgba(13, 148, 136, 0.08);
+  --accent-muted: rgba(13, 148, 136, 0.15);
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --info: #2563EB;
   --chart-1: #0D9488;
   --chart-2: #2563EB;
   --chart-3: #D97706;
   --chart-4: #DC2626;
   --chart-5: #7C3AED;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #334155;
-  --sidebar-primary: #0D9488;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F1F5F9;
-  --sidebar-accent-foreground: #0E1116;
-  --sidebar-border: rgba(0, 0, 0, 0.08);
-  --sidebar-ring: #0D9488;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --shadow-panel: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
+  --sidebar-bg: #FFFFFF;
+  --sidebar-active: rgba(13, 148, 136, 0.08);
 }
 
-/* ── 4. BASE RESET ────────────────────────────────── */
+/* ── Base ─────────────────────────────────────────── */
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: var(--accent);
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body), -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
     font-feature-settings: "ss01", "ss02", "cv01";
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-body), -apple-system, sans-serif;
   }
 }
 
-/* ── 5. DESIGN SYSTEM UTILITIES ───────────────────── */
+/* ── Design System Utilities ──────────────────────── */
 
 @layer utilities {
 
-  /* ── Typography ────────────────────────────────── */
-
-  .ds-display {
-    @apply text-[28px] font-bold tracking-tight leading-tight text-foreground;
+  /* Surfaces */
+  .surface-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    border-radius: 0.75rem;
   }
 
-  .ds-page-title {
-    @apply text-lg font-semibold tracking-tight text-foreground;
+  .surface-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-panel);
+    border-radius: 0.75rem;
   }
 
-  .ds-section-title {
-    @apply text-sm font-semibold tracking-tight text-foreground;
+  .surface-muted {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
   }
 
-  .ds-card-title {
-    @apply text-[13px] font-semibold text-foreground;
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    box-shadow: var(--shadow-card);
   }
 
-  .ds-kpi {
-    @apply text-2xl font-bold tracking-tight tabular-nums;
+  /* Progress */
+  .progress-track {
+    height: 6px;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: var(--surface-strong);
   }
 
-  .ds-body {
-    @apply text-sm leading-relaxed;
-    color: #A7B0BE;
+  .progress-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s ease;
+    background: var(--accent);
   }
 
-  .ds-caption {
-    @apply text-xs leading-relaxed;
-    color: #7F8A9A;
+  /* Divider */
+  .divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
   }
 
-  .ds-meta {
-    @apply text-[11px];
-    color: #7F8A9A;
+  /* Status dots */
+  .dot-green { background: var(--success); }
+  .dot-amber { background: var(--warning); }
+  .dot-red { background: var(--danger); }
+  .dot-blue { background: var(--info); }
+  .dot-gray { background: var(--text-quiet); }
+
+  /* Severity borders */
+  .border-critical { border-left: 2px solid var(--danger); }
+  .border-warning { border-left: 2px solid var(--warning); }
+  .border-info { border-left: 2px solid var(--info); }
+  .border-healthy { border-left: 2px solid var(--success); }
+
+  /* Icon containers */
+  .icon-box {
+    display: flex;
+    height: 32px;
+    width: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
   }
 
-  .ds-label {
-    @apply text-[10px] font-semibold uppercase tracking-widest;
-    color: rgba(127, 138, 154, 0.7);
+  .icon-box-sm {
+    display: flex;
+    height: 24px;
+    width: 24px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
   }
 
-  .ds-mono {
-    @apply font-mono text-[12px] tabular-nums;
-    color: #A7B0BE;
+  /* Hover */
+  .hover-surface {
+    transition: background-color 0.15s ease;
   }
 
-  /* ── Cards ─────────────────────────────────────── */
-
-  .ds-card {
-    @apply rounded-xl border;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
+  .hover-surface:hover {
+    background: var(--surface-muted);
   }
 
-  .ds-card:hover {
-    border-color: rgba(255, 255, 255, 0.10);
-  }
-
-  .ds-card-interactive {
-    @apply rounded-xl border cursor-pointer transition-all duration-150;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .ds-card-interactive:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03);
-  }
-
-  .ds-card-stat {
-    @apply rounded-xl border p-5;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .ds-card-content {
-    @apply rounded-xl border;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .ds-card-signal-critical {
-    @apply rounded-xl border border-l-2;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-    border-left-color: #EF4444;
-  }
-
-  .ds-card-signal-warning {
-    @apply rounded-xl border border-l-2;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-    border-left-color: #F59E0B;
-  }
-
-  .ds-card-signal-info {
-    @apply rounded-xl border border-l-2;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-    border-left-color: #3B82F6;
-  }
-
-  .ds-card-signal-healthy {
-    @apply rounded-xl border border-l-2;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-    border-left-color: #10B981;
-  }
-
-  /* ── Spacing ───────────────────────────────────── */
-
-  .ds-page {
-    @apply space-y-5 p-6 lg:p-8;
-    max-width: 1440px;
-  }
-
-  .ds-section {
-    @apply space-y-4;
-  }
-
-  .ds-grid-4 {
-    @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-4;
-  }
-
-  .ds-grid-3 {
-    @apply grid gap-3 lg:grid-cols-3;
-  }
-
-  .ds-grid-2 {
-    @apply grid gap-3 lg:grid-cols-2;
-  }
-
-  .ds-card-padding {
-    @apply px-5 py-4;
-  }
-
-  .ds-card-header {
-    @apply px-5 pt-5 pb-3;
-  }
-
-  .ds-card-body {
-    @apply px-5 pb-5;
-  }
-
-  /* ── Toolbar ───────────────────────────────────── */
-
-  .ds-toolbar {
-    @apply flex flex-wrap items-center gap-3 rounded-xl border p-3;
-    background-color: #121820;
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .ds-divider {
-    @apply w-px h-5;
-    background-color: rgba(255, 255, 255, 0.08);
-  }
-
-  /* ── Progress Bars ─────────────────────────────── */
-
-  .ds-progress-track {
-    @apply h-1.5 rounded-full overflow-hidden;
-    background-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .ds-progress-fill {
-    @apply h-full rounded-full transition-all duration-500;
-    background-color: #22C7B8;
-  }
-
-  .ds-progress-fill-amber { background-color: #F59E0B; }
-  .ds-progress-fill-red { background-color: #EF4444; }
-  .ds-progress-fill-emerald { background-color: #10B981; }
-
-  /* ── Status Dots ───────────────────────────────── */
-
-  .ds-dot {
-    @apply h-2 w-2 rounded-full shrink-0;
-  }
-
-  .ds-dot-green { background-color: #10B981; }
-  .ds-dot-amber { background-color: #F59E0B; }
-  .ds-dot-red { background-color: #EF4444; }
-  .ds-dot-blue { background-color: #3B82F6; }
-  .ds-dot-gray { background-color: #64748B; }
-
-  /* ── Icon Containers ───────────────────────────── */
-
-  .ds-icon-container {
-    @apply flex h-8 w-8 items-center justify-center rounded-lg;
-  }
-
-  .ds-icon-sm {
-    @apply flex h-6 w-6 items-center justify-center rounded-md;
-  }
-
-  .ds-icon-teal {
-    background-color: rgba(34, 199, 184, 0.08);
-    color: #22C7B8;
-  }
-
-  .ds-icon-blue {
-    background-color: rgba(59, 130, 246, 0.08);
-    color: #3B82F6;
-  }
-
-  .ds-icon-red {
-    background-color: rgba(239, 68, 68, 0.08);
-    color: #EF4444;
-  }
-
-  .ds-icon-amber {
-    background-color: rgba(245, 158, 11, 0.08);
-    color: #F59E0B;
-  }
-
-  .ds-icon-emerald {
-    background-color: rgba(16, 185, 129, 0.08);
-    color: #10B981;
-  }
-
-  .ds-icon-muted {
-    background-color: rgba(255, 255, 255, 0.04);
-    color: #7F8A9A;
-  }
-
-  /* ── Empty States ──────────────────────────────── */
-
-  .ds-empty {
-    @apply flex items-center gap-2 py-8 justify-center text-center;
-  }
-
-  .ds-empty-icon {
-    color: rgba(127, 138, 154, 0.4);
-  }
-
-  /* ── Surfaces ──────────────────────────────────── */
-
-  .ds-surface-0 { background-color: #0A0D11; }
-  .ds-surface-1 { background-color: #0E1116; }
-  .ds-surface-2 { background-color: #121820; }
-  .ds-surface-3 { background-color: #151C25; }
-  .ds-surface-4 { background-color: #1A2230; }
-
-  /* ── Borders ───────────────────────────────────── */
-
-  .ds-border-subtle { border-color: rgba(255, 255, 255, 0.06); }
-  .ds-border-default { border-color: rgba(255, 255, 255, 0.08); }
-  .ds-border-strong { border-color: rgba(255, 255, 255, 0.12); }
-
-  /* ── Interactive States ────────────────────────── */
-
-  .ds-hover {
-    @apply transition-colors duration-150;
-  }
-
-  .ds-hover:hover {
-    background-color: rgba(255, 255, 255, 0.04);
-  }
-
-  .ds-focus-ring:focus-visible {
-    outline: 2px solid #22C7B8;
+  /* Focus ring */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
     border-radius: 0.5rem;
+  }
+
+  /* Animations */
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out both;
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

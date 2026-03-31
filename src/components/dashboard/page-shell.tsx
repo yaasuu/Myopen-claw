@@ -8,11 +8,13 @@ interface PageShellProps {
 
 export function PageShell({ title, description, children }: PageShellProps) {
   return (
-    <div className="space-y-5 p-6 lg:p-8 max-w-[1440px]">
+    <div className="space-y-5 p-6 lg:p-8" style={{ maxWidth: "1440px" }}>
       <div>
-        <h1 className="ds-page-title">{title}</h1>
+        <h1 className="text-lg font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+          {title}
+        </h1>
         {description && (
-          <p className="text-caption mt-1">{description}</p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>{description}</p>
         )}
       </div>
       {children}
