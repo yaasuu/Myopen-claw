@@ -195,3 +195,34 @@ export async function assignTaskToProject(taskId: string, projectId: string | nu
 
   return { error: error?.message ?? null };
 }
+
+export async function applyProjectPlan(
+  projectId: string,
+  plan: {
+    department: string;
+    taskTitles: Array<{ title: string; priority: string; agentId: string | null }>;
+  }
+): Promise<{ error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: "Supabase not connected" };
+
+  // Update project department
+  await supabase
+    .from("projects")
+    .update({ owner_department: plan.department, updated_at: new Date().toISOString() })
+    .eq("id", projectId);
+
+  // Create tasks
+  for (const task of plan.taskTitles) {
+    await supabase.from("tasks").insert({
+      title: task.title,
+      status: "pending",
+      priority: task.priority,
+      assigned_agent_id: task.agentId,
+      project_id: projectId,
+      owner: "Yas",
+    });
+  }
+
+  return { error: null };
+}

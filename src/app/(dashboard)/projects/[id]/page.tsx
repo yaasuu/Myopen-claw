@@ -39,8 +39,15 @@ import {
   ChevronRight,
   Users,
   Bot,
+  Sparkles,
+  AlertOctagon,
+  CheckCircle,
+  Zap,
 } from "lucide-react";
-import { getProjectById, updateProject } from "@/lib/data/projects";
+import { getProjectById, updateProject, applyProjectPlan } from "@/lib/data/projects";
+import { generateProjectPlan } from "@/lib/data/planning";
+import { getAgents } from "@/lib/data/agents";
+import { getSpecialistTypes } from "@/lib/data/departments";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Project, TaskWithAgent, FeedEvent } from "@/types/dashboard";
@@ -80,6 +87,8 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState<ReturnType<typeof generateProjectPlan> | null>(null);
+  const [applyingPlan, setApplyingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Edit dialog
@@ -92,11 +101,20 @@ export default function ProjectDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getProjectById(projectId);
+      const [result, agentsResult, specResult] = await Promise.all([
+        getProjectById(projectId),
+        getAgents(),
+        getSpecialistTypes(),
+      ]);
       if (result.error) setError(result.error);
       setProject(result.data);
       setTasks(result.tasks);
       setEvents(result.events);
+
+      // Generate plan
+      if (result.data) {
+        setPlan(generateProjectPlan(result.data, agentsResult.data, result.tasks, specResult.data));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -274,6 +292,161 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Plan Project */}
+      {plan && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
+                <Sparkles className="h-4 w-4 text-violet-600" />
+              </div>
+              <h2 className="section-title">Execution Plan</h2>
+              <Badge className={`text-xs ${
+                plan.riskLevel === "high" ? "bg-red-100 text-red-700" :
+                plan.riskLevel === "medium" ? "bg-amber-100 text-amber-700" :
+                "bg-emerald-100 text-emerald-700"
+              }`}>{plan.riskLevel} risk</Badge>
+            </div>
+            {canWrite && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={load}>
+                  <RefreshCw className="h-3 w-3" /> Regenerate
+                </Button>
+                <Button size="sm" className="gap-1.5" disabled={applyingPlan} onClick={async () => {
+                  if (!project) return;
+                  setApplyingPlan(true);
+                  await applyProjectPlan(project.id, {
+                    department: plan.department,
+                    taskTitles: plan.tasks.map((t) => ({
+                      title: t.title,
+                      priority: t.priority,
+                      agentId: t.suggestedAgentId,
+                    })),
+                  });
+                  setApplyingPlan(false);
+                  await load();
+                }}>
+                  {applyingPlan ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                  Apply Plan
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Department + Risk */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-4">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Recommended Department</p>
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-violet-500" />
+                    <span className="text-sm font-semibold">{plan.department}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{plan.departmentReason}</p>
+                </div>
+
+                <div className="border-t pt-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Risk Assessment</p>
+                  <div className="flex items-center gap-2">
+                    {plan.riskLevel === "high" ? <AlertOctagon className="h-4 w-4 text-red-500" /> :
+                     plan.riskLevel === "medium" ? <AlertTriangle className="h-4 w-4 text-amber-500" /> :
+                     <CheckCircle className="h-4 w-4 text-emerald-500" />}
+                    <span className={`text-sm font-semibold ${
+                      plan.riskLevel === "high" ? "text-red-600" :
+                      plan.riskLevel === "medium" ? "text-amber-600" :
+                      "text-emerald-600"
+                    }`}>{plan.riskLevel.charAt(0).toUpperCase() + plan.riskLevel.slice(1)} Risk</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{plan.riskReason}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Capacity: {plan.capacitySignal}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Agent Recommendations */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Agent Recommendations</p>
+                {plan.agents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No matching active agents found. Consider hiring.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {plan.agents.map((pa) => (
+                      <div key={pa.agent.id} className={`flex items-center gap-3 rounded-lg border p-3 ${pa.recommended ? "border-primary/30 bg-primary/5" : "opacity-60"}`}>
+                        <span className="text-lg">{pa.agent.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{pa.agent.name}</p>
+                            {pa.recommended && <Badge className="text-[10px] bg-primary/10 text-primary">Recommended</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{pa.reason} · {pa.currentLoad} open tasks</p>
+                        </div>
+                        <div className={`h-2 w-2 rounded-full ${pa.currentLoad >= 5 ? "bg-red-500" : pa.currentLoad >= 3 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Specialist Recommendations */}
+            {plan.specialists.length > 0 && (
+              <Card className="stat-card">
+                <CardContent className="p-5 space-y-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Specialist Recommendations</p>
+                  <div className="space-y-2.5">
+                    {plan.specialists.map((spec, i) => (
+                      <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{spec.typeName}</p>
+                          <p className="text-xs text-muted-foreground">{spec.reason}</p>
+                        </div>
+                        <Badge className={`text-[10px] ${
+                          spec.urgency === "high" ? "bg-red-100 text-red-700" :
+                          spec.urgency === "medium" ? "bg-amber-100 text-amber-700" :
+                          "bg-blue-100 text-blue-700"
+                        }`}>{spec.urgency}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Starter Tasks */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Starter Tasks ({plan.tasks.length})</p>
+                <div className="space-y-2">
+                  {plan.tasks.map((task, i) => {
+                    const catColors: Record<string, string> = {
+                      setup: "bg-slate-100 text-slate-600",
+                      execution: "bg-blue-50 text-blue-700",
+                      validation: "bg-violet-50 text-violet-700",
+                      reporting: "bg-emerald-50 text-emerald-700",
+                    };
+                    return (
+                      <div key={i} className="flex items-center gap-3 rounded-lg border p-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">{task.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge className={`text-[10px] ${catColors[task.category]}`}>{task.category}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{task.priority}</Badge>
+                            {task.suggestedAgentId && <Badge variant="outline" className="text-[10px]">auto-assign</Badge>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       {/* Tasks */}
       <section>
