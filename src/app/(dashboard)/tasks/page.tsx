@@ -50,6 +50,7 @@ import {
   CheckCircle2,
   LayoutGrid,
   List,
+  Clock,
 } from "lucide-react";
 import {
   getTasks,
@@ -80,6 +81,12 @@ const priorityColors: Record<string, { text: string; dot: string }> = {
 };
 
 const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "done"];
+
+const priorityBadgeStyle: Record<string, React.CSSProperties> = {
+  high: { background: "rgba(220,38,38,0.08)", color: "#dc2626" },
+  medium: { background: "rgba(217,119,6,0.08)", color: "#d97706" },
+  low: { background: "rgba(22,163,74,0.08)", color: "#16a34a" },
+};
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -665,58 +672,79 @@ export default function TasksPage() {
                         No tasks
                       </div>
                     ) : (
-                      columnTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={`group rounded-lg border p-3.5 transition-all duration-150 cursor-pointer ${task.is_archived ? "opacity-50" : ""}`}
-                          style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}
-                          onClick={() => openEdit(task)}
-                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-                        >
-                          {/* Title */}
-                          <p className="text-[13px] font-medium leading-snug mb-2" style={{ color: "var(--text)" }}>{task.title}</p>
+                      columnTasks.map((task) => {
+                        return (
+                          <div
+                            key={task.id}
+                            className={`group relative cursor-pointer rounded-lg border p-4 transition-all hover:-translate-y-0.5 ${task.is_archived ? "opacity-50" : ""} ${task.blocker ? "border-[rgba(220,38,38,0.3)]" : ""}`}
+                            style={{
+                              background: "var(--surface)",
+                              borderColor: task.blocker ? undefined : "var(--border)",
+                              boxShadow: "var(--shadow-card)",
+                            }}
+                            onClick={() => openEdit(task)}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = "var(--shadow-card-hover)";
+                              if (!task.blocker) e.currentTarget.style.borderColor = "var(--border-strong)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = "var(--shadow-card)";
+                              if (!task.blocker) e.currentTarget.style.borderColor = "var(--border)";
+                            }}
+                          >
+                            {/* Left color bar for blocked */}
+                            {task.blocker && (
+                              <span className="absolute left-0 top-0 h-full w-1 rounded-l-lg" style={{ background: "var(--danger)" }} />
+                            )}
 
-                          {/* Agent row */}
-                          <div className="flex items-center gap-2 mb-2">
-                            {task.assigned_agent_name ? (
-                              <>
-                                <span className="text-[13px]">{task.assigned_agent_emoji}</span>
-                                <span className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>{task.assigned_agent_name}</span>
-                              </>
-                            ) : (
-                              <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>Unassigned</span>
+                            {/* Top: title + priority badge */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 space-y-2 flex-1">
+                                <p className="text-sm font-medium line-clamp-2 break-words" style={{ color: "var(--text)" }}>
+                                  {task.title}
+                                </p>
+                                {task.blocker && (
+                                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--danger)" }}>
+                                    <span className="h-1.5 w-1.5 rounded-full dot-red" />
+                                    Blocked
+                                  </div>
+                                )}
+                              </div>
+                              <span
+                                className="inline-flex shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                                style={priorityBadgeStyle[task.priority]}
+                              >
+                                {task.priority.toUpperCase()}
+                              </span>
+                            </div>
+
+                            {/* Bottom: assignee + time */}
+                            <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                              <div className="flex items-center gap-2">
+                                {task.assigned_agent_emoji && <span className="text-sm">{task.assigned_agent_emoji}</span>}
+                                <span>{task.assigned_agent_name ?? "Unassigned"}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
+                                <span>{timeAgo(task.updated_at)}</span>
+                              </div>
+                            </div>
+
+                            {/* Quick done on hover */}
+                            {canWrite && !task.is_archived && status !== "done" && (
+                              <button
+                                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-[10px] px-2 py-1 rounded-md transition-opacity font-medium"
+                                style={{ color: "var(--success)", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)" }}
+                                onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
+                                disabled={updatingId === task.id}
+                                title="Mark done"
+                              >
+                                ✓ Done
+                              </button>
                             )}
                           </div>
-
-                          {/* Footer: time + actions */}
-                          <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                            <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
-                              {timeAgo(task.updated_at)}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {task.blocker && (
-                                <span className="inline-flex items-center gap-0.5 text-[10px] rounded px-1.5 py-0.5" style={{ color: "var(--danger)", background: "rgba(239,68,68,0.08)" }}>
-                                  <AlertTriangle className="h-2.5 w-2.5" />
-                                  Blocked
-                                </span>
-                              )}
-                              <div className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
-                              {canWrite && !task.is_archived && status !== "done" && (
-                                <button
-                                  className="opacity-0 group-hover:opacity-100 ml-1 text-[10px] px-1.5 py-0.5 rounded transition-opacity"
-                                  style={{ color: "var(--success)", background: "rgba(16,185,129,0.08)" }}
-                                  onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
-                                  disabled={updatingId === task.id}
-                                  title="Mark done"
-                                >
-                                  ✓
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
