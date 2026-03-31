@@ -18,6 +18,7 @@ import {
   GraduationCap,
   BookOpen,
   FolderKanban,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +37,7 @@ import {
 const navItems = [
   { title: "Overview", href: "/overview", icon: LayoutDashboard },
   { title: "Projects", href: "/projects", icon: FolderKanban },
+  { title: "Portfolio", href: "/portfolio", icon: BarChart3 },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Departments", href: "/departments", icon: Building2 },
