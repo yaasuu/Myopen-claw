@@ -399,14 +399,40 @@ export default function TasksPage() {
       )}
 
       {/* Toolbar */}
-      <div className="toolbar">
-        {/* Left: filters */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        {/* Left: view toggle (Board | List) */}
+        <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "var(--surface-muted)" }}>
+          <button
+            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              background: viewMode === "board" ? "var(--text)" : "transparent",
+              color: viewMode === "board" ? "var(--bg)" : "var(--text-muted)",
+            }}
+            onClick={() => setViewMode("board")}
+          >
+            Board
+          </button>
+          <button
+            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+            style={{
+              background: viewMode === "table" ? "var(--text)" : "transparent",
+              color: viewMode === "table" ? "var(--bg)" : "var(--text-muted)",
+            }}
+            onClick={() => setViewMode("table")}
+          >
+            List
+          </button>
+        </div>
+
+        <div className="divider" />
+
+        {/* Filters */}
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-32 h-8 text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="all">All</SelectItem>
             {STATUSES.map((s) => (
               <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
@@ -425,65 +451,31 @@ export default function TasksPage() {
           </SelectContent>
         </Select>
 
-        <div className="divider" />
+        <div className="flex-1" />
 
-        {/* View toggle — compact like reference */}
-        <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "var(--surface-muted)" }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-none h-7 px-2.5 text-xs"
-            style={{
-              background: viewMode === "board" ? "var(--text)" : "transparent",
-              color: viewMode === "board" ? "var(--bg)" : "var(--text-muted)",
-            }}
-            onClick={() => setViewMode("board")}
-          >
-            Board
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="rounded-none h-7 px-2.5 text-xs"
-            style={{
-              background: viewMode === "table" ? "var(--text)" : "transparent",
-              color: viewMode === "table" ? "var(--bg)" : "var(--text-muted)",
-            }}
-            onClick={() => setViewMode("table")}
-          >
-            List
-          </Button>
-        </div>
-
-        <div className="divider" />
-
-        {/* Compact icon actions */}
+        {/* Right: icon actions */}
         {canWrite && (
-          <Button
-            size="sm"
-            className="h-8 w-8 p-0 rounded-lg"
+          <button
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
             onClick={() => setCreateOpen(true)}
             title="New task"
           >
             <Plus className="h-4 w-4" />
-          </Button>
+          </button>
         )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0 rounded-lg hover-surface"
+        <button
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+          style={{ borderColor: "var(--border)", color: showArchived ? "var(--accent)" : "var(--text-muted)" }}
           onClick={() => setShowArchived(!showArchived)}
           title={showArchived ? "Hide archived" : "Show archived"}
-          style={{ color: showArchived ? "var(--accent)" : "var(--text-quiet)" }}
         >
           {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-        </Button>
+        </button>
 
-        <div className="flex-1" />
-
-        <span className="text-xs" style={{ color: "var(--text-quiet)" }}>
-          {filtered.length} task{filtered.length !== 1 ? "s" : ""}
+        <span className="text-xs ml-2" style={{ color: "var(--text-quiet)" }}>
+          {filtered.length}
         </span>
       </div>
         <Dialog open={createOpen} onOpenChange={(open) => {
@@ -625,51 +617,50 @@ export default function TasksPage() {
                 {/* Column cards */}
                 <div className="space-y-2 min-h-[100px]">
                   {columnTasks.length === 0 ? (
-                    <div className="rounded-lg border-dashed py-8 text-center text-xs" style={{ border: "1px dashed var(--border)", color: "var(--text-quiet)" }}>
+                    <div className="rounded-lg py-8 text-center text-xs" style={{ border: "1px dashed var(--border)", color: "var(--text-quiet)" }}>
                       No tasks
                     </div>
                   ) : (
                     columnTasks.map((task) => (
                       <div
                         key={task.id}
-                        className={`surface-card p-3 space-y-2 cursor-pointer transition-all duration-150 ${task.is_archived ? "opacity-50" : ""}`}
+                        className={`group rounded-lg border p-3 transition-colors duration-150 cursor-pointer hover:border-[var(--border-strong)] ${task.is_archived ? "opacity-50" : ""}`}
+                        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
                         onClick={() => openEdit(task)}
                       >
                         {/* Title */}
                         <p className="text-[13px] font-medium leading-snug" style={{ color: "var(--text)" }}>{task.title}</p>
 
-                        {/* Priority dot + blocker indicator */}
-                        <div className="flex items-center gap-2">
-                          <div className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
-                          {task.blocker && (
-                            <span className="text-[11px] flex items-center gap-1" style={{ color: "var(--danger)" }}>
-                              <AlertTriangle className="h-3 w-3" />
-                              blocked
+                        {/* Footer: priority dot + agent + quick action */}
+                        <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                          <div className="flex items-center gap-2">
+                            <div className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
+                            <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
+                              {task.assigned_agent_name ? (
+                                <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
+                              ) : (
+                                <span className="italic">Unassigned</span>
+                              )}
                             </span>
-                          )}
-                        </div>
-
-                        {/* Agent — subtle, bottom */}
-                        <div className="flex items-center justify-between pt-1" style={{ borderTop: "1px solid var(--border)" }}>
-                          <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
-                            {task.assigned_agent_name ? (
-                              <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
-                            ) : (
-                              <span className="italic">Unassigned</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {task.blocker && (
+                              <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--danger)" }}>
+                                <AlertTriangle className="h-3 w-3" />
+                              </span>
                             )}
-                          </span>
-                          {/* Quick done button */}
-                          {canWrite && !task.is_archived && status !== "done" && (
-                            <button
-                              className="text-[10px] px-1.5 py-0.5 rounded hover-surface"
-                              style={{ color: "var(--success)" }}
-                              onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
-                              disabled={updatingId === task.id}
-                              title="Mark done"
-                            >
-                              ✓
-                            </button>
-                          )}
+                            {canWrite && !task.is_archived && status !== "done" && (
+                              <button
+                                className="opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity"
+                                style={{ color: "var(--success)", background: "rgba(16,185,129,0.08)" }}
+                                onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
+                                disabled={updatingId === task.id}
+                                title="Mark done"
+                              >
+                                ✓
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
