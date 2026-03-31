@@ -253,20 +253,20 @@ export default function PortfolioPage() {
                           <Badge variant="outline" className="text-[10px]">{p.project_code}</Badge>
                           {h && (
                             <div className={`h-2 w-2 rounded-full ${
-                              h.status === "healthy" ? "bg-[rgba(16,185,129,0.08)]0" :
-                              h.status === "watch" ? "bg-[rgba(245,158,11,0.08)]0" :
-                              h.status === "at_risk" ? "bg-[rgba(245,158,11,0.08)]0" :
-                              "bg-[rgba(239,68,68,0.08)]0"
+                              h.status === "healthy" ? "dot-green" :
+                              h.status === "watch" ? "dot-amber" :
+                              h.status === "at_risk" ? "dot-amber" :
+                              "dot-red"
                             }`} />
                           )}
                         </div>
                         <p className="text-sm font-medium truncate">{p.title}</p>
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                           <div className={`h-full rounded-full ${
-                            p.progress >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
-                            p.progress >= 50 ? "bg-[rgba(59,130,246,0.08)]0" :
-                            p.progress >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
-                            "bg-[rgba(239,68,68,0.08)]0"
+                            p.progress >= 75 ? "dot-green" :
+                            p.progress >= 50 ? "dot-blue" :
+                            p.progress >= 25 ? "dot-amber" :
+                            "dot-red"
                           }`} style={{ width: `${p.progress}%` }} />
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">

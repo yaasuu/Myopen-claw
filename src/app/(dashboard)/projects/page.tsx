@@ -255,10 +255,10 @@ export default function ProjectsPage() {
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          project.progress >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
-                          project.progress >= 50 ? "bg-[rgba(59,130,246,0.08)]0" :
-                          project.progress >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
-                          "bg-[rgba(239,68,68,0.08)]0"
+                          project.progress >= 75 ? "dot-green" :
+                          project.progress >= 50 ? "dot-blue" :
+                          project.progress >= 25 ? "dot-amber" :
+                          "dot-red"
                         }`}
                         style={{ width: `${project.progress}%` }}
                       />

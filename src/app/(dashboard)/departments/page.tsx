@@ -95,7 +95,7 @@ export default function DepartmentsPage() {
                       <div>
                         <p className="text-sm font-bold tracking-tight">{dept.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <div className={`status-dot ${isActive ? "bg-[rgba(16,185,129,0.08)]0" : "bg-[rgba(245,158,11,0.08)]0"}`} />
+                          <div className={`status-dot ${isActive ? "dot-green" : "dot-amber"}`} />
                           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                             {dept.status}
                           </span>

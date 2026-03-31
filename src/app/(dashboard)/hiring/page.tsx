@@ -445,7 +445,7 @@ export default function HiringPage() {
                         <p className="text-sm font-semibold truncate">{agent.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{agent.domain}</p>
                       </div>
-                      <div className={`status-dot ${agent.status === "active" ? "bg-[rgba(16,185,129,0.08)]0" : "bg-[rgba(245,158,11,0.08)]0"}`} />
+                      <div className={`status-dot ${agent.status === "active" ? "dot-green" : "dot-amber"}`} />
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
                       <span className="flex items-center gap-1">

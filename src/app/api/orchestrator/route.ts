@@ -38,6 +38,16 @@ export async function POST(request: Request) {
       related_agent_id: data.assigned_agent_id,
     });
 
+    // Create notification for task creation
+    await supabase.from("notifications").insert({
+      type: "task_created",
+      severity: data.priority === "high" ? "warning" : "info",
+      title: `New Task: ${data.title}`,
+      message: `Task created and ${data.assigned_agent_id ? "assigned" : "unassigned"} — ${data.priority} priority`,
+      related_task_id: data.id,
+      related_agent_id: data.assigned_agent_id,
+    });
+
     return NextResponse.json({ data });
   }
 
@@ -63,6 +73,17 @@ export async function POST(request: Request) {
       event_type: eventMap[body.status] ?? "task_updated",
       source: "Yas Claw",
       summary: `Task '${data.title}' → ${body.status}`,
+      related_task_id: data.id,
+      related_agent_id: data.assigned_agent_id,
+    });
+
+    // Create notification for status changes
+    const notifSeverity = body.status === "blocked" ? "critical" : body.status === "done" ? "info" : "info";
+    await supabase.from("notifications").insert({
+      type: body.status === "blocked" ? "blocker_detected" : body.status === "done" ? "task_completed" : "task_reassigned",
+      severity: notifSeverity,
+      title: `Task ${body.status}: ${data.title}`,
+      message: `Status changed to ${body.status}${body.status === "blocked" && data.blocker ? ` — ${data.blocker}` : ""}`,
       related_task_id: data.id,
       related_agent_id: data.assigned_agent_id,
     });

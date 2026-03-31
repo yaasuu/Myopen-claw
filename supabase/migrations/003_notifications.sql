@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type TEXT NOT NULL CHECK (type IN (
+    'task_created',
     'blocker_detected',
     'blocker_resolved',
     'agent_paused',

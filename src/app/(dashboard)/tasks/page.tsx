@@ -83,8 +83,8 @@ const statusColors: Record<string, string> = {
 };
 
 const priorityColors: Record<string, { text: string; dot: string }> = {
-  high: { text: "text-[var(--danger)]", dot: "bg-[rgba(239,68,68,0.08)]0" },
-  medium: { text: "text-[var(--warning)]", dot: "bg-[rgba(245,158,11,0.08)]0" },
+  high: { text: "text-[var(--danger)]", dot: "dot-red" },
+  medium: { text: "text-[var(--warning)]", dot: "dot-amber" },
   low: { text: "text-[var(--text-quiet)]", dot: "bg-gray-400" },
 };
 

@@ -204,7 +204,7 @@ export default function LiveFeedPage() {
         <div className="flex-1" />
 
         <Badge variant="outline" className="gap-1.5">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgba(16,185,129,0.08)]0" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full dot-green" />
           {filtered.length} event{filtered.length !== 1 ? "s" : ""}
         </Badge>
       </div>

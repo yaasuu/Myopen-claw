@@ -251,10 +251,10 @@ export default function ProjectDetailPage() {
             </div>
             <div className="h-2.5 rounded-full bg-muted overflow-hidden">
               <div className={`h-full rounded-full ${
-                project.progress >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
-                project.progress >= 50 ? "bg-[rgba(59,130,246,0.08)]0" :
-                project.progress >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
-                "bg-[rgba(239,68,68,0.08)]0"
+                project.progress >= 75 ? "dot-green" :
+                project.progress >= 50 ? "dot-blue" :
+                project.progress >= 25 ? "dot-amber" :
+                "dot-red"
               }`} style={{ width: `${project.progress}%` }} />
             </div>
           </div>
@@ -414,7 +414,7 @@ export default function ProjectDetailPage() {
                           </div>
                           <p className="text-xs text-muted-foreground">{pa.reason} · {pa.currentLoad} open tasks</p>
                         </div>
-                        <div className={`h-2 w-2 rounded-full ${pa.currentLoad >= 5 ? "bg-[rgba(239,68,68,0.08)]0" : pa.currentLoad >= 3 ? "bg-[rgba(245,158,11,0.08)]0" : "bg-[rgba(16,185,129,0.08)]0"}`} />
+                        <div className={`h-2 w-2 rounded-full ${pa.currentLoad >= 5 ? "dot-red" : pa.currentLoad >= 3 ? "dot-amber" : "dot-green"}`} />
                       </div>
                     ))}
                   </div>
@@ -608,10 +608,10 @@ export default function ProjectDetailPage() {
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full rounded-full ${
-                    health.score >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
-                    health.score >= 50 ? "bg-[rgba(245,158,11,0.08)]0" :
-                    health.score >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
-                    "bg-[rgba(239,68,68,0.08)]0"
+                    health.score >= 75 ? "dot-green" :
+                    health.score >= 50 ? "dot-amber" :
+                    health.score >= 25 ? "dot-amber" :
+                    "dot-red"
                   }`} style={{ width: `${health.score}%` }} />
                 </div>
                 <div className="space-y-2">

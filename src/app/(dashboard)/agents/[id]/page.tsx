@@ -39,18 +39,25 @@ import {
   CheckCircle2,
   XCircle,
   ExternalLink,
+  Award,
+  BookOpen,
+  Zap,
+  Brain,
+  Shield,
+  ChevronRight,
 } from "lucide-react";
 import { getAgentById, updateAgentStatus, updateAgentProfile } from "@/lib/data/agents";
 import { getTasksByAgent } from "@/lib/data/tasks";
 import { getFeedEventsByAgent } from "@/lib/data/feed";
+import { getAgentSkills } from "@/lib/data/skills";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { Agent, TaskWithAgent, FeedEvent } from "@/types/dashboard";
+import type { Agent, TaskWithAgent, FeedEvent, AgentSkill } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
-  active: "bg-[rgba(16,185,129,0.08)]0",
-  paused: "bg-[rgba(245,158,11,0.08)]0",
-  retired: "bg-gray-400",
+  active: "dot-green",
+  paused: "dot-amber",
+  retired: "dot-gray",
 };
 
 const taskStatusColors: Record<string, string> = {
@@ -77,6 +84,82 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// Agent memory data — structured focus areas and operating rules per agent
+const AGENT_MEMORY: Record<string, { focusAreas: string[]; operatingRules: string[] }> = {
+  "yas-claw": {
+    focusAreas: [
+      "Orchestration and task management",
+      "Agent coordination and routing",
+      "Approval and completion oversight",
+      "Strategic decision support",
+      "System health monitoring",
+    ],
+    operatingRules: [
+      "Route work to specialist agents when domain-specific",
+      "Synthesize outputs from multiple agents into one clear answer",
+      "Define owner, blocker, priority, and next action on every task",
+      "Monitor agent workload patterns and rebalance when needed",
+      "Stay calm under pressure — simplify problems, define objectives",
+    ],
+  },
+  "export-growth": {
+    focusAreas: [
+      "Export opportunities and lead generation",
+      "Buyer follow-up and pipeline management",
+      "Supplier readiness and document tracking",
+      "Customs and compliance process clarity",
+      "Shipment planning and execution support",
+    ],
+    operatingRules: [
+      "Optimize for movement of real opportunities",
+      "Track stage-based pipeline views for every active deal",
+      "Surface blockers early — don't let opportunities stall",
+      "Always identify next action, owner, and timeline",
+      "Escalate to Yas Claw when task crosses into ops or systems",
+    ],
+  },
+  "ops-improvement": {
+    focusAreas: [
+      "Workflow review and process improvement",
+      "Routines, systems, and execution management",
+      "AI and automation opportunity identification",
+      "Financial planning and risk thinking",
+      "Pricing logic and value proposition clarity",
+    ],
+    operatingRules: [
+      "Reduce friction, strengthen routines, improve visibility",
+      "Produce practical outputs — trackers, SOPs, memos",
+      "Identify automation opportunities before manual solutions",
+      "Frame decisions with pros, cons, risks, and recommendation",
+      "Escalate export-pipeline tasks to Export-Growth agent",
+    ],
+  },
+  "architecture-systems": {
+    focusAreas: [
+      "Orchestration architecture and platform design",
+      "Data modeling and schema thinking",
+      "Role and hierarchy design with permissions",
+      "Workflow and state modeling",
+      "Integration architecture and implementation sequencing",
+    ],
+    operatingRules: [
+      "Favor structural clarity over unnecessary complexity",
+      "Design for scalability without premature abstraction",
+      "Define clear boundaries between components",
+      "Reduce rework through better upfront architecture",
+      "Translate messy platform ideas into phased implementation",
+    ],
+  },
+};
+
+function getAgentFocusAreas(shortId: string): string[] {
+  return AGENT_MEMORY[shortId]?.focusAreas ?? ["No focus areas defined"];
+}
+
+function getAgentOperatingRules(shortId: string): string[] {
+  return AGENT_MEMORY[shortId]?.operatingRules ?? ["No operating rules defined"];
+}
+
 export default function AgentDetailPage() {
   const canWrite = useCanWrite();
   const params = useParams();
@@ -86,6 +169,7 @@ export default function AgentDetailPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
+  const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
@@ -105,10 +189,11 @@ export default function AgentDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [agentResult, tasksResult, feedResult] = await Promise.all([
+      const [agentResult, tasksResult, feedResult, skillsResult] = await Promise.all([
         getAgentById(agentId),
         getTasksByAgent(agentId),
         getFeedEventsByAgent(agentId, 5),
+        getAgentSkills(agentId),
       ]);
       if (agentResult.error) {
         setError(agentResult.error);
@@ -122,6 +207,7 @@ export default function AgentDetailPage() {
       }
       setTasks(tasksResult.data);
       setFeedEvents(feedResult.data);
+      setAgentSkills(skillsResult.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load agent");
     } finally {
@@ -411,7 +497,7 @@ export default function AgentDetailPage() {
 
       {/* Recent agent activity */}
       <section>
-        <h2 className="text-sm font-semibold mb-3">Recent Activity</h2>
+        <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Recent Activity</h2>
         <Card>
           <CardContent className="p-0">
             {feedEvents.length === 0 ? (
@@ -446,6 +532,91 @@ export default function AgentDetailPage() {
             )}
           </CardContent>
         </Card>
+      </section>
+
+      {/* Skills */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="icon-box-sm" style={{ background: "rgba(59, 130, 246, 0.08)" }}>
+            <Award className="h-3.5 w-3.5" style={{ color: "var(--info)" }} />
+          </div>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Installed Skills</h2>
+          {agentSkills.length > 0 && (
+            <Badge style={{ background: "rgba(59, 130, 246, 0.12)", color: "var(--info)" }} className="text-xs">
+              {agentSkills.length}
+            </Badge>
+          )}
+        </div>
+        <Card>
+          <CardContent className="p-5">
+            {agentSkills.length === 0 ? (
+              <div className="flex items-center gap-3 py-4">
+                <Zap className="h-5 w-5" style={{ color: "var(--text-quiet)" }} />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>No skills installed</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>Visit the Skills page to request capabilities for this agent</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {agentSkills.map((skill) => (
+                  <div key={skill.skill_id || skill.skill_name} className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: "var(--border)" }}>
+                    <Award className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+                    <span className="text-sm font-medium" style={{ color: "var(--text)" }}>{skill.skill_name}</span>
+                    <Badge variant="outline" className="text-[10px]">{skill.skill_category}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Agent Memory */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="icon-box-sm" style={{ background: "rgba(139, 92, 246, 0.08)" }}>
+            <Brain className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+          </div>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Agent Memory</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Focus Areas */}
+          <Card>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" style={{ color: "var(--info)" }} />
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Focus Areas</span>
+              </div>
+              <div className="space-y-2">
+                {getAgentFocusAreas(agent.short_id).map((area, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                    <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: "var(--success)" }} />
+                    <span>{area}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Operating Rules */}
+          <Card>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4" style={{ color: "var(--accent)" }} />
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Operating Rules</span>
+              </div>
+              <div className="space-y-2">
+                {getAgentOperatingRules(agent.short_id).map((rule, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                    <ChevronRight className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: "var(--accent)" }} />
+                    <span>{rule}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       {/* Edit dialog */}

@@ -4,10 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
-  Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Clock, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
@@ -16,9 +13,9 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import type { Agent } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
-  active: "bg-[rgba(16,185,129,0.08)]0",
-  paused: "bg-[rgba(245,158,11,0.08)]0",
-  retired: "bg-gray-400",
+  active: "dot-green",
+  paused: "dot-amber",
+  retired: "dot-gray",
 };
 
 function timeAgo(iso: string | null): string {
@@ -72,18 +69,18 @@ export default function AgentsPage() {
   if (error && agents.length === 0) {
     return (
       <PageShell title="Agents" description="Error loading data">
-        <Card>
+        <div className="surface-card">
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5" style={{ color: "var(--danger)" }} />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load agents</p>
-              <p className="text-xs text-muted-foreground">{error}</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm hover:underline flex items-center gap-1" style={{ color: "var(--accent)" }}>
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
-        </Card>
+        </div>
       </PageShell>
     );
   }
@@ -94,37 +91,34 @@ export default function AgentsPage() {
       description="Specialist agents in the Yas Claw system"
     >
       {error && (
-        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
+        <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245, 158, 11, 0.2)", background: "rgba(245, 158, 11, 0.06)", color: "var(--warning)" }}>
           Some data may be stale: {error}
         </div>
       )}
 
       {agents.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+        <div className="surface-card">
+          <CardContent className="py-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>
             No agents configured
           </CardContent>
-        </Card>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {agents.map((agent) => (
             <Link key={agent.id} href={`/agents/${agent.id}`} className="block">
-              <Card className="transition-colors hover:border-primary/40 cursor-pointer h-full">
-              <CardHeader className="pb-3">
+              <div className="surface-card-hover p-5 space-y-3 cursor-pointer h-full">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                  <div className="flex items-center gap-2">
                     <span className="text-lg">{agent.emoji}</span>
-                    {agent.name}
-                  </CardTitle>
+                    <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{agent.name}</span>
+                  </div>
                   <Badge variant="outline" className="gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${statusColor[agent.status]}`} />
                     {agent.status}
                   </Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-muted-foreground">{agent.domain}</p>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{agent.domain}</p>
+                <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-quiet)" }}>
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     <span>{timeAgo(agent.last_activity)}</span>
@@ -134,8 +128,7 @@ export default function AgentsPage() {
                     <span>{agent.task_count} tasks</span>
                   </div>
                 </div>
-              </CardContent>
-              </Card>
+              </div>
             </Link>
           ))}
         </div>

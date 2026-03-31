@@ -8,16 +8,24 @@ interface PageShellProps {
 
 export function PageShell({ title, description, children }: PageShellProps) {
   return (
-    <div className="space-y-5 p-6 lg:p-8" style={{ maxWidth: "1440px" }}>
-      <div>
-        <h1 className="text-lg font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+    <div className="p-6 lg:p-8" style={{ maxWidth: "1440px" }}>
+      {/* Page header — matches Mission Control reference */}
+      <div className="mb-6">
+        <h1
+          className="text-lg font-semibold tracking-tight"
+          style={{ color: "var(--text)" }}
+        >
           {title}
         </h1>
         {description && (
-          <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>{description}</p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>
+            {description}
+          </p>
         )}
       </div>
-      {children}
+
+      {/* Content */}
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }

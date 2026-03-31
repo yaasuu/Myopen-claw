@@ -199,7 +199,7 @@ export default function DepartmentDetailPage() {
                 <h2 className="text-lg font-bold tracking-tight">{dept.name}</h2>
                 <p className="text-sm text-muted-foreground mt-1 max-w-lg">{dept.mandate}</p>
                 <div className="flex items-center gap-3 mt-2">
-                  <div className={`status-dot ${dept.status === "active" ? "bg-[rgba(16,185,129,0.08)]0" : "bg-[rgba(245,158,11,0.08)]0"}`} />
+                  <div className={`status-dot ${dept.status === "active" ? "dot-green" : "dot-amber"}`} />
                   <span className="text-xs text-muted-foreground capitalize">{dept.status}</span>
                   <Badge className="text-[10px]">{dept.priority} priority</Badge>
                 </div>

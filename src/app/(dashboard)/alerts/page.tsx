@@ -27,8 +27,8 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, FeedEvent, Agent, SystemStatus } from "@/types/dashboard";
 
 const prioritySeverity: Record<string, { label: string; color: string; dot: string }> = {
-  high: { label: "High", color: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)] border-red-200", dot: "bg-[rgba(239,68,68,0.08)]0" },
-  medium: { label: "Medium", color: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)] border-amber-200", dot: "bg-[rgba(245,158,11,0.08)]0" },
+  high: { label: "High", color: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)] border-red-200", dot: "dot-red" },
+  medium: { label: "Medium", color: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)] border-amber-200", dot: "dot-amber" },
   low: { label: "Low", color: "bg-transparent text-[var(--text-muted)] border-[var(--border)]", dot: "bg-gray-400" },
 };
 
@@ -277,8 +277,8 @@ export default function AlertsPage() {
                 {criticalEvents.map((event) => (
                   <div key={event.id} className="flex items-start gap-3 px-5 py-3">
                     <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
-                      event.event_type === "blocker_detected" ? "bg-[rgba(239,68,68,0.08)]0" :
-                      event.event_type === "system_alert" ? "bg-[rgba(245,158,11,0.08)]0" :
+                      event.event_type === "blocker_detected" ? "dot-red" :
+                      event.event_type === "system_alert" ? "dot-amber" :
                       "bg-yellow-500"
                     }`} />
                     <div className="flex-1 min-w-0 space-y-1">

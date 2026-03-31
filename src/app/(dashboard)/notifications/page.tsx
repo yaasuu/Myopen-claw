@@ -36,6 +36,7 @@ import {
 import { useRealtime } from "@/lib/realtime/use-realtime";
 
 const iconMap: Record<string, typeof AlertTriangle> = {
+  task_created: CheckCircle2,
   blocker_detected: AlertTriangle,
   blocker_resolved: CheckCircle2,
   agent_paused: Bot,
@@ -241,7 +242,7 @@ export default function NotificationsPage() {
                           {notif.severity}
                         </Badge>
                         {!notif.is_read && (
-                          <span className="h-2 w-2 rounded-full bg-[rgba(59,130,246,0.08)]0 shrink-0" />
+                          <span className="h-2 w-2 rounded-full dot-blue shrink-0" />
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">{notif.message}</p>
