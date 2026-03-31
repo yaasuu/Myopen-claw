@@ -2,7 +2,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 
-// Force dynamic rendering — prevent Vercel edge caching
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -14,7 +13,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <div className="flex min-h-screen w-full flex-col bg-background">
+      <div className="flex min-h-screen w-full flex-col bg-[#0E1116]">
         <AppHeader />
         <main className="flex-1 overflow-y-auto">
           {children}

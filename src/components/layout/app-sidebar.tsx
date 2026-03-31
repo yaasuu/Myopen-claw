@@ -42,14 +42,14 @@ const navItems = [
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Departments", href: "/departments", icon: Building2 },
   { title: "Specialists", href: "/specialists", icon: Zap },
-  { title: "Skills", href: "/skills", icon: GraduationCap },
-  { title: "Notes", href: "/notes", icon: BookOpen },
   { title: "Org Chart", href: "/org-chart", icon: Network },
   { title: "Live Feed", href: "/live-feed", icon: Radio },
   { title: "Alerts", href: "/alerts", icon: Bell },
   { title: "Notifications", href: "/notifications", icon: Inbox },
   { title: "Hiring", href: "/hiring", icon: UserPlus },
   { title: "Autonomy", href: "/autonomy", icon: Shield },
+  { title: "Skills", href: "/skills", icon: GraduationCap },
+  { title: "Notes", href: "/notes", icon: BookOpen },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -57,17 +57,17 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <Sidebar className="border-r">
-      <SidebarHeader className="border-b px-5 py-5">
+    <Sidebar className="border-r border-white/[0.06] bg-[#0E1116]">
+      <SidebarHeader className="border-b border-white/[0.06] px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-lg">
             🦀
           </div>
           <div>
-            <h1 className="text-sm font-semibold leading-tight tracking-tight">
+            <h1 className="text-sm font-semibold tracking-tight text-foreground">
               Yas Claw
             </h1>
-            <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Mission Control
             </p>
           </div>
@@ -76,7 +76,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-3 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          <SidebarGroupLabel className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -92,16 +92,16 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       className={cn(
-                        "h-9 rounded-lg px-3 text-sm font-medium transition-colors",
+                        "h-8 rounded-lg px-3 text-[13px] font-medium transition-all duration-150",
                         isActive
-                          ? "bg-primary/10 text-primary font-semibold shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          ? "bg-primary/[0.08] text-primary"
+                          : "text-[#A7B0BE] hover:bg-white/[0.04] hover:text-foreground"
                       )}
                     >
                       <Link href={item.href}>
                         <item.icon className={cn(
-                          "h-4 w-4",
-                          isActive ? "text-primary" : "text-muted-foreground/60"
+                          "h-[16px] w-[16px]",
+                          isActive ? "text-primary" : "text-[#7F8A9A]"
                         )} />
                         <span>{item.title}</span>
                       </Link>
@@ -114,9 +114,9 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t px-5 py-4">
+      <SidebarFooter className="border-t border-white/[0.06] px-5 py-4">
         <div className="flex items-center gap-2.5">
-          <div className="status-dot bg-emerald-500" />
+          <div className="status-dot status-dot-green" />
           <span className="text-xs font-medium text-muted-foreground">
             System operational
           </span>

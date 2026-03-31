@@ -6,8 +6,6 @@ import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -80,10 +78,7 @@ export default function OverviewPage() {
   }
 
   const loadRef = useCallback(() => load(), []);
-  const { connected, lastSynced } = useRealtimeMulti(
-    ["tasks", "agents", "feed_events", "system_status"],
-    loadRef
-  );
+  useRealtimeMulti(["tasks", "agents", "feed_events", "system_status"], loadRef);
 
   useEffect(() => {
     load();
@@ -103,14 +98,14 @@ export default function OverviewPage() {
   if (error && !status) {
     return (
       <PageShell title="Overview" description="Error loading data">
-        <Card>
+        <Card className="card-executive">
           <CardContent className="flex items-center gap-3 py-6">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load dashboard</p>
-              <p className="text-xs text-muted-foreground">{error}</p>
+              <p className="text-caption">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-primary hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -123,121 +118,117 @@ export default function OverviewPage() {
 
   const summaryCards = [
     {
-      title: "Active Agents",
+      label: "Active Agents",
       value: String(status?.active_agents ?? 0),
+      sub: status?.active_agents ? "Operational" : "None active",
       icon: Bot,
-      description: status?.active_agents ? "Operational" : "None active",
-      color: "text-violet-600",
-      bg: "bg-violet-50",
+      accent: "text-primary",
+      iconBg: "bg-primary/[0.08]",
     },
     {
-      title: "Open Tasks",
+      label: "Open Tasks",
       value: String(taskStats.total - taskStats.done),
+      sub: `${taskStats.inProgress} in progress`,
       icon: TrendingUp,
-      description: `${taskStats.inProgress} in progress`,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      accent: "text-blue-400",
+      iconBg: "bg-blue-500/[0.08]",
     },
     {
-      title: "Blocked",
+      label: "Blocked",
       value: String(taskStats.blocked),
+      sub: taskStats.blocked > 0 ? "Needs attention" : "All clear",
       icon: AlertTriangle,
-      description: taskStats.blocked > 0 ? "Needs attention" : "All clear",
-      color: taskStats.blocked > 0 ? "text-red-600" : "text-muted-foreground",
-      bg: taskStats.blocked > 0 ? "bg-red-50" : "bg-muted/50",
+      accent: taskStats.blocked > 0 ? "text-red-400" : "text-muted-foreground",
+      iconBg: taskStats.blocked > 0 ? "bg-red-500/[0.08]" : "bg-white/[0.04]",
     },
     {
-      title: "Completed",
+      label: "Completed",
       value: String(taskStats.done),
+      sub: `${taskStats.total} total`,
       icon: CheckCircle2,
-      description: `${taskStats.total} total tasks`,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      accent: "text-emerald-400",
+      iconBg: "bg-emerald-500/[0.08]",
     },
   ];
 
   return (
     <PageShell title="Overview" description="Operating summary">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-4 py-2.5 text-xs text-amber-400">
           Some data may be stale: {error}
         </div>
       )}
 
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
-          <Card key={card.title} className="stat-card">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {card.title}
-                </span>
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${card.bg}`}>
-                  <card.icon className={`h-4 w-4 ${card.color}`} />
-                </div>
+          <div key={card.label} className="stat-card-executive">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-label">{card.label}</span>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${card.iconBg}`}>
+                <card.icon className={`h-4 w-4 ${card.accent}`} />
               </div>
-              <div className={`text-2xl font-bold tracking-tight ${card.color === "text-muted-foreground" ? "" : card.color}`}>
-                {card.value}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className={`text-2xl font-bold tracking-tight ${card.accent}`}>
+              {card.value}
+            </div>
+            <p className="text-caption mt-1">{card.sub}</p>
+          </div>
         ))}
       </div>
 
       {/* Attention needed */}
       {needsAttention && (
         <Link href="/alerts" className="block">
-          <Card className="border-amber-200/60 bg-gradient-to-r from-amber-50/80 to-orange-50/40 hover:from-amber-50 hover:to-orange-50/60 transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 py-4 px-5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
-                <Bell className="h-4 w-4 text-amber-600" />
+          <div className="stat-card-executive border-l-2 border-l-amber-500 hover:border-l-amber-400 transition-colors cursor-pointer">
+            <div className="flex items-center gap-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/[0.08]">
+                <Bell className="h-4 w-4 text-amber-400" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-amber-900">Attention Needed</p>
-                <p className="text-xs text-amber-700">
+                <p className="text-sm font-semibold text-amber-300">Attention Needed</p>
+                <p className="text-caption">
                   {taskStats.blocked > 0 && `${taskStats.blocked} blocked task${taskStats.blocked !== 1 ? "s" : ""}`}
                   {taskStats.blocked > 0 && pausedAgents.length > 0 && " · "}
                   {pausedAgents.length > 0 && `${pausedAgents.length} paused agent${pausedAgents.length !== 1 ? "s" : ""}`}
                 </p>
               </div>
-              <Badge className="bg-amber-200/80 text-amber-800 font-semibold">{taskStats.blocked + pausedAgents.length}</Badge>
-              <ArrowRight className="h-4 w-4 text-amber-500" />
-            </CardContent>
-          </Card>
+              <Badge className="bg-amber-500/[0.12] text-amber-400 text-xs font-semibold">{taskStats.blocked + pausedAgents.length}</Badge>
+              <ArrowRight className="h-4 w-4 text-amber-500/50" />
+            </div>
+          </div>
         </Link>
       )}
 
       {/* Three-column signal row */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3">
         {/* Blocked tasks */}
-        <Card className="stat-card">
-          <CardHeader className="pb-3 px-5 pt-5">
+        <div className="card-executive">
+          <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="section-title flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-red-50">
-                  <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-red-500/[0.08]">
+                  <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
                 </div>
-                Blocked Tasks
-              </CardTitle>
-              {blocked.length > 0 && <Badge variant="destructive" className="text-xs">{blocked.length}</Badge>}
+                <span className="text-subheading">Blocked Tasks</span>
+              </div>
+              {blocked.length > 0 && <Badge className="bg-red-500/[0.12] text-red-400 text-[10px]">{blocked.length}</Badge>}
             </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-5">
+          </div>
+          <div className="px-5 pb-5">
             {blocked.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 py-4 text-caption">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 All clear
               </div>
             ) : (
               <div className="space-y-2.5">
                 {blocked.slice(0, 3).map((task) => (
-                  <div key={task.id} className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{task.blocker}</p>
+                  <div key={task.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-1.5">
+                    <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                    <p className="text-caption truncate">{task.blocker}</p>
                     {task.assigned_agent_name && (
-                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs text-primary hover:underline">
                         {task.assigned_agent_emoji} {task.assigned_agent_name}
                       </Link>
                     )}
@@ -250,37 +241,37 @@ export default function OverviewPage() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Paused agents */}
-        <Card className="stat-card">
-          <CardHeader className="pb-3 px-5 pt-5">
+        <div className="card-executive">
+          <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="section-title flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50">
-                  <Bot className="h-3.5 w-3.5 text-amber-500" />
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/[0.08]">
+                  <Bot className="h-3.5 w-3.5 text-amber-400" />
                 </div>
-                Paused Agents
-              </CardTitle>
-              {pausedAgents.length > 0 && <Badge className="bg-amber-100 text-amber-700 text-xs">{pausedAgents.length}</Badge>}
+                <span className="text-subheading">Paused Agents</span>
+              </div>
+              {pausedAgents.length > 0 && <Badge className="bg-amber-500/[0.12] text-amber-400 text-[10px]">{pausedAgents.length}</Badge>}
             </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-5">
+          </div>
+          <div className="px-5 pb-5">
             {pausedAgents.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 py-4 text-caption">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 All agents active
               </div>
             ) : (
               <div className="space-y-2.5">
                 {pausedAgents.map((agent) => (
-                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-lg border bg-muted/30 p-3 hover:bg-muted/50 transition-colors">
+                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 hover:bg-white/[0.04] transition-colors">
                     <div className="flex items-center gap-2.5">
                       <span className="text-lg">{agent.emoji}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{agent.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{agent.domain}</p>
+                        <p className="text-sm font-medium text-foreground">{agent.name}</p>
+                        <p className="text-caption truncate">{agent.domain}</p>
                       </div>
                       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
                     </div>
@@ -288,40 +279,40 @@ export default function OverviewPage() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Critical events */}
-        <Card className="stat-card">
-          <CardHeader className="pb-3 px-5 pt-5">
+        <div className="card-executive">
+          <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="section-title flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-50">
-                  <ShieldAlert className="h-3.5 w-3.5 text-orange-500" />
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/[0.08]">
+                  <ShieldAlert className="h-3.5 w-3.5 text-orange-400" />
                 </div>
-                Critical Events
-              </CardTitle>
+                <span className="text-subheading">Critical Events</span>
+              </div>
               {criticalEvents.length > 0 && (
                 <Link href="/alerts">
-                  <Badge className="bg-orange-100 text-orange-700 text-xs cursor-pointer hover:bg-orange-200 transition-colors">
+                  <Badge className="bg-orange-500/[0.12] text-orange-400 text-[10px] cursor-pointer hover:bg-orange-500/[0.18] transition-colors">
                     {criticalEvents.length}
                   </Badge>
                 </Link>
               )}
             </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-5">
+          </div>
+          <div className="px-5 pb-5">
             {criticalEvents.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 py-4 text-caption">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 No critical events
               </div>
             ) : (
               <div className="space-y-2.5">
                 {criticalEvents.map((event) => (
-                  <div key={event.id} className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                    <p className="text-sm truncate">{event.summary}</p>
-                    <p className="text-xs text-muted-foreground">{timeAgo(event.created_at)}</p>
+                  <div key={event.id} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 space-y-1">
+                    <p className="text-sm text-foreground truncate">{event.summary}</p>
+                    <p className="text-caption">{timeAgo(event.created_at)}</p>
                   </div>
                 ))}
                 <Link href="/alerts" className="text-xs text-primary hover:underline block text-center pt-1 font-medium">
@@ -329,78 +320,78 @@ export default function OverviewPage() {
                 </Link>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      {/* Activity + system */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="stat-card">
-          <CardHeader className="pb-3 px-5 pt-5">
-            <CardTitle className="section-title flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted">
+      {/* Activity + System */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="card-executive">
+          <div className="px-5 pt-5 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04]">
                 <Activity className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-5">
+              <span className="text-subheading">Recent Activity</span>
+            </div>
+          </div>
+          <div className="px-5 pb-5">
             {events.length === 0 ? (
-              <p className="py-4 text-sm text-muted-foreground">No events yet</p>
+              <p className="py-4 text-caption">No events yet</p>
             ) : (
               <div className="space-y-3">
                 {events.map((event) => (
                   <div key={event.id} className="flex items-start gap-3 text-sm">
-                    <span className="w-14 shrink-0 text-xs text-muted-foreground font-medium tabular-nums">
+                    <span className="w-14 shrink-0 text-caption font-medium tabular-nums">
                       {timeAgo(event.created_at)}
                     </span>
-                    <span className="flex-1 text-muted-foreground">{event.summary}</span>
+                    <span className="flex-1 text-[#A7B0BE]">{event.summary}</span>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="stat-card">
-          <CardHeader className="pb-3 px-5 pt-5">
-            <CardTitle className="section-title flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted">
+        <div className="card-executive">
+          <div className="px-5 pt-5 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04]">
                 <Clock className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-              System Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-5 pb-5">
+              <span className="text-subheading">System Status</span>
+            </div>
+          </div>
+          <div className="px-5 pb-5">
             {status?.last_event ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className={`status-dot ${status.status === "healthy" ? "bg-emerald-500" : "bg-red-500"}`} />
-                  <span className="text-sm font-medium capitalize">{status.status}</span>
+                  <div className={`status-dot ${status.status === "healthy" ? "status-dot-green" : "status-dot-red"}`} />
+                  <span className="text-sm font-medium capitalize text-foreground">{status.status}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-caption">
                   Last activity: {new Date(status.last_event).toLocaleString()}
                 </p>
                 <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div className="rounded-lg bg-muted/50 p-2.5 text-center">
-                    <div className="text-lg font-bold">{status.open_tasks}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Open</div>
+                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
+                    <div className="text-lg font-bold text-foreground">{status.open_tasks}</div>
+                    <div className="text-label">Open</div>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-2.5 text-center">
-                    <div className="text-lg font-bold text-red-600">{status.blocked_tasks}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Blocked</div>
+                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
+                    <div className="text-lg font-bold text-red-400">{status.blocked_tasks}</div>
+                    <div className="text-label">Blocked</div>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-2.5 text-center">
-                    <div className="text-lg font-bold text-emerald-600">{status.active_agents}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Active</div>
+                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-2.5 text-center">
+                    <div className="text-lg font-bold text-primary">{status.active_agents}</div>
+                    <div className="text-label">Active</div>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="py-4 text-sm text-muted-foreground">No system activity recorded</p>
+              <p className="py-4 text-caption">No system activity recorded</p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </PageShell>
   );
