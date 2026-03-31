@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
@@ -79,6 +80,16 @@ const priorityColors: Record<string, { text: string; dot: string }> = {
 };
 
 const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "done"];
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 const PRIORITIES: TaskWithAgent["priority"][] = ["high", "medium", "low"];
 
 export default function TasksPage() {
@@ -587,88 +598,131 @@ export default function TasksPage() {
           </DialogContent>
         </Dialog>
 
-      {/* Board View */}
+      {/* Board View — matches Mission Control reference */}
       {viewMode === "board" && (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          {STATUSES.map((status) => {
-            const columnTasks = filtered.filter((t) => t.status === status);
-            const dotColor: Record<string, string> = {
-              pending: "dot-gray",
-              "in-progress": "dot-blue",
-              blocked: "dot-red",
-              done: "dot-green",
-            };
-            const statusLabel: Record<string, string> = {
-              pending: "Pending",
-              "in-progress": "In Progress",
-              blocked: "Blocked",
-              done: "Done",
-            };
-
-            return (
-              <div key={status} className="space-y-3">
-                {/* Column header — dot + title + count */}
-                <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${dotColor[status]}`} />
-                  <span className="text-sm font-medium" style={{ color: "var(--text)" }}>{statusLabel[status]}</span>
-                  <span className="text-xs font-medium" style={{ color: "var(--text-quiet)" }}>{columnTasks.length}</span>
-                </div>
-
-                {/* Column cards */}
-                <div className="space-y-2 min-h-[100px]">
-                  {columnTasks.length === 0 ? (
-                    <div className="rounded-lg py-8 text-center text-xs" style={{ border: "1px dashed var(--border)", color: "var(--text-quiet)" }}>
-                      No tasks
+        <div className="flex gap-4 flex-col lg:flex-row">
+          {/* Left: Agent sidebar (like reference) */}
+          <div className="hidden lg:flex w-[200px] shrink-0 flex-col rounded-xl border overflow-hidden" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Agents</p>
+                <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agents.filter(a => a.status === "active").length} active</p>
+              </div>
+            </div>
+            <div className="flex-1 space-y-1 overflow-y-auto p-2">
+              {agents.map((agent) => {
+                const agentTasks = filtered.filter((t) => t.assigned_agent_id === agent.id && t.status !== "done");
+                return (
+                  <Link
+                    key={agent.id}
+                    href={`/agents/${agent.id}`}
+                    className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left transition hover:border-[var(--border)] hover:bg-[var(--surface-muted)]"
+                  >
+                    <div className="relative">
+                      <span className="text-base">{agent.emoji}</span>
+                      <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${agent.status === "active" ? "dot-green" : "dot-amber"}`} style={{ borderColor: "var(--surface)" }} />
                     </div>
-                  ) : (
-                    columnTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`group rounded-lg border p-3 transition-colors duration-150 cursor-pointer hover:border-[var(--border-strong)] ${task.is_archived ? "opacity-50" : ""}`}
-                        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-                        onClick={() => openEdit(task)}
-                      >
-                        {/* Title */}
-                        <p className="text-[13px] font-medium leading-snug" style={{ color: "var(--text)" }}>{task.title}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-medium truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
+                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{agentTasks.length} tasks</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
 
-                        {/* Footer: priority dot + agent + quick action */}
-                        <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-                          <div className="flex items-center gap-2">
-                            <div className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
-                            <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
-                              {task.assigned_agent_name ? (
-                                <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
-                              ) : (
-                                <span className="italic">Unassigned</span>
-                              )}
-                            </span>
+          {/* Right: Kanban columns */}
+          <div className="flex-1 grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+            {STATUSES.map((status) => {
+              const columnTasks = filtered.filter((t) => t.status === status);
+              const dotColor: Record<string, string> = {
+                pending: "dot-gray",
+                "in-progress": "dot-blue",
+                blocked: "dot-red",
+                done: "dot-green",
+              };
+              const statusLabel: Record<string, string> = {
+                pending: "Pending",
+                "in-progress": "In Progress",
+                blocked: "Blocked",
+                done: "Done",
+              };
+
+              return (
+                <div key={status} className="space-y-3">
+                  {/* Column header */}
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${dotColor[status]}`} />
+                    <span className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{statusLabel[status]}</span>
+                    <span className="text-[11px] font-medium" style={{ color: "var(--text-quiet)" }}>{columnTasks.length}</span>
+                  </div>
+
+                  {/* Cards */}
+                  <div className="space-y-2 min-h-[200px]">
+                    {columnTasks.length === 0 ? (
+                      <div className="rounded-lg border border-dashed py-10 text-center text-[11px]" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
+                        No tasks
+                      </div>
+                    ) : (
+                      columnTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`group rounded-lg border p-3.5 transition-all duration-150 cursor-pointer ${task.is_archived ? "opacity-50" : ""}`}
+                          style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}
+                          onClick={() => openEdit(task)}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                        >
+                          {/* Title */}
+                          <p className="text-[13px] font-medium leading-snug mb-2" style={{ color: "var(--text)" }}>{task.title}</p>
+
+                          {/* Agent row */}
+                          <div className="flex items-center gap-2 mb-2">
+                            {task.assigned_agent_name ? (
+                              <>
+                                <span className="text-[13px]">{task.assigned_agent_emoji}</span>
+                                <span className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>{task.assigned_agent_name}</span>
+                              </>
+                            ) : (
+                              <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>Unassigned</span>
+                            )}
                           </div>
-                          <div className="flex items-center gap-1">
-                            {task.blocker && (
-                              <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--danger)" }}>
-                                <AlertTriangle className="h-3 w-3" />
-                              </span>
-                            )}
-                            {canWrite && !task.is_archived && status !== "done" && (
-                              <button
-                                className="opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity"
-                                style={{ color: "var(--success)", background: "rgba(16,185,129,0.08)" }}
-                                onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
-                                disabled={updatingId === task.id}
-                                title="Mark done"
-                              >
-                                ✓
-                              </button>
-                            )}
+
+                          {/* Footer: time + actions */}
+                          <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+                            <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                              {timeAgo(task.updated_at)}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {task.blocker && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] rounded px-1.5 py-0.5" style={{ color: "var(--danger)", background: "rgba(239,68,68,0.08)" }}>
+                                  <AlertTriangle className="h-2.5 w-2.5" />
+                                  Blocked
+                                </span>
+                              )}
+                              <div className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
+                              {canWrite && !task.is_archived && status !== "done" && (
+                                <button
+                                  className="opacity-0 group-hover:opacity-100 ml-1 text-[10px] px-1.5 py-0.5 rounded transition-opacity"
+                                  style={{ color: "var(--success)", background: "rgba(16,185,129,0.08)" }}
+                                  onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
+                                  disabled={updatingId === task.id}
+                                  title="Mark done"
+                                >
+                                  ✓
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
