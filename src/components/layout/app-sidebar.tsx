@@ -10,7 +10,6 @@ import {
   Settings,
   CheckSquare,
   Bell,
-  Inbox,
   UserPlus,
   Shield,
   Building2,
@@ -34,23 +33,47 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const navItems = [
-  { title: "Overview", href: "/overview", icon: LayoutDashboard },
-  { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Portfolio", href: "/portfolio", icon: BarChart3 },
-  { title: "Tasks", href: "/tasks", icon: CheckSquare },
-  { title: "Agents", href: "/agents", icon: Bot },
-  { title: "Departments", href: "/departments", icon: Building2 },
-  { title: "Specialists", href: "/specialists", icon: Zap },
-  { title: "Org Chart", href: "/org-chart", icon: Network },
-  { title: "Live Feed", href: "/live-feed", icon: Radio },
-  { title: "Alerts", href: "/alerts", icon: Bell },
-  { title: "Notifications", href: "/notifications", icon: Inbox },
-  { title: "Hiring", href: "/hiring", icon: UserPlus },
-  { title: "Autonomy", href: "/autonomy", icon: Shield },
-  { title: "Skills", href: "/skills", icon: GraduationCap },
-  { title: "Notes", href: "/notes", icon: BookOpen },
-  { title: "Settings", href: "/settings", icon: Settings },
+const sections = [
+  {
+    label: "Overview",
+    items: [
+      { title: "Dashboard", href: "/overview", icon: LayoutDashboard },
+      { title: "Live Feed", href: "/live-feed", icon: Radio },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { title: "Projects", href: "/projects", icon: FolderKanban },
+      { title: "Tasks", href: "/tasks", icon: CheckSquare },
+      { title: "Portfolio", href: "/portfolio", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Workforce",
+    items: [
+      { title: "Agents", href: "/agents", icon: Bot },
+      { title: "Departments", href: "/departments", icon: Building2 },
+      { title: "Specialists", href: "/specialists", icon: Zap },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { title: "Autonomy", href: "/autonomy", icon: Shield },
+      { title: "Hiring", href: "/hiring", icon: UserPlus },
+      { title: "Skills", href: "/skills", icon: GraduationCap },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { title: "Alerts", href: "/alerts", icon: Bell },
+      { title: "Notes", href: "/notes", icon: BookOpen },
+      { title: "Org Chart", href: "/org-chart", icon: Network },
+      { title: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 export function AppSidebar() {
@@ -75,42 +98,44 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-0.5">
-              {navItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href + "/");
+        {sections.map((section) => (
+          <SidebarGroup key={section.label} className="mb-4">
+            <SidebarGroupLabel className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
+              {section.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive =
+                    pathname === item.href ||
+                    pathname.startsWith(item.href + "/");
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      className="h-8 rounded-lg px-3 text-[13px] font-medium transition-colors duration-150"
-                      style={{
-                        background: isActive ? "var(--sidebar-active)" : "transparent",
-                        color: isActive ? "var(--accent)" : "var(--text-muted)",
-                      }}
-                    >
-                      <Link href={item.href}>
-                        <item.icon
-                          className="h-4 w-4"
-                          style={{ color: isActive ? "var(--accent)" : "var(--text-quiet)" }}
-                        />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        className="h-8 rounded-lg px-3 text-[13px] font-medium transition-colors duration-150"
+                        style={{
+                          background: isActive ? "var(--sidebar-active)" : "transparent",
+                          color: isActive ? "var(--accent)" : "var(--text-muted)",
+                        }}
+                      >
+                        <Link href={item.href}>
+                          <item.icon
+                            className="h-4 w-4"
+                            style={{ color: isActive ? "var(--accent)" : "var(--text-quiet)" }}
+                          />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t px-5 py-4" style={{ borderColor: "var(--border)" }}>
