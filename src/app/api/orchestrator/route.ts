@@ -88,5 +88,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
+  // Get agents
+  if (body.action === "get_agents") {
+    const { data, error } = await supabase
+      .from("agents")
+      .select("id, name, short_id, emoji, status, domain")
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
+  // Get tasks
+  if (body.action === "get_tasks") {
+    let query = supabase
+      .from("tasks")
+      .select("*, agents(name, emoji)")
+      .order("created_at", { ascending: false })
+      .limit(body.limit ?? 20);
+
+    if (body.status) query = query.eq("status", body.status);
+
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
