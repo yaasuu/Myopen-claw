@@ -9,6 +9,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getUnreadCount } from "@/lib/data/notifications";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { Bell } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const pageTitles: Record<string, string> = {
   "/overview": "Overview",
@@ -81,6 +82,10 @@ export function AppHeader() {
             )}
           </Button>
         </Link>
+
+        <div className="divider" />
+
+        <ThemeToggle />
 
         <div className="divider" />
 

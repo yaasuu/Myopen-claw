@@ -13,7 +13,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <div className="flex min-h-screen w-full flex-col bg-[#0E1116]">
+      <div className="flex min-h-screen w-full flex-col" style={{ background: "var(--bg)" }}>
         <AppHeader />
         <main className="flex-1 overflow-y-auto">
           {children}
