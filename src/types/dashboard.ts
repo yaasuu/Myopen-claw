@@ -245,3 +245,12 @@ export interface ProjectHealthScore {
   escalationNeeded: boolean;
   escalationReason: string;
 }
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author: string;
+  author_role: "ceo" | "agent" | "system";
+  content: string;
+  created_at: string;
+}

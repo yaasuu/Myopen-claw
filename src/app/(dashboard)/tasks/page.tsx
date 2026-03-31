@@ -39,6 +39,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
   Plus,
   Loader2,
   AlertTriangle,
@@ -63,9 +70,10 @@ import {
   unarchiveTask,
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
+import { getTaskComments, addTaskComment } from "@/lib/data/comments";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { TaskWithAgent, Agent } from "@/types/dashboard";
+import type { TaskWithAgent, Agent, TaskComment } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
@@ -135,6 +143,13 @@ export default function TasksPage() {
   const [editAgentId, setEditAgentId] = useState<string>("none");
   const [editBlocker, setEditBlocker] = useState("");
   const [editOwner, setEditOwner] = useState("");
+
+  // Side panel (task detail + comments)
+  const [sidePanelTask, setSidePanelTask] = useState<TaskWithAgent | null>(null);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [sendingComment, setSendingComment] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
 
   // Inline updates
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -214,6 +229,25 @@ export default function TasksPage() {
     setEditBlocker(task.blocker ?? "");
     setEditOwner(task.owner);
     setEditOpen(true);
+  }
+
+  async function openSidePanel(task: TaskWithAgent) {
+    setSidePanelTask(task);
+    setLoadingComments(true);
+    const result = await getTaskComments(task.id);
+    setComments(result.data);
+    setLoadingComments(false);
+  }
+
+  async function handleSendComment() {
+    if (!sidePanelTask || !newComment.trim()) return;
+    setSendingComment(true);
+    const result = await addTaskComment(sidePanelTask.id, newComment.trim());
+    if (result.data) {
+      setComments((prev) => [...prev, result.data!]);
+      setNewComment("");
+    }
+    setSendingComment(false);
   }
 
   async function handleEditSave() {
@@ -670,7 +704,7 @@ export default function TasksPage() {
                               borderColor: task.blocker ? undefined : "var(--border)",
                               boxShadow: "var(--shadow-card)",
                             }}
-                            onClick={() => openEdit(task)}
+                            onClick={() => openSidePanel(task)}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.boxShadow = "var(--shadow-card-hover)";
                               if (!task.blocker) e.currentTarget.style.borderColor = "var(--border-strong)";
@@ -1001,6 +1035,145 @@ export default function TasksPage() {
         </DialogContent>
       </Dialog>
       )}
+
+      {/* Task Detail Side Panel */}
+      <Sheet open={!!sidePanelTask} onOpenChange={(open) => { if (!open) setSidePanelTask(null); }}>
+        <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto">
+          {sidePanelTask && (
+            <>
+              <SheetHeader className="pb-4">
+                <SheetTitle className="text-left text-base font-semibold" style={{ color: "var(--text)" }}>
+                  {sidePanelTask.title}
+                </SheetTitle>
+                <SheetDescription className="text-left">
+                  Task detail and comments
+                </SheetDescription>
+              </SheetHeader>
+
+              {/* Task details */}
+              <div className="space-y-4 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Status</p>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      sidePanelTask.status === "done" ? "bg-emerald-100 text-emerald-700" :
+                      sidePanelTask.status === "in-progress" ? "bg-blue-100 text-blue-700" :
+                      sidePanelTask.status === "blocked" ? "bg-red-100 text-red-700" :
+                      "bg-slate-100 text-slate-600"
+                    }`}>
+                      {sidePanelTask.status}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Priority</p>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      sidePanelTask.priority === "high" ? "bg-red-100 text-red-700" :
+                      sidePanelTask.priority === "medium" ? "bg-amber-100 text-amber-700" :
+                      "bg-emerald-100 text-emerald-700"
+                    }`}>
+                      {sidePanelTask.priority}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Agent</p>
+                    <p className="text-sm" style={{ color: "var(--text)" }}>
+                      {sidePanelTask.assigned_agent_name ? (
+                        <span>{sidePanelTask.assigned_agent_emoji} {sidePanelTask.assigned_agent_name}</span>
+                      ) : (
+                        <span style={{ color: "var(--text-quiet)" }}>Unassigned</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Owner</p>
+                    <p className="text-sm" style={{ color: "var(--text)" }}>{sidePanelTask.owner}</p>
+                  </div>
+                </div>
+
+                {sidePanelTask.blocker && (
+                  <div className="rounded-lg p-3" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--danger)" }}>Blocker</p>
+                    <p className="text-sm" style={{ color: "var(--danger)" }}>{sidePanelTask.blocker}</p>
+                  </div>
+                )}
+
+                {sidePanelTask.description && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Description</p>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>{sidePanelTask.description}</p>
+                  </div>
+                )}
+
+                {/* Edit button */}
+                <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => { setSidePanelTask(null); openEdit(sidePanelTask); }}>
+                  <Pencil className="h-3 w-3" /> Edit Task
+                </Button>
+              </div>
+
+              {/* Comments section */}
+              <div className="pt-4 space-y-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
+                  Comments ({comments.length})
+                </p>
+
+                {loadingComments ? (
+                  <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Loading comments...
+                  </div>
+                ) : comments.length === 0 ? (
+                  <div className="py-6 text-center text-xs" style={{ color: "var(--text-quiet)" }}>
+                    No comments yet. Start the conversation.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="rounded-lg p-3" style={{ background: "var(--surface-muted)" }}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold" style={{ color: comment.author_role === "ceo" ? "var(--accent)" : "var(--text)" }}>
+                            {comment.author}
+                          </span>
+                          <Badge variant="outline" className="text-[10px]">{comment.author_role}</Badge>
+                          <span className="text-[10px] ml-auto" style={{ color: "var(--text-quiet)" }}>
+                            {timeAgo(comment.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{comment.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Comment composer */}
+                {canWrite && (
+                  <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                    <textarea
+                      className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
+                      style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                      rows={3}
+                      placeholder="Add a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendComment();
+                        }
+                      }}
+                    />
+                    <div className="flex justify-end mt-2">
+                      <Button size="sm" onClick={handleSendComment} disabled={sendingComment || !newComment.trim()}>
+                        {sendingComment ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
     </PageShell>
   );
 }
