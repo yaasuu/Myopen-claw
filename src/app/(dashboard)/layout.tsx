@@ -2,6 +2,10 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 
+// Force dynamic rendering — prevent Vercel edge caching
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function DashboardLayout({
   children,
 }: {
