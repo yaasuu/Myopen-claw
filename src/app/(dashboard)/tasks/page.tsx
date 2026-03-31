@@ -416,85 +416,106 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        {/* Left: view toggle (Board | List) */}
-        <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "var(--surface-muted)" }}>
-          <button
-            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              background: viewMode === "board" ? "var(--text)" : "transparent",
-              color: viewMode === "board" ? "var(--bg)" : "var(--text-muted)",
-            }}
-            onClick={() => setViewMode("board")}
-          >
-            Board
-          </button>
-          <button
-            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-            style={{
-              background: viewMode === "table" ? "var(--text)" : "transparent",
-              color: viewMode === "table" ? "var(--bg)" : "var(--text-muted)",
-            }}
-            onClick={() => setViewMode("table")}
-          >
-            List
-          </button>
+      {/* Header bar — matches Mission Control reference */}
+      <div className="sticky top-0 z-30 border-b" style={{ borderColor: "var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+        <div className="px-4 py-4 md:px-8 md:py-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>Tasks</h1>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+                Keep tasks moving through your workflow.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* View toggle — pill style */}
+              <div className="flex items-center gap-1 rounded-lg p-1" style={{ background: "var(--surface-muted)" }}>
+                <button
+                  className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={{
+                    background: viewMode === "board" ? "var(--text)" : "transparent",
+                    color: viewMode === "board" ? "var(--surface)" : "var(--text-muted)",
+                  }}
+                  onClick={() => setViewMode("board")}
+                >
+                  Board
+                </button>
+                <button
+                  className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={{
+                    background: viewMode === "table" ? "var(--text)" : "transparent",
+                    color: viewMode === "table" ? "var(--surface)" : "var(--text-muted)",
+                  }}
+                  onClick={() => setViewMode("table")}
+                >
+                  List
+                </button>
+              </div>
+
+              {/* New task */}
+              {canWrite && (
+                <button
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition"
+                  style={{ background: "var(--accent)", color: "var(--surface)" }}
+                  onClick={() => setCreateOpen(true)}
+                  title="New task"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              )}
+
+              {/* Archive toggle */}
+              <button
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+                style={{ borderColor: "var(--border)", color: showArchived ? "var(--accent)" : "var(--text-muted)" }}
+                onClick={() => setShowArchived(!showArchived)}
+                title={showArchived ? "Hide archived" : "Show archived"}
+              >
+                {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+              </button>
+
+              {/* Settings */}
+              <button
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+                style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
+                title="Filters"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Filters row */}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterAgent} onValueChange={setFilterAgent}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Agent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All agents</SelectItem>
+                {agents.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.emoji} {a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <span className="text-xs" style={{ color: "var(--text-quiet)" }}>
+              {filtered.length} task{filtered.length !== 1 ? "s" : ""}
+              {filterStatus !== "all" || filterAgent !== "all" ? ` of ${tasks.length}` : ""}
+            </span>
+          </div>
         </div>
-
-        <div className="divider" />
-
-        {/* Filters */}
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-32 h-8 text-xs">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={filterAgent} onValueChange={setFilterAgent}>
-          <SelectTrigger className="w-40 h-8 text-xs">
-            <SelectValue placeholder="Agent" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All agents</SelectItem>
-            {agents.map((a) => (
-              <SelectItem key={a.id} value={a.id}>{a.emoji} {a.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="flex-1" />
-
-        {/* Right: icon actions */}
-        {canWrite && (
-          <button
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
-            style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
-            onClick={() => setCreateOpen(true)}
-            title="New task"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        )}
-
-        <button
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
-          style={{ borderColor: "var(--border)", color: showArchived ? "var(--accent)" : "var(--text-muted)" }}
-          onClick={() => setShowArchived(!showArchived)}
-          title={showArchived ? "Hide archived" : "Show archived"}
-        >
-          {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-        </button>
-
-        <span className="text-xs ml-2" style={{ color: "var(--text-quiet)" }}>
-          {filtered.length}
-        </span>
       </div>
         <Dialog open={createOpen} onOpenChange={(open) => {
           setCreateOpen(open);
@@ -605,42 +626,9 @@ export default function TasksPage() {
           </DialogContent>
         </Dialog>
 
-      {/* Board View — matches Mission Control reference */}
+      {/* Board View */}
       {viewMode === "board" && (
-        <div className="flex gap-4 flex-col lg:flex-row">
-          {/* Left: Agent sidebar (like reference) */}
-          <div className="hidden lg:flex w-[200px] shrink-0 flex-col rounded-xl border overflow-hidden" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-            <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--border)" }}>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Agents</p>
-                <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agents.filter(a => a.status === "active").length} active</p>
-              </div>
-            </div>
-            <div className="flex-1 space-y-1 overflow-y-auto p-2">
-              {agents.map((agent) => {
-                const agentTasks = filtered.filter((t) => t.assigned_agent_id === agent.id && t.status !== "done");
-                return (
-                  <Link
-                    key={agent.id}
-                    href={`/agents/${agent.id}`}
-                    className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left transition hover:border-[var(--border)] hover:bg-[var(--surface-muted)]"
-                  >
-                    <div className="relative">
-                      <span className="text-base">{agent.emoji}</span>
-                      <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${agent.status === "active" ? "dot-green" : "dot-amber"}`} style={{ borderColor: "var(--surface)" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-medium truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
-                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{agentTasks.length} tasks</p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Right: Kanban columns */}
-          <div className="flex-1 grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
             {STATUSES.map((status) => {
               const columnTasks = filtered.filter((t) => t.status === status);
               const dotColor: Record<string, string> = {
@@ -751,8 +739,7 @@ export default function TasksPage() {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
 
       {/* Table View */}
       {viewMode === "table" && (
