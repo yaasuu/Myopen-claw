@@ -136,5 +136,90 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
+  // Create notification
+  if (body.action === "create_notification") {
+    const { data, error } = await supabase
+      .from("notifications")
+      .insert({
+        type: body.type ?? "system_alert",
+        title: body.title ?? "Notification",
+        message: body.message ?? "",
+        severity: body.severity ?? "info",
+        related_task_id: body.related_task_id ?? null,
+        related_agent_id: body.related_agent_id ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
+  // Get notifications
+  if (body.action === "get_notifications") {
+    let query = supabase
+      .from("notifications")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(body.limit ?? 20);
+
+    if (body.unreadOnly) query = query.eq("is_read", false);
+
+    const { data, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
+  // Get system status
+  if (body.action === "get_system_status") {
+    const { data, error } = await supabase
+      .from("system_status")
+      .select("*")
+      .order("checked_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
+  // Create comment
+  if (body.action === "create_comment") {
+    const { data, error } = await supabase
+      .from("task_comments")
+      .insert({
+        task_id: body.task_id,
+        author: body.author ?? "Yas",
+        author_role: body.author_role ?? "ceo",
+        content: body.content,
+      })
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    // Log feed event
+    await supabase.from("feed_events").insert({
+      event_type: "task_updated",
+      source: body.author ?? "Yas",
+      summary: `Comment added to task: ${body.content?.slice(0, 80)}`,
+      related_task_id: body.task_id,
+    });
+
+    return NextResponse.json({ data });
+  }
+
+  // Get comments for a task
+  if (body.action === "get_comments") {
+    const { data, error } = await supabase
+      .from("task_comments")
+      .select("*")
+      .eq("task_id", body.task_id)
+      .order("created_at", { ascending: true });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
