@@ -398,90 +398,98 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Top bar: filters + new task */}
-      <div className="action-bar">
+      {/* Toolbar */}
+      <div className="toolbar">
+        {/* Left: filters */}
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-32 h-8 text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
+              <SelectItem key={s} value={s}>{s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select value={filterAgent} onValueChange={setFilterAgent}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-40 h-8 text-xs">
             <SelectValue placeholder="Agent" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All agents</SelectItem>
             {agents.map((a) => (
-              <SelectItem key={a.id} value={a.id}>
-                {a.emoji} {a.name}
-              </SelectItem>
+              <SelectItem key={a.id} value={a.id}>{a.emoji} {a.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        {/* Show archived toggle */}
-        <Button
-          variant={showArchived ? "secondary" : "outline"}
-          size="sm"
-          onClick={() => setShowArchived(!showArchived)}
-          className="gap-1.5"
-        >
-          {showArchived ? (
-            <>
-              <ArchiveRestore className="h-3.5 w-3.5" />
-              Hide archived
-            </>
-          ) : (
-            <>
-              <Archive className="h-3.5 w-3.5" />
-              Show archived
-            </>
-          )}
-        </Button>
+        <div className="divider" />
 
-        {/* View toggle */}
-        <div className="flex items-center border rounded-lg overflow-hidden">
+        {/* View toggle — compact like reference */}
+        <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "var(--surface-muted)" }}>
           <Button
-            variant={viewMode === "board" ? "secondary" : "ghost"}
+            variant="ghost"
             size="sm"
-            className="rounded-none h-8 px-3"
+            className="rounded-none h-7 px-2.5 text-xs"
+            style={{
+              background: viewMode === "board" ? "var(--text)" : "transparent",
+              color: viewMode === "board" ? "var(--bg)" : "var(--text-muted)",
+            }}
             onClick={() => setViewMode("board")}
           >
-            <LayoutGrid className="h-3.5 w-3.5" />
+            Board
           </Button>
           <Button
-            variant={viewMode === "table" ? "secondary" : "ghost"}
+            variant="ghost"
             size="sm"
-            className="rounded-none h-8 px-3"
+            className="rounded-none h-7 px-2.5 text-xs"
+            style={{
+              background: viewMode === "table" ? "var(--text)" : "transparent",
+              color: viewMode === "table" ? "var(--bg)" : "var(--text-muted)",
+            }}
             onClick={() => setViewMode("table")}
           >
-            <List className="h-3.5 w-3.5" />
+            List
           </Button>
         </div>
 
+        <div className="divider" />
+
+        {/* Compact icon actions */}
+        {canWrite && (
+          <Button
+            size="sm"
+            className="h-8 w-8 p-0 rounded-lg"
+            onClick={() => setCreateOpen(true)}
+            title="New task"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-lg hover-surface"
+          onClick={() => setShowArchived(!showArchived)}
+          title={showArchived ? "Hide archived" : "Show archived"}
+          style={{ color: showArchived ? "var(--accent)" : "var(--text-quiet)" }}
+        >
+          {showArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+        </Button>
+
         <div className="flex-1" />
 
-        {/* Create dialog */}
-        {canWrite && (
+        <span className="text-xs" style={{ color: "var(--text-quiet)" }}>
+          {filtered.length} task{filtered.length !== 1 ? "s" : ""}
+        </span>
+      </div>
         <Dialog open={createOpen} onOpenChange={(open) => {
           setCreateOpen(open);
           if (!open) setCreateSuccess(false);
         }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              New Task
-            </Button>
-          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{createSuccess ? "Task Created ✓" : "Create Task"}</DialogTitle>
@@ -586,135 +594,84 @@ export default function TasksPage() {
             </div>
           </DialogContent>
         </Dialog>
-        )}
-      </div>
-
-      {/* Task count + view */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          {filtered.length} task{filtered.length !== 1 ? "s" : ""}
-          {filterStatus !== "all" || filterAgent !== "all" ? ` (filtered from ${tasks.length})` : ""}
-          {showArchived ? " — including archived" : ""}
-        </p>
-      </div>
 
       {/* Board View */}
       {viewMode === "board" && (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
           {STATUSES.map((status) => {
             const columnTasks = filtered.filter((t) => t.status === status);
-            const columnColors: Record<string, string> = {
-              pending: "border-t-slate-300",
-              "in-progress": "border-t-blue-400",
-              blocked: "border-t-red-400",
-              done: "border-t-emerald-400",
+            const dotColor: Record<string, string> = {
+              pending: "dot-gray",
+              "in-progress": "dot-blue",
+              blocked: "dot-red",
+              done: "dot-green",
+            };
+            const statusLabel: Record<string, string> = {
+              pending: "Pending",
+              "in-progress": "In Progress",
+              blocked: "Blocked",
+              done: "Done",
             };
 
             return (
               <div key={status} className="space-y-3">
-                {/* Column header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border ${statusColors[status]}`}>
-                      {status}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{columnTasks.length}</span>
-                  </div>
+                {/* Column header — dot + title + count */}
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${dotColor[status]}`} />
+                  <span className="text-sm font-medium" style={{ color: "var(--text)" }}>{statusLabel[status]}</span>
+                  <span className="text-xs font-medium" style={{ color: "var(--text-quiet)" }}>{columnTasks.length}</span>
                 </div>
 
                 {/* Column cards */}
                 <div className="space-y-2 min-h-[100px]">
                   {columnTasks.length === 0 ? (
-                    <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
+                    <div className="rounded-lg border-dashed py-8 text-center text-xs" style={{ border: "1px dashed var(--border)", color: "var(--text-quiet)" }}>
                       No tasks
                     </div>
                   ) : (
                     columnTasks.map((task) => (
-                      <Card key={task.id} className={`stat-card border-t-2 ${columnColors[status]} ${task.is_archived ? "opacity-50" : ""}`}>
-                        <CardContent className="p-3 space-y-2">
-                          {/* Title */}
-                          <p className="text-sm font-medium leading-snug">{task.title}</p>
+                      <div
+                        key={task.id}
+                        className={`surface-card p-3 space-y-2 cursor-pointer transition-all duration-150 ${task.is_archived ? "opacity-50" : ""}`}
+                        onClick={() => openEdit(task)}
+                      >
+                        {/* Title */}
+                        <p className="text-[13px] font-medium leading-snug" style={{ color: "var(--text)" }}>{task.title}</p>
 
-                          {/* Priority + blocker */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-xs font-medium inline-flex items-center gap-1 ${priorityColors[task.priority].text}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
-                              {task.priority}
+                        {/* Priority dot + blocker indicator */}
+                        <div className="flex items-center gap-2">
+                          <div className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority].dot}`} />
+                          {task.blocker && (
+                            <span className="text-[11px] flex items-center gap-1" style={{ color: "var(--danger)" }}>
+                              <AlertTriangle className="h-3 w-3" />
+                              blocked
                             </span>
-                            {task.blocker && (
-                              <span className="text-xs text-[var(--danger)] flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                blocked
-                              </span>
-                            )}
-                            {task.is_archived && (
-                              <Badge variant="outline" className="text-[10px]">archived</Badge>
-                            )}
-                          </div>
-
-                          {/* Agent */}
-                          <div className="flex items-center justify-between pt-1 border-t">
-                            <span className="text-xs text-muted-foreground">
-                              {task.assigned_agent_name ? (
-                                <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
-                              ) : (
-                                <span className="italic">Unassigned</span>
-                              )}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {new Date(task.updated_at).toLocaleDateString()}
-                            </span>
-                          </div>
-
-                          {/* Quick actions */}
-                          {canWrite && !task.is_archived && (
-                            <div className="flex gap-1 pt-1">
-                              {status !== "done" && (
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
-                                  className="text-[10px] h-6"
-                                  onClick={() => handleStatusChange(task.id, "done")}
-                                  disabled={updatingId === task.id}
-                                >
-                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Done
-                                </Button>
-                              )}
-                              {status === "blocked" && (
-                                <Button
-                                  variant="ghost"
-                                  size="xs"
-                                  className="text-[10px] h-6"
-                                  onClick={() => handleUnblock(task.id)}
-                                  disabled={updatingId === task.id}
-                                >
-                                  Unblock
-                                </Button>
-                              )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="xs" className="h-6 w-6 p-0">
-                                    <MoreHorizontal className="h-3 w-3" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => openEdit(task)}>
-                                    <Pencil className="mr-2 h-3 w-3" /> Edit
-                                  </DropdownMenuItem>
-                                  {STATUSES.filter((s) => s !== status).map((s) => (
-                                    <DropdownMenuItem key={s} onClick={() => handleStatusChange(task.id, s)}>
-                                      Move to {s}
-                                    </DropdownMenuItem>
-                                  ))}
-                                  <DropdownMenuItem onClick={() => handleArchive(task.id)}>
-                                    <Archive className="mr-2 h-3 w-3" /> Archive
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
                           )}
-                        </CardContent>
-                      </Card>
+                        </div>
+
+                        {/* Agent — subtle, bottom */}
+                        <div className="flex items-center justify-between pt-1" style={{ borderTop: "1px solid var(--border)" }}>
+                          <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
+                            {task.assigned_agent_name ? (
+                              <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
+                            ) : (
+                              <span className="italic">Unassigned</span>
+                            )}
+                          </span>
+                          {/* Quick done button */}
+                          {canWrite && !task.is_archived && status !== "done" && (
+                            <button
+                              className="text-[10px] px-1.5 py-0.5 rounded hover-surface"
+                              style={{ color: "var(--success)" }}
+                              onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
+                              disabled={updatingId === task.id}
+                              title="Mark done"
+                            >
+                              ✓
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     ))
                   )}
                 </div>
