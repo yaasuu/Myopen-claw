@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -9,7 +8,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email and password required" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
+  let response = NextResponse.json({ success: false });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,18 +16,28 @@ export async function POST(request: Request) {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          const cookies: Array<{ name: string; value: string }> = [];
+          const cookieHeader = request.headers.get("cookie");
+          if (cookieHeader) {
+            cookieHeader.split(";").forEach((c) => {
+              const [name, ...rest] = c.trim().split("=");
+              if (name) cookies.push({ name, value: rest.join("=") });
+            });
+          }
+          return cookies;
         },
         setAll(cookiesToSet) {
+          // Create a new response that carries the cookies
+          response = NextResponse.json({ success: true, user: { email } });
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            response.cookies.set(name, value, options);
           });
         },
       },
     }
   );
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -37,8 +46,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({
-    success: true,
-    user: { id: data.user?.id, email: data.user?.email },
-  });
+  return response;
 }
