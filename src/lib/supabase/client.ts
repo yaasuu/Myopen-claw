@@ -1,21 +1,35 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-let client: SupabaseClient | null = null;
+let _client: SupabaseClient | null = null;
 
-export function getSupabase(): SupabaseClient | null {
-  if (client) return client;
+function getClient(): SupabaseClient | null {
+  if (_client) return _client;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !key) return null;
+  if (!url || !key) {
+    return null;
+  }
 
-  // Use createBrowserClient from @supabase/ssr — this syncs auth
-  // state to cookies (not just localStorage) so the middleware can
-  // read them on the next request.
-  client = createBrowserClient(url, key);
-  return client;
+  try {
+    _client = createBrowserClient(url, key);
+  } catch (e) {
+    // createBrowserClient failed — fall back to standard client
+    try {
+      const { createClient } = require("@supabase/supabase-js");
+      _client = createClient(url, key);
+    } catch (e2) {
+      return null;
+    }
+  }
+
+  return _client;
+}
+
+export function getSupabase(): SupabaseClient | null {
+  return getClient();
 }
 
 export function isSupabaseReady(): boolean {
