@@ -14,9 +14,9 @@ import { getOrgNodes } from "@/lib/data/org";
 import type { OrgNode } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
-  active: "border-emerald-200 bg-emerald-50",
-  paused: "border-amber-200 bg-amber-50",
-  retired: "border-gray-200 bg-gray-50",
+  active: "border-emerald-200 bg-[rgba(16,185,129,0.08)]",
+  paused: "border-amber-200 bg-[rgba(245,158,11,0.08)]",
+  retired: "border-[var(--border)] bg-gray-50",
 };
 
 function NodeCard({ node }: { node: OrgNode }) {
@@ -80,7 +80,7 @@ export default function OrgChartPage() {
               <p className="text-sm font-medium">Failed to load org chart</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -100,7 +100,7 @@ export default function OrgChartPage() {
       description="Agent hierarchy and routing structure"
     >
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}

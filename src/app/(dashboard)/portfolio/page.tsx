@@ -46,18 +46,18 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { ProjectWithStats, ProjectHealthScore, Department, Agent, TaskWithAgent } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
-  planning: "bg-slate-100 text-slate-600",
-  active: "bg-blue-50 text-blue-700",
-  "on-hold": "bg-amber-50 text-amber-700",
-  completed: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  planning: "bg-transparent text-[var(--text-quiet)]",
+  active: "bg-[rgba(59,130,246,0.08)] text-[var(--info)]",
+  "on-hold": "bg-[rgba(245,158,11,0.08)] text-[var(--warning)]",
+  completed: "bg-[rgba(16,185,129,0.08)] text-[var(--success)]",
+  cancelled: "bg-transparent text-[var(--text-quiet)]",
 };
 
 const healthColors: Record<string, { color: string; bg: string }> = {
-  healthy: { color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
-  watch: { color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-  at_risk: { color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
-  critical: { color: "text-red-600", bg: "bg-red-50 border-red-200" },
+  healthy: { color: "text-[var(--success)]", bg: "bg-[rgba(16,185,129,0.08)] border-emerald-200" },
+  watch: { color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)] border-amber-200" },
+  at_risk: { color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)] border-orange-200" },
+  critical: { color: "text-[var(--danger)]", bg: "bg-[rgba(239,68,68,0.08)] border-red-200" },
 };
 
 const VIEWS: PortfolioView[] = ["status", "department", "priority", "health"];
@@ -151,7 +151,7 @@ export default function PortfolioPage() {
   return (
     <PageShell title="Portfolio" description="Executive cross-project control tower">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       {/* Stats row */}
@@ -159,12 +159,12 @@ export default function PortfolioPage() {
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
           {[
             { label: "Total", value: stats.total, color: "" },
-            { label: "Active", value: stats.active, color: "text-blue-600" },
-            { label: "Blocked", value: stats.blocked, color: stats.blocked > 0 ? "text-red-600" : "" },
-            { label: "Critical", value: stats.critical, color: stats.critical > 0 ? "text-red-600" : "" },
-            { label: "Completed", value: stats.completed, color: "text-emerald-600" },
-            { label: "Overdue", value: stats.overdue, color: stats.overdue > 0 ? "text-red-600" : "" },
-            { label: "Avg Health", value: `${stats.avgHealth}%`, color: stats.avgHealth >= 75 ? "text-emerald-600" : stats.avgHealth >= 50 ? "text-amber-600" : "text-red-600" },
+            { label: "Active", value: stats.active, color: "text-[var(--info)]" },
+            { label: "Blocked", value: stats.blocked, color: stats.blocked > 0 ? "text-[var(--danger)]" : "" },
+            { label: "Critical", value: stats.critical, color: stats.critical > 0 ? "text-[var(--danger)]" : "" },
+            { label: "Completed", value: stats.completed, color: "text-[var(--success)]" },
+            { label: "Overdue", value: stats.overdue, color: stats.overdue > 0 ? "text-[var(--danger)]" : "" },
+            { label: "Avg Health", value: `${stats.avgHealth}%`, color: stats.avgHealth >= 75 ? "text-[var(--success)]" : stats.avgHealth >= 50 ? "text-[var(--warning)]" : "text-[var(--danger)]" },
           ].map((s) => (
             <Card key={s.label} className="stat-card">
               <CardContent className="p-4 text-center">
@@ -196,11 +196,11 @@ export default function PortfolioPage() {
       {signals.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(239,68,68,0.08)]">
               <AlertOctagon className="h-4 w-4 text-red-500" />
             </div>
             <h2 className="section-title">Executive Signals</h2>
-            <Badge className="bg-red-100 text-red-700 text-xs">{signals.length}</Badge>
+            <Badge className="bg-[rgba(239,68,68,0.12)] text-[var(--danger)] text-xs">{signals.length}</Badge>
           </div>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {signals.map((signal, i) => (
@@ -212,9 +212,9 @@ export default function PortfolioPage() {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <Badge className={`text-[10px] ${
-                      signal.severity === "high" ? "bg-red-100 text-red-700" :
-                      signal.severity === "medium" ? "bg-amber-100 text-amber-700" :
-                      "bg-blue-100 text-blue-700"
+                      signal.severity === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                      signal.severity === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                      "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                     }`}>{signal.severity}</Badge>
                   </div>
                   <p className="text-sm">{signal.message}</p>
@@ -253,25 +253,25 @@ export default function PortfolioPage() {
                           <Badge variant="outline" className="text-[10px]">{p.project_code}</Badge>
                           {h && (
                             <div className={`h-2 w-2 rounded-full ${
-                              h.status === "healthy" ? "bg-emerald-500" :
-                              h.status === "watch" ? "bg-amber-500" :
-                              h.status === "at_risk" ? "bg-orange-500" :
-                              "bg-red-500"
+                              h.status === "healthy" ? "bg-[rgba(16,185,129,0.08)]0" :
+                              h.status === "watch" ? "bg-[rgba(245,158,11,0.08)]0" :
+                              h.status === "at_risk" ? "bg-[rgba(245,158,11,0.08)]0" :
+                              "bg-[rgba(239,68,68,0.08)]0"
                             }`} />
                           )}
                         </div>
                         <p className="text-sm font-medium truncate">{p.title}</p>
                         <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                           <div className={`h-full rounded-full ${
-                            p.progress >= 75 ? "bg-emerald-500" :
-                            p.progress >= 50 ? "bg-blue-500" :
-                            p.progress >= 25 ? "bg-amber-500" :
-                            "bg-red-500"
+                            p.progress >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
+                            p.progress >= 50 ? "bg-[rgba(59,130,246,0.08)]0" :
+                            p.progress >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
+                            "bg-[rgba(239,68,68,0.08)]0"
                           }`} style={{ width: `${p.progress}%` }} />
                         </div>
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                           <span>{p.progress}%</span>
-                          {p.blocked_tasks > 0 && <span className="text-red-600">{p.blocked_tasks} blocked</span>}
+                          {p.blocked_tasks > 0 && <span className="text-[var(--danger)]">{p.blocked_tasks} blocked</span>}
                           {p.due_date && <span>Due {new Date(p.due_date).toLocaleDateString()}</span>}
                         </div>
                       </CardContent>
@@ -288,15 +288,15 @@ export default function PortfolioPage() {
       {review && (
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-              <Shield className="h-4 w-4 text-violet-600" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+              <Shield className="h-4 w-4 text-[var(--accent)]" />
             </div>
             <h2 className="section-title">Portfolio Review</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="stat-card">
               <CardContent className="p-5 space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">Top Risks</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--danger)]">Top Risks</p>
                 {review.topRisks.length > 0 ? review.topRisks.map((r, i) => (
                   <p key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
                     <AlertTriangle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" /> {r}
@@ -306,7 +306,7 @@ export default function PortfolioPage() {
             </Card>
             <Card className="stat-card">
               <CardContent className="p-5 space-y-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Recommended Actions</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--info)]">Recommended Actions</p>
                 {review.recommendedActions.map((a, i) => (
                   <p key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
                     <ChevronRight className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" /> {a}

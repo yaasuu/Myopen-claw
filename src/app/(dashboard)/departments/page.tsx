@@ -72,7 +72,7 @@ export default function DepartmentsPage() {
   return (
     <PageShell title="Departments" description="Persistent organizational departments">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">
           {error}
         </div>
       )}
@@ -95,7 +95,7 @@ export default function DepartmentsPage() {
                       <div>
                         <p className="text-sm font-bold tracking-tight">{dept.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <div className={`status-dot ${isActive ? "bg-emerald-500" : "bg-amber-500"}`} />
+                          <div className={`status-dot ${isActive ? "bg-[rgba(16,185,129,0.08)]0" : "bg-[rgba(245,158,11,0.08)]0"}`} />
                           <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                             {dept.status}
                           </span>
@@ -103,9 +103,9 @@ export default function DepartmentsPage() {
                       </div>
                     </div>
                     <Badge className={`text-[10px] ${
-                      dept.priority === "high" ? "bg-red-100 text-red-700" :
-                      dept.priority === "medium" ? "bg-amber-100 text-amber-700" :
-                      "bg-gray-100 text-gray-600"
+                      dept.priority === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                      dept.priority === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                      "bg-transparent text-[var(--text-quiet)]"
                     }`}>
                       {dept.priority}
                     </Badge>
@@ -124,13 +124,13 @@ export default function DepartmentsPage() {
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Tasks</div>
                       </div>
                       <div className="text-center">
-                        <div className={`text-lg font-bold ${perf.blockedTasks > 0 ? "text-red-600" : ""}`}>
+                        <div className={`text-lg font-bold ${perf.blockedTasks > 0 ? "text-[var(--danger)]" : ""}`}>
                           {perf.blockedTasks}
                         </div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Blocked</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-bold text-emerald-600">{perf.completedTasks}</div>
+                        <div className="text-lg font-bold text-[var(--success)]">{perf.completedTasks}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Done</div>
                       </div>
                     </div>

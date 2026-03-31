@@ -62,15 +62,15 @@ const iconMap: Record<string, typeof Plus> = {
 };
 
 const colorMap: Record<string, string> = {
-  task_created: "text-blue-500 bg-blue-50",
-  task_updated: "text-violet-500 bg-violet-50",
-  task_completed: "text-emerald-500 bg-emerald-50",
+  task_created: "text-blue-500 bg-[rgba(59,130,246,0.08)]",
+  task_updated: "text-violet-500 bg-[rgba(139,92,246,0.08)]",
+  task_completed: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
   agent_routed: "text-indigo-500 bg-indigo-50",
-  agent_paused: "text-gray-500 bg-gray-50",
-  agent_resumed: "text-emerald-500 bg-emerald-50",
-  system_alert: "text-red-500 bg-red-50",
-  blocker_detected: "text-amber-500 bg-amber-50",
-  blocker_resolved: "text-emerald-500 bg-emerald-50",
+  agent_paused: "text-[var(--text-quiet)] bg-gray-50",
+  agent_resumed: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
+  system_alert: "text-red-500 bg-[rgba(239,68,68,0.08)]",
+  blocker_detected: "text-amber-500 bg-[rgba(245,158,11,0.08)]",
+  blocker_resolved: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
 };
 
 const typeLabels: Record<string, string> = {
@@ -157,7 +157,7 @@ export default function LiveFeedPage() {
               <p className="text-sm font-medium">Failed to load events</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -204,13 +204,13 @@ export default function LiveFeedPage() {
         <div className="flex-1" />
 
         <Badge variant="outline" className="gap-1.5">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[rgba(16,185,129,0.08)]0" />
           {filtered.length} event{filtered.length !== 1 ? "s" : ""}
         </Badge>
       </div>
 
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}
@@ -228,7 +228,7 @@ export default function LiveFeedPage() {
             <div className="divide-y">
               {filtered.map((event) => {
                 const Icon = iconMap[event.event_type] ?? Plus;
-                const colors = colorMap[event.event_type] ?? "text-gray-500 bg-gray-50";
+                const colors = colorMap[event.event_type] ?? "text-[var(--text-quiet)] bg-gray-50";
                 const label = typeLabels[event.event_type] ?? event.event_type;
                 const linkedAgent = event.related_agent_id ? agentMap.get(event.related_agent_id) : null;
 

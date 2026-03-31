@@ -65,10 +65,10 @@ function timeAgo(iso: string): string {
 }
 
 const scanStyles: Record<SkillScanResult, { icon: typeof Shield; color: string; bg: string; label: string }> = {
-  pending: { icon: Clock, color: "text-gray-500", bg: "bg-gray-50", label: "Pending scan" },
-  clean: { icon: ShieldCheck, color: "text-emerald-600", bg: "bg-emerald-50", label: "Clean" },
-  suspicious: { icon: ShieldAlert, color: "text-amber-600", bg: "bg-amber-50", label: "Suspicious" },
-  blocked: { icon: Shield, color: "text-red-600", bg: "bg-red-50", label: "Blocked" },
+  pending: { icon: Clock, color: "text-[var(--text-quiet)]", bg: "bg-gray-50", label: "Pending scan" },
+  clean: { icon: ShieldCheck, color: "text-[var(--success)]", bg: "bg-[rgba(16,185,129,0.08)]", label: "Clean" },
+  suspicious: { icon: ShieldAlert, color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)]", label: "Suspicious" },
+  blocked: { icon: Shield, color: "text-[var(--danger)]", bg: "bg-[rgba(239,68,68,0.08)]", label: "Blocked" },
 };
 
 export default function SkillsPage() {
@@ -170,7 +170,7 @@ export default function SkillsPage() {
   return (
     <PageShell title="Skills" description="Agent capability registry and learning system">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       {/* Request button */}
@@ -185,11 +185,11 @@ export default function SkillsPage() {
       {/* Pending Requests + Security Scan */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-            <Zap className="h-4 w-4 text-violet-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+            <Zap className="h-4 w-4 text-[var(--accent)]" />
           </div>
           <h2 className="section-title">Skill Requests</h2>
-          {pendingRequests.length > 0 && <Badge className="bg-violet-100 text-violet-700 text-xs">{pendingRequests.length}</Badge>}
+          {pendingRequests.length > 0 && <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">{pendingRequests.length}</Badge>}
         </div>
 
         {pendingRequests.length === 0 ? (
@@ -229,9 +229,9 @@ export default function SkillsPage() {
                         </div>
                       </div>
                       <Badge className={`text-xs ${
-                        req.urgency === "high" ? "bg-red-100 text-red-700" :
-                        req.urgency === "medium" ? "bg-amber-100 text-amber-700" :
-                        "bg-blue-100 text-blue-700"
+                        req.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                        req.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                        "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                       }`}>{req.urgency}</Badge>
                     </div>
 
@@ -284,7 +284,7 @@ export default function SkillsPage() {
                     )}
                     {req.scan_result === "blocked" && (
                       <div className="pt-2 border-t">
-                        <p className="text-xs text-red-600 font-medium">⛔ Auto-blocked — cannot be approved</p>
+                        <p className="text-xs text-[var(--danger)] font-medium">⛔ Auto-blocked — cannot be approved</p>
                       </div>
                     )}
                   </CardContent>
@@ -299,11 +299,11 @@ export default function SkillsPage() {
       {gaps.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
               <TrendingUp className="h-4 w-4 text-amber-500" />
             </div>
             <h2 className="section-title">Skill Gaps Detected</h2>
-            <Badge className="bg-amber-100 text-amber-700 text-xs">{gaps.length}</Badge>
+            <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{gaps.length}</Badge>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -316,9 +316,9 @@ export default function SkillsPage() {
                       <span className="text-sm font-medium">{gap.agent.name}</span>
                     </div>
                     <Badge className={`text-[10px] ${
-                      gap.urgency === "high" ? "bg-red-100 text-red-700" :
-                      gap.urgency === "medium" ? "bg-amber-100 text-amber-700" :
-                      "bg-blue-100 text-blue-700"
+                      gap.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                      gap.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                      "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                     }`}>{gap.urgency}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">Missing: <span className="font-medium text-foreground">{gap.missingSkill}</span></p>
@@ -333,11 +333,11 @@ export default function SkillsPage() {
       {/* Agent Skill Registry */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-            <Award className="h-4 w-4 text-blue-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
+            <Award className="h-4 w-4 text-[var(--info)]" />
           </div>
           <h2 className="section-title">Agent Skills</h2>
-          <Badge className="bg-blue-100 text-blue-700 text-xs">{agentSkills.length} installed</Badge>
+          <Badge className="bg-[rgba(59,130,246,0.12)] text-[var(--info)] text-xs">{agentSkills.length} installed</Badge>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -376,11 +376,11 @@ export default function SkillsPage() {
       {/* Installed Skills */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
+            <ShieldCheck className="h-4 w-4 text-[var(--success)]" />
           </div>
           <h2 className="section-title">Installed Skills</h2>
-          <Badge className="bg-emerald-100 text-emerald-700 text-xs">{installedSkills.length}</Badge>
+          <Badge className="bg-[rgba(16,185,129,0.12)] text-[var(--success)] text-xs">{installedSkills.length}</Badge>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

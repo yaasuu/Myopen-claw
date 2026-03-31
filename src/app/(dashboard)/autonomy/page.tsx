@@ -51,11 +51,11 @@ import {
 import type { Agent, TaskWithAgent } from "@/types/dashboard";
 
 const stateStyles: Record<AutonomyState, { label: string; color: string; bg: string; icon: typeof Shield }> = {
-  STABLE: { label: "Stable", color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", icon: Shield },
-  OPTIMIZING: { label: "Optimizing", color: "text-blue-700", bg: "bg-blue-50 border-blue-200", icon: TrendingUp },
-  EXPANDING: { label: "Expanding", color: "text-violet-700", bg: "bg-violet-50 border-violet-200", icon: Layers },
-  RESTRUCTURING: { label: "Restructuring", color: "text-amber-700", bg: "bg-amber-50 border-amber-200", icon: Target },
-  CRITICAL_INTERVENTION: { label: "Critical", color: "text-red-700", bg: "bg-red-50 border-red-200", icon: AlertOctagon },
+  STABLE: { label: "Stable", color: "text-[var(--success)]", bg: "bg-[rgba(16,185,129,0.08)] border-emerald-200", icon: Shield },
+  OPTIMIZING: { label: "Optimizing", color: "text-[var(--info)]", bg: "bg-[rgba(59,130,246,0.08)] border-blue-200", icon: TrendingUp },
+  EXPANDING: { label: "Expanding", color: "text-[var(--accent)]", bg: "bg-[rgba(139,92,246,0.08)] border-violet-200", icon: Layers },
+  RESTRUCTURING: { label: "Restructuring", color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)] border-amber-200", icon: Target },
+  CRITICAL_INTERVENTION: { label: "Critical", color: "text-[var(--danger)]", bg: "bg-[rgba(239,68,68,0.08)] border-red-200", icon: AlertOctagon },
 };
 
 const loopIcons: Record<LoopType, typeof Activity> = {
@@ -163,7 +163,7 @@ export default function AutonomyPage() {
               <p className="text-sm font-medium">Failed to load</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -179,7 +179,7 @@ export default function AutonomyPage() {
   return (
     <PageShell title="Autonomy Center" description="Governed operating loops and executive oversight">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">
           {error}
         </div>
       )}
@@ -217,8 +217,8 @@ export default function AutonomyPage() {
       {/* ── Review Loops ──────────────────────────── */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-            <Zap className="h-4 w-4 text-blue-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
+            <Zap className="h-4 w-4 text-[var(--info)]" />
           </div>
           <h2 className="section-title">Review Loops</h2>
         </div>
@@ -251,7 +251,7 @@ export default function AutonomyPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Blockers escalated</span>
-                      <span className={`font-medium ${s.blockersEscalated > 0 ? "text-red-600" : ""}`}>{s.blockersEscalated}</span>
+                      <span className={`font-medium ${s.blockersEscalated > 0 ? "text-[var(--danger)]" : ""}`}>{s.blockersEscalated}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Actions proposed</span>
@@ -302,8 +302,8 @@ export default function AutonomyPage() {
       {/* ── Executive Reviews ─────────────────────── */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-            <Shield className="h-4 w-4 text-violet-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+            <Shield className="h-4 w-4 text-[var(--accent)]" />
           </div>
           <h2 className="section-title">Executive Reviews</h2>
         </div>
@@ -320,9 +320,9 @@ export default function AutonomyPage() {
 
                 {review.keyRisks.length > 0 && review.keyRisks[0] !== "No critical risks" && (
                   <div className="space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">Key Risks</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--danger)]">Key Risks</p>
                     {review.keyRisks.map((risk, i) => (
-                      <p key={i} className="text-xs text-red-600/80 flex items-center gap-1.5">
+                      <p key={i} className="text-xs text-[var(--danger)]/80 flex items-center gap-1.5">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
                         {risk}
                       </p>
@@ -332,7 +332,7 @@ export default function AutonomyPage() {
 
                 {review.recommendations.length > 0 && (
                   <div className="space-y-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Recommendations</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--info)]">Recommendations</p>
                     {review.recommendations.map((rec, i) => (
                       <p key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
                         <ChevronRight className="h-3 w-3 shrink-0" />
@@ -351,11 +351,11 @@ export default function AutonomyPage() {
       {autonomyStatus && autonomyStatus.signals.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </div>
             <h2 className="section-title">Autonomy Signals</h2>
-            <Badge className="bg-amber-100 text-amber-700 text-xs">{autonomyStatus.signals.length}</Badge>
+            <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{autonomyStatus.signals.length}</Badge>
           </div>
 
           <div className="space-y-3">
@@ -367,9 +367,9 @@ export default function AutonomyPage() {
               }`}>
                 <CardContent className="flex items-center gap-4 py-4 px-5">
                   <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                    signal.severity === "high" ? "bg-red-50" :
-                    signal.severity === "medium" ? "bg-amber-50" :
-                    "bg-blue-50"
+                    signal.severity === "high" ? "bg-[rgba(239,68,68,0.08)]" :
+                    signal.severity === "medium" ? "bg-[rgba(245,158,11,0.08)]" :
+                    "bg-[rgba(59,130,246,0.08)]"
                   }`}>
                     <AlertTriangle className={`h-4 w-4 ${
                       signal.severity === "high" ? "text-red-500" :
@@ -382,9 +382,9 @@ export default function AutonomyPage() {
                     <p className="text-xs text-muted-foreground capitalize">{signal.type.replace(/_/g, " ")}</p>
                   </div>
                   <Badge className={`text-xs ${
-                    signal.severity === "high" ? "bg-red-100 text-red-700" :
-                    signal.severity === "medium" ? "bg-amber-100 text-amber-700" :
-                    "bg-blue-100 text-blue-700"
+                    signal.severity === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                    signal.severity === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                    "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                   }`}>
                     {signal.severity}
                   </Badge>
@@ -399,11 +399,11 @@ export default function AutonomyPage() {
       {actions.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             </div>
             <h2 className="section-title">Recommended Actions</h2>
-            <Badge className="bg-emerald-100 text-emerald-700 text-xs">{actions.length}</Badge>
+            <Badge className="bg-[rgba(16,185,129,0.12)] text-[var(--success)] text-xs">{actions.length}</Badge>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -427,9 +427,9 @@ export default function AutonomyPage() {
                         </div>
                       </div>
                       <Badge className={`text-xs ${
-                        action.urgency === "high" ? "bg-red-100 text-red-700" :
-                        action.urgency === "medium" ? "bg-amber-100 text-amber-700" :
-                        "bg-blue-100 text-blue-700"
+                        action.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                        action.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                        "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                       }`}>
                         {action.urgency}
                       </Badge>
@@ -452,7 +452,7 @@ export default function AutonomyPage() {
       {autonomyStatus && autonomyStatus.signals.length === 0 && actions.length === 0 && (
         <Card className="stat-card">
           <CardContent className="flex items-center gap-4 py-8 px-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(16,185,129,0.08)]">
               <CheckCircle2 className="h-5 w-5 text-emerald-500" />
             </div>
             <div>

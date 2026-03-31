@@ -41,17 +41,17 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { ProjectWithStats, Department } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
-  planning: "bg-slate-100 text-slate-600",
-  active: "bg-blue-50 text-blue-700",
-  "on-hold": "bg-amber-50 text-amber-700",
-  completed: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  planning: "bg-transparent text-[var(--text-quiet)]",
+  active: "bg-[rgba(59,130,246,0.08)] text-[var(--info)]",
+  "on-hold": "bg-[rgba(245,158,11,0.08)] text-[var(--warning)]",
+  completed: "bg-[rgba(16,185,129,0.08)] text-[var(--success)]",
+  cancelled: "bg-transparent text-[var(--text-quiet)]",
 };
 
 const priorityColors: Record<string, string> = {
-  high: "bg-red-100 text-red-700",
-  medium: "bg-amber-100 text-amber-700",
-  low: "bg-gray-100 text-gray-600",
+  high: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]",
+  medium: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]",
+  low: "bg-transparent text-[var(--text-quiet)]",
 };
 
 const STATUSES = ["all", "planning", "active", "on-hold", "completed", "cancelled"] as const;
@@ -141,7 +141,7 @@ export default function ProjectsPage() {
   return (
     <PageShell title="Projects" description="Project command center — execution units for Yas Claw">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       {/* Filters */}
@@ -255,10 +255,10 @@ export default function ProjectsPage() {
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          project.progress >= 75 ? "bg-emerald-500" :
-                          project.progress >= 50 ? "bg-blue-500" :
-                          project.progress >= 25 ? "bg-amber-500" :
-                          "bg-red-500"
+                          project.progress >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
+                          project.progress >= 50 ? "bg-[rgba(59,130,246,0.08)]0" :
+                          project.progress >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
+                          "bg-[rgba(239,68,68,0.08)]0"
                         }`}
                         style={{ width: `${project.progress}%` }}
                       />
@@ -272,11 +272,11 @@ export default function ProjectsPage() {
                       <div className="text-[10px] text-muted-foreground">Open</div>
                     </div>
                     <div className="text-center">
-                      <div className={`text-sm font-bold ${project.blocked_tasks > 0 ? "text-red-600" : ""}`}>{project.blocked_tasks}</div>
+                      <div className={`text-sm font-bold ${project.blocked_tasks > 0 ? "text-[var(--danger)]" : ""}`}>{project.blocked_tasks}</div>
                       <div className="text-[10px] text-muted-foreground">Blocked</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-sm font-bold text-emerald-600">{project.completed_tasks}</div>
+                      <div className="text-sm font-bold text-[var(--success)]">{project.completed_tasks}</div>
                       <div className="text-[10px] text-muted-foreground">Done</div>
                     </div>
                   </div>

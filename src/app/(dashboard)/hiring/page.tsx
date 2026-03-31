@@ -44,9 +44,9 @@ import {
 import type { Agent, TaskWithAgent } from "@/types/dashboard";
 
 const urgencyStyles: Record<string, { badge: string; border: string }> = {
-  high: { badge: "bg-red-100 text-red-700", border: "border-l-red-500" },
-  medium: { badge: "bg-amber-100 text-amber-700", border: "border-l-amber-500" },
-  low: { badge: "bg-blue-100 text-blue-700", border: "border-l-blue-400" },
+  high: { badge: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]", border: "border-l-red-500" },
+  medium: { badge: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]", border: "border-l-amber-500" },
+  low: { badge: "bg-[rgba(59,130,246,0.12)] text-[var(--info)]", border: "border-l-blue-400" },
 };
 
 const actionLabels: Record<string, { label: string; icon: typeof UserPlus }> = {
@@ -57,9 +57,9 @@ const actionLabels: Record<string, { label: string; icon: typeof UserPlus }> = {
 };
 
 const loadStyles: Record<string, { color: string; bg: string; label: string }> = {
-  light: { color: "text-emerald-600", bg: "bg-emerald-50", label: "Light" },
-  moderate: { color: "text-amber-600", bg: "bg-amber-50", label: "Moderate" },
-  heavy: { color: "text-red-600", bg: "bg-red-50", label: "Heavy" },
+  light: { color: "text-[var(--success)]", bg: "bg-[rgba(16,185,129,0.08)]", label: "Light" },
+  moderate: { color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)]", label: "Moderate" },
+  heavy: { color: "text-[var(--danger)]", bg: "bg-[rgba(239,68,68,0.08)]", label: "Heavy" },
 };
 
 export default function HiringPage() {
@@ -217,7 +217,7 @@ export default function HiringPage() {
               <p className="text-sm font-medium">Failed to load</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -229,7 +229,7 @@ export default function HiringPage() {
   return (
     <PageShell title="Hiring" description="Strategic agent hiring based on task patterns and workload">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">
           {error}
         </div>
       )}
@@ -237,12 +237,12 @@ export default function HiringPage() {
       {/* Section A: Hiring Recommendations */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-            <TrendingUp className="h-4 w-4 text-violet-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+            <TrendingUp className="h-4 w-4 text-[var(--accent)]" />
           </div>
           <h2 className="section-title">Hiring Recommendations</h2>
           {visibleRecommendations.length > 0 && (
-            <Badge className="bg-violet-100 text-violet-700 text-xs">{visibleRecommendations.length}</Badge>
+            <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">{visibleRecommendations.length}</Badge>
           )}
         </div>
 
@@ -287,7 +287,7 @@ export default function HiringPage() {
                           {rec.matchedTaskCount} tasks
                         </span>
                         {rec.blockedTaskCount > 0 && (
-                          <span className="flex items-center gap-1 text-red-600">
+                          <span className="flex items-center gap-1 text-[var(--danger)]">
                             <AlertTriangle className="h-3 w-3" />
                             {rec.blockedTaskCount} blocked
                           </span>
@@ -336,12 +336,12 @@ export default function HiringPage() {
       {/* Section B: Unassigned Tasks */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           </div>
           <h2 className="section-title">Unassigned Tasks</h2>
           {unassigned.length > 0 && (
-            <Badge className="bg-amber-100 text-amber-700 text-xs">{unassigned.length}</Badge>
+            <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{unassigned.length}</Badge>
           )}
         </div>
 
@@ -378,7 +378,7 @@ export default function HiringPage() {
       {/* Section C: Agent Capacity */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
             <Bot className="h-4 w-4 text-blue-500" />
           </div>
           <h2 className="section-title">Agent Capacity Snapshot</h2>
@@ -411,7 +411,7 @@ export default function HiringPage() {
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Open</div>
                       </div>
                       <div className="rounded-lg bg-muted/50 p-2.5 text-center">
-                        <div className={`text-lg font-bold ${blockedTasks > 0 ? "text-red-600" : ""}`}>{blockedTasks}</div>
+                        <div className={`text-lg font-bold ${blockedTasks > 0 ? "text-[var(--danger)]" : ""}`}>{blockedTasks}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Blocked</div>
                       </div>
                     </div>
@@ -426,7 +426,7 @@ export default function HiringPage() {
       {/* Section D: Recently Hired / Activated */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </div>
           <h2 className="section-title">Active Workforce</h2>
@@ -445,7 +445,7 @@ export default function HiringPage() {
                         <p className="text-sm font-semibold truncate">{agent.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{agent.domain}</p>
                       </div>
-                      <div className={`status-dot ${agent.status === "active" ? "bg-emerald-500" : "bg-amber-500"}`} />
+                      <div className={`status-dot ${agent.status === "active" ? "bg-[rgba(16,185,129,0.08)]0" : "bg-[rgba(245,158,11,0.08)]0"}`} />
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
                       <span className="flex items-center gap-1">
@@ -473,7 +473,7 @@ export default function HiringPage() {
               {hireSuccess ? (
                 <div className="flex flex-col items-center gap-3 py-6">
                   <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-                  <p className="text-sm font-medium text-emerald-700">Agent created and active</p>
+                  <p className="text-sm font-medium text-[var(--success)]">Agent created and active</p>
                   {hireAutoAssign && hireRec && (
                     <p className="text-xs text-muted-foreground">
                       {hireRec.matchedTaskIds.length} tasks assigned automatically

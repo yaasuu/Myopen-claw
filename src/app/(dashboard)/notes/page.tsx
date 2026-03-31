@@ -43,10 +43,10 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 
 const CATEGORIES: { value: PARACategory | "all"; label: string; icon: typeof FolderOpen; color: string }[] = [
   { value: "all", label: "All", icon: BookOpen, color: "text-muted-foreground" },
-  { value: "project", label: "Projects", icon: FolderOpen, color: "text-blue-600" },
-  { value: "area", label: "Areas", icon: Database, color: "text-violet-600" },
-  { value: "resource", label: "Resources", icon: FileText, color: "text-emerald-600" },
-  { value: "archive", label: "Archives", icon: Archive, color: "text-gray-500" },
+  { value: "project", label: "Projects", icon: FolderOpen, color: "text-[var(--info)]" },
+  { value: "area", label: "Areas", icon: Database, color: "text-[var(--accent)]" },
+  { value: "resource", label: "Resources", icon: FileText, color: "text-[var(--success)]" },
+  { value: "archive", label: "Archives", icon: Archive, color: "text-[var(--text-quiet)]" },
 ];
 
 function timeAgo(iso: string): string {
@@ -113,7 +113,7 @@ export default function NotesPage() {
   return (
     <PageShell title="Notes & Knowledge" description="Daily notes, knowledge base, and PARA-organized information">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       {/* Search + Filter */}
@@ -171,8 +171,8 @@ export default function NotesPage() {
       {todayNote && (
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50">
-              <Calendar className="h-4 w-4 text-emerald-600" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
+              <Calendar className="h-4 w-4 text-[var(--success)]" />
             </div>
             <h2 className="section-title">Today — {todayNote.date}</h2>
           </div>
@@ -183,7 +183,7 @@ export default function NotesPage() {
 
               {todayNote.decisions.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Decisions</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--info)]">Decisions</p>
                   {todayNote.decisions.map((d, i) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
                       <CheckCircle2 className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" /> {d}
@@ -194,7 +194,7 @@ export default function NotesPage() {
 
               {todayNote.blockers.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-red-600">Blockers</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--danger)]">Blockers</p>
                   {todayNote.blockers.map((b, i) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
                       <AlertCircle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" /> {b}
@@ -205,7 +205,7 @@ export default function NotesPage() {
 
               {todayNote.priorities_tomorrow.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600">Tomorrow's Priorities</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]">Tomorrow's Priorities</p>
                   {todayNote.priorities_tomorrow.map((p, i) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
                       <ChevronRight className="h-3 w-3 text-violet-500 mt-0.5 shrink-0" /> {p}
@@ -265,11 +265,11 @@ export default function NotesPage() {
       {/* Knowledge Entries */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-            <BookOpen className="h-4 w-4 text-blue-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
+            <BookOpen className="h-4 w-4 text-[var(--info)]" />
           </div>
           <h2 className="section-title">Knowledge Base</h2>
-          <Badge className="bg-blue-100 text-blue-700 text-xs">{knowledge.length}</Badge>
+          <Badge className="bg-[rgba(59,130,246,0.12)] text-[var(--info)] text-xs">{knowledge.length}</Badge>
         </div>
 
         {knowledge.length === 0 ? (

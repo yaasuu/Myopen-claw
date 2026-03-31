@@ -66,18 +66,18 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Project, TaskWithAgent, FeedEvent, ProjectMilestone, ProjectReview, ProjectDecision, ProjectHealthScore } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
-  planning: "bg-slate-100 text-slate-600",
-  active: "bg-blue-50 text-blue-700",
-  "on-hold": "bg-amber-50 text-amber-700",
-  completed: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  planning: "bg-transparent text-[var(--text-quiet)]",
+  active: "bg-[rgba(59,130,246,0.08)] text-[var(--info)]",
+  "on-hold": "bg-[rgba(245,158,11,0.08)] text-[var(--warning)]",
+  completed: "bg-[rgba(16,185,129,0.08)] text-[var(--success)]",
+  cancelled: "bg-transparent text-[var(--text-quiet)]",
 };
 
 const taskStatusColors: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-600 border-slate-200",
-  "in-progress": "bg-blue-50 text-blue-700 border-blue-200",
-  blocked: "bg-red-50 text-red-700 border-red-200",
-  done: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
+  "in-progress": "bg-[rgba(59,130,246,0.08)] text-[var(--info)] border-blue-200",
+  blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
+  done: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
 };
 
 function timeAgo(iso: string): string {
@@ -190,7 +190,7 @@ export default function ProjectDetailPage() {
           <CardContent className="flex items-center gap-3 py-6">
             <AlertTriangle className="h-5 w-5 text-red-500" />
             <div className="flex-1"><p className="text-sm font-medium">{error}</p></div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -208,7 +208,7 @@ export default function ProjectDetailPage() {
   return (
     <PageShell title={`${project.project_code} — ${project.title}`} description="Project brief and execution tracking">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       <Button variant="ghost" size="sm" className="gap-1.5 w-fit" onClick={() => router.push("/projects")}>
@@ -224,9 +224,9 @@ export default function ProjectDetailPage() {
                 <Badge variant="outline">{project.project_code}</Badge>
                 <Badge className={`text-xs ${statusColors[project.status]}`}>{project.status}</Badge>
                 <Badge className={`text-xs ${
-                  project.priority === "high" ? "bg-red-100 text-red-700" :
-                  project.priority === "medium" ? "bg-amber-100 text-amber-700" :
-                  "bg-gray-100 text-gray-600"
+                  project.priority === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                  project.priority === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                  "bg-transparent text-[var(--text-quiet)]"
                 }`}>{project.priority}</Badge>
               </div>
               <h2 className="text-lg font-bold tracking-tight">{project.title}</h2>
@@ -251,10 +251,10 @@ export default function ProjectDetailPage() {
             </div>
             <div className="h-2.5 rounded-full bg-muted overflow-hidden">
               <div className={`h-full rounded-full ${
-                project.progress >= 75 ? "bg-emerald-500" :
-                project.progress >= 50 ? "bg-blue-500" :
-                project.progress >= 25 ? "bg-amber-500" :
-                "bg-red-500"
+                project.progress >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
+                project.progress >= 50 ? "bg-[rgba(59,130,246,0.08)]0" :
+                project.progress >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
+                "bg-[rgba(239,68,68,0.08)]0"
               }`} style={{ width: `${project.progress}%` }} />
             </div>
           </div>
@@ -276,11 +276,11 @@ export default function ProjectDetailPage() {
         </CardContent></Card>
         <Card className="stat-card"><CardContent className="p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Blocked</p>
-          <div className={`text-2xl font-bold ${blockedTasks.length > 0 ? "text-red-600" : ""}`}>{blockedTasks.length}</div>
+          <div className={`text-2xl font-bold ${blockedTasks.length > 0 ? "text-[var(--danger)]" : ""}`}>{blockedTasks.length}</div>
         </CardContent></Card>
         <Card className="stat-card"><CardContent className="p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Completed</p>
-          <div className="text-2xl font-bold text-emerald-600">{completedTasks.length}</div>
+          <div className="text-2xl font-bold text-[var(--success)]">{completedTasks.length}</div>
         </CardContent></Card>
         <Card className="stat-card"><CardContent className="p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total</p>
@@ -329,14 +329,14 @@ export default function ProjectDetailPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-                <Sparkles className="h-4 w-4 text-violet-600" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+                <Sparkles className="h-4 w-4 text-[var(--accent)]" />
               </div>
               <h2 className="section-title">Execution Plan</h2>
               <Badge className={`text-xs ${
-                plan.riskLevel === "high" ? "bg-red-100 text-red-700" :
-                plan.riskLevel === "medium" ? "bg-amber-100 text-amber-700" :
-                "bg-emerald-100 text-emerald-700"
+                plan.riskLevel === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                plan.riskLevel === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                "bg-[rgba(16,185,129,0.12)] text-[var(--success)]"
               }`}>{plan.riskLevel} risk</Badge>
             </div>
             {canWrite && (
@@ -385,9 +385,9 @@ export default function ProjectDetailPage() {
                      plan.riskLevel === "medium" ? <AlertTriangle className="h-4 w-4 text-amber-500" /> :
                      <CheckCircle className="h-4 w-4 text-emerald-500" />}
                     <span className={`text-sm font-semibold ${
-                      plan.riskLevel === "high" ? "text-red-600" :
-                      plan.riskLevel === "medium" ? "text-amber-600" :
-                      "text-emerald-600"
+                      plan.riskLevel === "high" ? "text-[var(--danger)]" :
+                      plan.riskLevel === "medium" ? "text-[var(--warning)]" :
+                      "text-[var(--success)]"
                     }`}>{plan.riskLevel.charAt(0).toUpperCase() + plan.riskLevel.slice(1)} Risk</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">{plan.riskReason}</p>
@@ -414,7 +414,7 @@ export default function ProjectDetailPage() {
                           </div>
                           <p className="text-xs text-muted-foreground">{pa.reason} · {pa.currentLoad} open tasks</p>
                         </div>
-                        <div className={`h-2 w-2 rounded-full ${pa.currentLoad >= 5 ? "bg-red-500" : pa.currentLoad >= 3 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                        <div className={`h-2 w-2 rounded-full ${pa.currentLoad >= 5 ? "bg-[rgba(239,68,68,0.08)]0" : pa.currentLoad >= 3 ? "bg-[rgba(245,158,11,0.08)]0" : "bg-[rgba(16,185,129,0.08)]0"}`} />
                       </div>
                     ))}
                   </div>
@@ -436,9 +436,9 @@ export default function ProjectDetailPage() {
                           <p className="text-xs text-muted-foreground">{spec.reason}</p>
                         </div>
                         <Badge className={`text-[10px] ${
-                          spec.urgency === "high" ? "bg-red-100 text-red-700" :
-                          spec.urgency === "medium" ? "bg-amber-100 text-amber-700" :
-                          "bg-blue-100 text-blue-700"
+                          spec.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                          spec.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                          "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                         }`}>{spec.urgency}</Badge>
                       </div>
                     ))}
@@ -454,10 +454,10 @@ export default function ProjectDetailPage() {
                 <div className="space-y-2">
                   {plan.tasks.map((task, i) => {
                     const catColors: Record<string, string> = {
-                      setup: "bg-slate-100 text-slate-600",
-                      execution: "bg-blue-50 text-blue-700",
-                      validation: "bg-violet-50 text-violet-700",
-                      reporting: "bg-emerald-50 text-emerald-700",
+                      setup: "bg-transparent text-[var(--text-quiet)]",
+                      execution: "bg-[rgba(59,130,246,0.08)] text-[var(--info)]",
+                      validation: "bg-[rgba(139,92,246,0.08)] text-[var(--accent)]",
+                      reporting: "bg-[rgba(16,185,129,0.08)] text-[var(--success)]",
                     };
                     return (
                       <div key={i} className="flex items-center gap-3 rounded-lg border p-2.5">
@@ -509,7 +509,7 @@ export default function ProjectDetailPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{timeAgo(task.updated_at)}</TableCell>
                       <TableCell className="text-xs">
-                        {task.blocker ? <span className="text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {task.blocker}</span> : <span className="text-muted-foreground">—</span>}
+                        {task.blocker ? <span className="text-[var(--danger)] flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {task.blocker}</span> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -546,15 +546,15 @@ export default function ProjectDetailPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-                <Shield className="h-4 w-4 text-violet-600" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+                <Shield className="h-4 w-4 text-[var(--accent)]" />
               </div>
               <h2 className="section-title">Governance</h2>
               <Badge className={`text-xs ${
-                health.status === "healthy" ? "bg-emerald-100 text-emerald-700" :
-                health.status === "watch" ? "bg-amber-100 text-amber-700" :
-                health.status === "at_risk" ? "bg-orange-100 text-orange-700" :
-                "bg-red-100 text-red-700"
+                health.status === "healthy" ? "bg-[rgba(16,185,129,0.12)] text-[var(--success)]" :
+                health.status === "watch" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                health.status === "at_risk" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]"
               }`}>{health.status.replace("_", " ")}</Badge>
             </div>
             {canWrite && (
@@ -582,12 +582,12 @@ export default function ProjectDetailPage() {
 
           {/* Escalation banner */}
           {health.escalationNeeded && (
-            <Card className="border-red-200 bg-red-50 mb-4">
+            <Card className="border-red-200 bg-[rgba(239,68,68,0.08)] mb-4">
               <CardContent className="flex items-center gap-3 py-4 px-5">
                 <AlertOctagon className="h-5 w-5 text-red-500" />
                 <div>
                   <p className="text-sm font-semibold text-red-800">Escalation Required</p>
-                  <p className="text-xs text-red-600">{health.escalationReason}</p>
+                  <p className="text-xs text-[var(--danger)]">{health.escalationReason}</p>
                 </div>
               </CardContent>
             </Card>
@@ -600,18 +600,18 @@ export default function ProjectDetailPage() {
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Health Score</p>
                   <div className={`text-2xl font-bold ${
-                    health.score >= 75 ? "text-emerald-600" :
-                    health.score >= 50 ? "text-amber-600" :
-                    health.score >= 25 ? "text-orange-600" :
-                    "text-red-600"
+                    health.score >= 75 ? "text-[var(--success)]" :
+                    health.score >= 50 ? "text-[var(--warning)]" :
+                    health.score >= 25 ? "text-[var(--warning)]" :
+                    "text-[var(--danger)]"
                   }`}>{health.score}/100</div>
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div className={`h-full rounded-full ${
-                    health.score >= 75 ? "bg-emerald-500" :
-                    health.score >= 50 ? "bg-amber-500" :
-                    health.score >= 25 ? "bg-orange-500" :
-                    "bg-red-500"
+                    health.score >= 75 ? "bg-[rgba(16,185,129,0.08)]0" :
+                    health.score >= 50 ? "bg-[rgba(245,158,11,0.08)]0" :
+                    health.score >= 25 ? "bg-[rgba(245,158,11,0.08)]0" :
+                    "bg-[rgba(239,68,68,0.08)]0"
                   }`} style={{ width: `${health.score}%` }} />
                 </div>
                 <div className="space-y-2">
@@ -619,9 +619,9 @@ export default function ProjectDetailPage() {
                     <div key={i} className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">{f.label}</span>
                       <span className={`font-medium ${
-                        f.severity === "good" ? "text-emerald-600" :
-                        f.severity === "warn" ? "text-amber-600" :
-                        "text-red-600"
+                        f.severity === "good" ? "text-[var(--success)]" :
+                        f.severity === "warn" ? "text-[var(--warning)]" :
+                        "text-[var(--danger)]"
                       }`}>{f.impact}</span>
                     </div>
                   ))}
@@ -661,10 +661,10 @@ export default function ProjectDetailPage() {
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium">{ms.title}</p>
                             <Badge className={`text-[10px] ${
-                              ms.status === "done" ? "bg-emerald-50 text-emerald-700" :
-                              ms.status === "in_progress" ? "bg-blue-50 text-blue-700" :
-                              ms.status === "missed" ? "bg-red-50 text-red-700" :
-                              "bg-slate-100 text-slate-600"
+                              ms.status === "done" ? "bg-[rgba(16,185,129,0.08)] text-[var(--success)]" :
+                              ms.status === "in_progress" ? "bg-[rgba(59,130,246,0.08)] text-[var(--info)]" :
+                              ms.status === "missed" ? "bg-[rgba(239,68,68,0.08)] text-[var(--danger)]" :
+                              "bg-transparent text-[var(--text-quiet)]"
                             }`}>{ms.status.replace("_", " ")}</Badge>
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
@@ -695,7 +695,7 @@ export default function ProjectDetailPage() {
                         </div>
                         <p className="text-sm text-muted-foreground">{rv.summary}</p>
                         {rv.blockers.length > 0 && (
-                          <p className="text-xs text-red-600">Blockers: {rv.blockers.join(", ")}</p>
+                          <p className="text-xs text-[var(--danger)]">Blockers: {rv.blockers.join(", ")}</p>
                         )}
                       </div>
                     ))}
@@ -717,9 +717,9 @@ export default function ProjectDetailPage() {
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium">{dc.title}</p>
                           <Badge className={`text-[10px] ${
-                            dc.impact_level === "high" ? "bg-red-50 text-red-700" :
-                            dc.impact_level === "medium" ? "bg-amber-50 text-amber-700" :
-                            "bg-blue-50 text-blue-700"
+                            dc.impact_level === "high" ? "bg-[rgba(239,68,68,0.08)] text-[var(--danger)]" :
+                            dc.impact_level === "medium" ? "bg-[rgba(245,158,11,0.08)] text-[var(--warning)]" :
+                            "bg-[rgba(59,130,246,0.08)] text-[var(--info)]"
                           }`}>{dc.impact_level}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">{dc.summary}</p>

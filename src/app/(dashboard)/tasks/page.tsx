@@ -66,16 +66,16 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, Agent } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-600 border-slate-200",
-  "in-progress": "bg-blue-50 text-blue-700 border-blue-200",
-  blocked: "bg-red-50 text-red-700 border-red-200",
-  done: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
+  "in-progress": "bg-[rgba(59,130,246,0.08)] text-[var(--info)] border-blue-200",
+  blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
+  done: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
 };
 
 const priorityColors: Record<string, { text: string; dot: string }> = {
-  high: { text: "text-red-600", dot: "bg-red-500" },
-  medium: { text: "text-amber-600", dot: "bg-amber-500" },
-  low: { text: "text-gray-500", dot: "bg-gray-400" },
+  high: { text: "text-[var(--danger)]", dot: "bg-[rgba(239,68,68,0.08)]0" },
+  medium: { text: "text-[var(--warning)]", dot: "bg-[rgba(245,158,11,0.08)]0" },
+  low: { text: "text-[var(--text-quiet)]", dot: "bg-gray-400" },
 };
 
 const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "done"];
@@ -380,7 +380,7 @@ export default function TasksPage() {
               <p className="text-sm font-medium">Failed to load tasks</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -393,7 +393,7 @@ export default function TasksPage() {
     <PageShell title="Tasks" description="Manage and track all work items">
       {/* Error banner */}
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           {error}
         </div>
       )}
@@ -490,7 +490,7 @@ export default function TasksPage() {
               {createSuccess ? (
                 <div className="flex flex-col items-center gap-3 py-6">
                   <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-                  <p className="text-sm font-medium text-emerald-700">Task created successfully</p>
+                  <p className="text-sm font-medium text-[var(--success)]">Task created successfully</p>
                 </div>
               ) : (
                 <>
@@ -642,7 +642,7 @@ export default function TasksPage() {
                               {task.priority}
                             </span>
                             {task.blocker && (
-                              <span className="text-xs text-red-600 flex items-center gap-1">
+                              <span className="text-xs text-[var(--danger)] flex items-center gap-1">
                                 <AlertTriangle className="h-3 w-3" />
                                 blocked
                               </span>
@@ -821,7 +821,7 @@ export default function TasksPage() {
                     <TableCell className="text-xs">
                       {task.blocker ? (
                         <span className="flex items-center gap-2">
-                          <span className="flex items-center gap-1 text-red-600">
+                          <span className="flex items-center gap-1 text-[var(--danger)]">
                             <AlertTriangle className="h-3 w-3" />
                             {task.blocker}
                           </span>

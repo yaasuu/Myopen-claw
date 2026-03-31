@@ -136,7 +136,7 @@ export default function SpecialistsPage() {
   return (
     <PageShell title="Specialists" description="Temporary expert roles for specific missions">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       {/* Spawn button */}
@@ -151,11 +151,11 @@ export default function SpecialistsPage() {
       {/* Active Specialists */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50">
-            <Zap className="h-4 w-4 text-emerald-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
+            <Zap className="h-4 w-4 text-[var(--success)]" />
           </div>
           <h2 className="section-title">Active Specialists</h2>
-          {activeSpecialists.length > 0 && <Badge className="bg-emerald-100 text-emerald-700 text-xs">{activeSpecialists.length}</Badge>}
+          {activeSpecialists.length > 0 && <Badge className="bg-[rgba(16,185,129,0.12)] text-[var(--success)] text-xs">{activeSpecialists.length}</Badge>}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -172,7 +172,7 @@ export default function SpecialistsPage() {
                       <p className="text-sm font-semibold">{spec.name}</p>
                       <Badge variant="outline" className="text-[10px] mt-1">{spec.type}</Badge>
                     </div>
-                    <Badge className="bg-emerald-100 text-emerald-700 text-xs">Active</Badge>
+                    <Badge className="bg-[rgba(16,185,129,0.12)] text-[var(--success)] text-xs">Active</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">{spec.mission}</p>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -206,11 +206,11 @@ export default function SpecialistsPage() {
       {promotions.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
-              <Star className="h-4 w-4 text-violet-600" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+              <Star className="h-4 w-4 text-[var(--accent)]" />
             </div>
             <h2 className="section-title">Promote to Permanent Agent</h2>
-            <Badge className="bg-violet-100 text-violet-700 text-xs">{promotions.length}</Badge>
+            <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">{promotions.length}</Badge>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -222,7 +222,7 @@ export default function SpecialistsPage() {
                       <p className="text-sm font-semibold">{rec.type.name}</p>
                       <Badge variant="outline" className="text-[10px] mt-1">{rec.evidence.suggestedDept}</Badge>
                     </div>
-                    <Badge className="bg-violet-100 text-violet-700 text-xs">{rec.evidence.spawns} spawns</Badge>
+                    <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">{rec.evidence.spawns} spawns</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">{rec.reason}</p>
                   <Link href="/hiring">
@@ -240,11 +240,11 @@ export default function SpecialistsPage() {
       {/* Specialist Types Registry */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-            <Users className="h-4 w-4 text-blue-600" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
+            <Users className="h-4 w-4 text-[var(--info)]" />
           </div>
           <h2 className="section-title">Specialist Types</h2>
-          <Badge className="bg-blue-100 text-blue-700 text-xs">{specialistTypes.length}</Badge>
+          <Badge className="bg-[rgba(59,130,246,0.12)] text-[var(--info)] text-xs">{specialistTypes.length}</Badge>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -16,8 +16,8 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import type { Agent } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
-  active: "bg-emerald-500",
-  paused: "bg-amber-500",
+  active: "bg-[rgba(16,185,129,0.08)]0",
+  paused: "bg-[rgba(245,158,11,0.08)]0",
   retired: "bg-gray-400",
 };
 
@@ -79,7 +79,7 @@ export default function AgentsPage() {
               <p className="text-sm font-medium">Failed to load agents</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -94,7 +94,7 @@ export default function AgentsPage() {
       description="Specialist agents in the Yas Claw system"
     >
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}

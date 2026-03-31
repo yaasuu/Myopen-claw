@@ -46,9 +46,9 @@ const iconMap: Record<string, typeof AlertTriangle> = {
 };
 
 const severityStyles: Record<string, { border: string; bg: string; badge: string }> = {
-  critical: { border: "border-l-red-500", bg: "bg-red-50/50", badge: "bg-red-100 text-red-700" },
-  warning: { border: "border-l-amber-500", bg: "bg-amber-50/50", badge: "bg-amber-100 text-amber-700" },
-  info: { border: "border-l-blue-400", bg: "", badge: "bg-blue-100 text-blue-700" },
+  critical: { border: "border-l-red-500", bg: "bg-[rgba(239,68,68,0.08)]/50", badge: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" },
+  warning: { border: "border-l-amber-500", bg: "bg-[rgba(245,158,11,0.08)]/50", badge: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" },
+  info: { border: "border-l-blue-400", bg: "", badge: "bg-[rgba(59,130,246,0.12)] text-[var(--info)]" },
 };
 
 function timeAgo(iso: string): string {
@@ -136,7 +136,7 @@ export default function NotificationsPage() {
               <p className="text-sm font-medium">Failed to load notifications</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -148,7 +148,7 @@ export default function NotificationsPage() {
   return (
     <PageShell title="Notifications" description="Operator inbox and alerts">
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}
@@ -224,9 +224,9 @@ export default function NotificationsPage() {
                   >
                     {/* Icon */}
                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                      notif.severity === "critical" ? "bg-red-100 text-red-600" :
-                      notif.severity === "warning" ? "bg-amber-100 text-amber-600" :
-                      "bg-blue-100 text-blue-600"
+                      notif.severity === "critical" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                      notif.severity === "warning" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                      "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
                     }`}>
                       <Icon className="h-4 w-4" />
                     </div>
@@ -241,7 +241,7 @@ export default function NotificationsPage() {
                           {notif.severity}
                         </Badge>
                         {!notif.is_read && (
-                          <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                          <span className="h-2 w-2 rounded-full bg-[rgba(59,130,246,0.08)]0 shrink-0" />
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground">{notif.message}</p>

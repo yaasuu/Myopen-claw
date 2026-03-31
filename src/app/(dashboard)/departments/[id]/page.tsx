@@ -47,10 +47,10 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Department, Agent, TaskWithAgent, FeedEvent } from "@/types/dashboard";
 
 const taskStatusColors: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-600 border-slate-200",
-  "in-progress": "bg-blue-50 text-blue-700 border-blue-200",
-  blocked: "bg-red-50 text-red-700 border-red-200",
-  done: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
+  "in-progress": "bg-[rgba(59,130,246,0.08)] text-[var(--info)] border-blue-200",
+  blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
+  done: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
 };
 
 function timeAgo(iso: string): string {
@@ -135,7 +135,7 @@ export default function DepartmentDetailPage() {
             <div className="flex-1">
               <p className="text-sm font-medium">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -180,7 +180,7 @@ export default function DepartmentDetailPage() {
   return (
     <PageShell title={`${dept.emoji} ${dept.name}`} description="Department detail and performance">
       {error && (
-        <div className="rounded-lg border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 text-xs text-amber-700">{error}</div>
+        <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
       <Button variant="ghost" size="sm" className="gap-1.5 w-fit" onClick={() => router.push("/departments")}>
@@ -199,7 +199,7 @@ export default function DepartmentDetailPage() {
                 <h2 className="text-lg font-bold tracking-tight">{dept.name}</h2>
                 <p className="text-sm text-muted-foreground mt-1 max-w-lg">{dept.mandate}</p>
                 <div className="flex items-center gap-3 mt-2">
-                  <div className={`status-dot ${dept.status === "active" ? "bg-emerald-500" : "bg-amber-500"}`} />
+                  <div className={`status-dot ${dept.status === "active" ? "bg-[rgba(16,185,129,0.08)]0" : "bg-[rgba(245,158,11,0.08)]0"}`} />
                   <span className="text-xs text-muted-foreground capitalize">{dept.status}</span>
                   <Badge className="text-[10px]">{dept.priority} priority</Badge>
                 </div>
@@ -234,13 +234,13 @@ export default function DepartmentDetailPage() {
         <Card className="stat-card">
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Blocked</p>
-            <div className={`text-2xl font-bold ${blockedTasks.length > 0 ? "text-red-600" : ""}`}>{blockedTasks.length}</div>
+            <div className={`text-2xl font-bold ${blockedTasks.length > 0 ? "text-[var(--danger)]" : ""}`}>{blockedTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="stat-card">
           <CardContent className="p-5">
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Completed</p>
-            <div className="text-2xl font-bold text-emerald-600">{completedTasks.length}</div>
+            <div className="text-2xl font-bold text-[var(--success)]">{completedTasks.length}</div>
           </CardContent>
         </Card>
         <Card className="stat-card">

@@ -27,9 +27,9 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, FeedEvent, Agent, SystemStatus } from "@/types/dashboard";
 
 const prioritySeverity: Record<string, { label: string; color: string; dot: string }> = {
-  high: { label: "High", color: "bg-red-100 text-red-700 border-red-200", dot: "bg-red-500" },
-  medium: { label: "Medium", color: "bg-amber-100 text-amber-700 border-amber-200", dot: "bg-amber-500" },
-  low: { label: "Low", color: "bg-gray-100 text-gray-700 border-gray-200", dot: "bg-gray-400" },
+  high: { label: "High", color: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)] border-red-200", dot: "bg-[rgba(239,68,68,0.08)]0" },
+  medium: { label: "Medium", color: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)] border-amber-200", dot: "bg-[rgba(245,158,11,0.08)]0" },
+  low: { label: "Low", color: "bg-transparent text-[var(--text-muted)] border-[var(--border)]", dot: "bg-gray-400" },
 };
 
 function timeAgo(iso: string): string {
@@ -106,7 +106,7 @@ export default function AlertsPage() {
               <p className="text-sm font-medium">Failed to load alerts</p>
               <p className="text-xs text-muted-foreground">{error}</p>
             </div>
-            <button onClick={load} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
             </button>
           </CardContent>
@@ -121,7 +121,7 @@ export default function AlertsPage() {
       description="Blockers, critical events, and system warnings"
     >
       {error && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}
@@ -218,7 +218,7 @@ export default function AlertsPage() {
                 <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-red-800">System Status: {systemStatus.status}</p>
-                  <p className="text-xs text-red-600">
+                  <p className="text-xs text-[var(--danger)]">
                     {systemStatus.blocked_tasks} blocked · {systemStatus.open_tasks} open tasks
                   </p>
                 </div>
@@ -263,7 +263,7 @@ export default function AlertsPage() {
         <div className="flex items-center gap-2 mb-3">
           <ShieldAlert className="h-4 w-4 text-orange-500" />
           <h2 className="text-sm font-semibold">Recent Critical Events</h2>
-          {criticalEvents.length > 0 && <Badge className="bg-orange-100 text-orange-700 text-xs">{criticalEvents.length}</Badge>}
+          {criticalEvents.length > 0 && <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{criticalEvents.length}</Badge>}
         </div>
 
         <Card>
@@ -277,8 +277,8 @@ export default function AlertsPage() {
                 {criticalEvents.map((event) => (
                   <div key={event.id} className="flex items-start gap-3 px-5 py-3">
                     <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
-                      event.event_type === "blocker_detected" ? "bg-red-500" :
-                      event.event_type === "system_alert" ? "bg-orange-500" :
+                      event.event_type === "blocker_detected" ? "bg-[rgba(239,68,68,0.08)]0" :
+                      event.event_type === "system_alert" ? "bg-[rgba(245,158,11,0.08)]0" :
                       "bg-yellow-500"
                     }`} />
                     <div className="flex-1 min-w-0 space-y-1">
