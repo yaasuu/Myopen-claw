@@ -1,0 +1,197 @@
+import { getSupabase } from "@/lib/supabase/client";
+import type { Project, ProjectWithStats, TaskWithAgent, FeedEvent } from "@/types/dashboard";
+
+// ── Mock Data ────────────────────────────────────────
+
+const MOCK_PROJECTS: Project[] = [
+  {
+    id: "proj-1",
+    project_code: "YAS-001",
+    title: "Mission Control Dashboard",
+    objective: "Build the CEO-facing mission control dashboard for Yas Claw",
+    scope: "Full-stack Next.js + Supabase dashboard with auth, tasks, agents, departments, skills",
+    deliverables: ["Working dashboard", "Auth system", "Task board", "Agent management"],
+    success_criteria: ["All routes compile", "Auth working", "Realtime updates active"],
+    owner_department: "Architecture-Systems",
+    status: "active",
+    priority: "high",
+    progress: 75,
+    due_date: "2026-04-15",
+    created_at: "2026-03-28T00:00:00Z",
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "proj-2",
+    project_code: "YAS-002",
+    title: "Export Pipeline Automation",
+    objective: "Automate export documentation and buyer follow-up workflows",
+    scope: "Export documentation generation, buyer communication templates, shipment tracking",
+    deliverables: ["Document templates", "Follow-up automation", "Tracking integration"],
+    success_criteria: ["50% reduction in manual export tasks", "Buyer response time < 24h"],
+    owner_department: "Export-Growth",
+    status: "active",
+    priority: "high",
+    progress: 30,
+    due_date: "2026-05-01",
+    created_at: "2026-03-28T00:00:00Z",
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "proj-3",
+    project_code: "YAS-003",
+    title: "Ops Workflow Redesign",
+    objective: "Review and optimize all internal operational workflows",
+    scope: "Map current workflows, identify bottlenecks, propose improvements, implement changes",
+    deliverables: ["Workflow map", "Bottleneck report", "Improved SOPs"],
+    success_criteria: ["All workflows documented", "3+ bottlenecks resolved"],
+    owner_department: "Ops-Improvement",
+    status: "planning",
+    priority: "medium",
+    progress: 10,
+    due_date: "2026-06-01",
+    created_at: "2026-03-30T00:00:00Z",
+    updated_at: new Date().toISOString(),
+  },
+];
+
+// ── CRUD ─────────────────────────────────────────────
+
+export async function getProjects(): Promise<{ data: ProjectWithStats[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return {
+      data: MOCK_PROJECTS.map((p) => ({
+        ...p,
+        open_tasks: Math.floor(Math.random() * 5) + 1,
+        blocked_tasks: Math.floor(Math.random() * 2),
+        completed_tasks: Math.floor(Math.random() * 3),
+      })),
+      error: null,
+    };
+  }
+
+  const [projectsResult, tasksResult] = await Promise.all([
+    supabase.from("projects").select("*").order("created_at", { ascending: false }),
+    supabase.from("tasks").select("id, status, project_id").not("project_id", "is", null),
+  ]);
+
+  if (projectsResult.error) return { data: [], error: projectsResult.error.message };
+
+  const tasks = tasksResult.data ?? [];
+  const projects = (projectsResult.data ?? []) as Project[];
+
+  const data: ProjectWithStats[] = projects.map((p) => {
+    const projTasks = tasks.filter((t) => t.project_id === p.id);
+    return {
+      ...p,
+      open_tasks: projTasks.filter((t) => t.status !== "done").length,
+      blocked_tasks: projTasks.filter((t) => t.status === "blocked").length,
+      completed_tasks: projTasks.filter((t) => t.status === "done").length,
+    };
+  });
+
+  return { data, error: null };
+}
+
+export async function getProjectById(id: string): Promise<{
+  data: Project | null;
+  tasks: TaskWithAgent[];
+  events: FeedEvent[];
+  error: string | null;
+}> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    const proj = MOCK_PROJECTS.find((p) => p.id === id);
+    return { data: proj ?? null, tasks: [], events: [], error: proj ? null : "Project not found" };
+  }
+
+  const [projResult, tasksResult, eventsResult] = await Promise.all([
+    supabase.from("projects").select("*").eq("id", id).maybeSingle(),
+    supabase.from("tasks").select("*, agents(name, emoji)").eq("project_id", id).order("created_at", { ascending: false }),
+    supabase.from("feed_events").select("*").order("created_at", { ascending: false }).limit(10),
+  ]);
+
+  if (projResult.error) return { data: null, tasks: [], events: [], error: projResult.error.message };
+  if (!projResult.data) return { data: null, tasks: [], events: [], error: "Project not found" };
+
+  const tasks = (tasksResult.data ?? []).map((t: Record<string, unknown>) => ({
+    ...t,
+    assigned_agent_name: (t.agents as Record<string, unknown>)?.name ?? null,
+    assigned_agent_emoji: (t.agents as Record<string, unknown>)?.emoji ?? null,
+  })) as TaskWithAgent[];
+
+  return {
+    data: projResult.data as Project,
+    tasks,
+    events: (eventsResult.data ?? []) as FeedEvent[],
+    error: null,
+  };
+}
+
+export async function createProject(input: {
+  title: string;
+  objective: string;
+  scope: string;
+  department: string;
+  priority: "high" | "medium" | "low";
+  dueDate?: string;
+  deliverables?: string[];
+  successCriteria?: string[];
+}): Promise<{ data: Project | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  // Generate project code
+  const { count } = await supabase.from("projects").select("*", { count: "exact", head: true });
+  const code = `YAS-${String((count ?? 0) + 1).padStart(3, "0")}`;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .insert({
+      project_code: code,
+      title: input.title,
+      objective: input.objective,
+      scope: input.scope,
+      owner_department: input.department,
+      priority: input.priority,
+      due_date: input.dueDate ?? null,
+      deliverables: input.deliverables ?? [],
+      success_criteria: input.successCriteria ?? [],
+      status: "planning",
+    })
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Project, error: null };
+}
+
+export async function updateProject(
+  id: string,
+  updates: Partial<Pick<Project, "title" | "objective" | "scope" | "status" | "priority" | "progress" | "due_date" | "deliverables" | "success_criteria" | "owner_department">>
+): Promise<{ data: Project | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Project, error: null };
+}
+
+export async function assignTaskToProject(taskId: string, projectId: string | null): Promise<{ error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: "Supabase not connected" };
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ project_id: projectId, updated_at: new Date().toISOString() })
+    .eq("id", taskId);
+
+  return { error: error?.message ?? null };
+}

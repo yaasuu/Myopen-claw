@@ -170,3 +170,26 @@ export interface SkillRequest {
   reviewed_at: string | null;
   reviewed_by: string | null;
 }
+
+export interface Project {
+  id: string;
+  project_code: string;
+  title: string;
+  objective: string;
+  scope: string;
+  deliverables: string[];
+  success_criteria: string[];
+  owner_department: string;
+  status: "planning" | "active" | "on-hold" | "completed" | "cancelled";
+  priority: "high" | "medium" | "low";
+  progress: number;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectWithStats extends Project {
+  open_tasks: number;
+  blocked_tasks: number;
+  completed_tasks: number;
+}

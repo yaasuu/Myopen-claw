@@ -17,6 +17,7 @@ import {
   Zap,
   GraduationCap,
   BookOpen,
+  FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -34,6 +35,7 @@ import {
 
 const navItems = [
   { title: "Overview", href: "/overview", icon: LayoutDashboard },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
   { title: "Tasks", href: "/tasks", icon: CheckSquare },
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Departments", href: "/departments", icon: Building2 },
