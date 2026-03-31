@@ -82,9 +82,10 @@ on conflict do nothing;
 
 -- Seed data: Agents
 insert into agents (name, short_id, emoji, description, status, domain) values
+  ('Yas Claw', 'yas-claw', '🦀', 'CEO orchestrator — creates tasks, assigns to agents, monitors, approves completion', 'active', 'Orchestration, task management, agent coordination, approval'),
   ('Export-Growth Agent', 'export-growth', '📦', 'Handles export opportunities, leads, and buyer follow-up', 'active', 'Export execution, lead generation, buyer follow-up'),
   ('Ops-Improvement Agent', 'ops-improvement', '⚙️', 'Handles workflows, process improvement, and routines', 'active', 'Workflows, process improvement, routines'),
-  ('Architecture-Systems Agent', 'architecture-systems', '🏗️', 'Handles platform design, data modeling, and system architecture', 'paused', 'Platform design, data modeling, system architecture')
+  ('Architecture-Systems Agent', 'architecture-systems', '🏗️', 'Handles platform design, data modeling, and system architecture', 'active', 'Platform design, data modeling, system architecture')
 on conflict (short_id) do nothing;
 
 -- Seed data: System status

@@ -9,6 +9,18 @@ export async function getAgents(): Promise<{ data: Agent[]; error: string | null
     return {
       data: [
         {
+          id: "mock-0",
+          name: "Yas Claw",
+          short_id: "yas-claw",
+          emoji: "🦀",
+          description: "CEO orchestrator — creates tasks, assigns to agents, monitors, approves completion",
+          status: "active",
+          domain: "Orchestration, task management, agent coordination, approval",
+          task_count: 0,
+          last_activity: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        },
+        {
           id: "mock-1",
           name: "Export-Growth Agent",
           short_id: "export-growth",
@@ -38,7 +50,7 @@ export async function getAgents(): Promise<{ data: Agent[]; error: string | null
           short_id: "architecture-systems",
           emoji: "🏗️",
           description: "Handles platform design, data modeling, and system architecture",
-          status: "paused",
+          status: "active",
           domain: "Platform design, data modeling, system architecture",
           task_count: 3,
           last_activity: new Date(Date.now() - 2 * 3600000).toISOString(),
