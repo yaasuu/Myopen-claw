@@ -193,3 +193,52 @@ export interface ProjectWithStats extends Project {
   blocked_tasks: number;
   completed_tasks: number;
 }
+
+export type MilestoneStatus = "pending" | "in_progress" | "done" | "missed";
+
+export interface ProjectMilestone {
+  id: string;
+  project_id: string;
+  title: string;
+  due_date: string | null;
+  status: MilestoneStatus;
+  owner: string;
+  notes: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ReviewType = "weekly" | "executive" | "risk";
+
+export interface ProjectReview {
+  id: string;
+  project_id: string;
+  review_type: ReviewType;
+  summary: string;
+  blockers: string[];
+  decisions: string[];
+  recommended_actions: string[];
+  created_at: string;
+}
+
+export interface ProjectDecision {
+  id: string;
+  project_id: string;
+  title: string;
+  summary: string;
+  decision_type: string;
+  decided_by: string;
+  impact_level: "high" | "medium" | "low";
+  created_at: string;
+}
+
+export type ProjectHealth = "healthy" | "watch" | "at_risk" | "critical";
+
+export interface ProjectHealthScore {
+  score: number; // 0-100
+  status: ProjectHealth;
+  factors: Array<{ label: string; impact: string; severity: "good" | "warn" | "bad" }>;
+  escalationNeeded: boolean;
+  escalationReason: string;
+}

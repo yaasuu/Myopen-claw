@@ -43,14 +43,27 @@ import {
   AlertOctagon,
   CheckCircle,
   Zap,
+  Activity,
+  Flag,
+  MessageSquare,
+  Shield,
 } from "lucide-react";
 import { getProjectById, updateProject, applyProjectPlan } from "@/lib/data/projects";
 import { generateProjectPlan } from "@/lib/data/planning";
+import {
+  calculateProjectHealth,
+  getProjectMilestones,
+  getProjectReviews,
+  getProjectDecisions,
+  createProjectReview,
+  createProjectMilestone,
+  updateProjectMilestone,
+} from "@/lib/data/governance";
 import { getAgents } from "@/lib/data/agents";
 import { getSpecialistTypes } from "@/lib/data/departments";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { Project, TaskWithAgent, FeedEvent } from "@/types/dashboard";
+import type { Project, TaskWithAgent, FeedEvent, ProjectMilestone, ProjectReview, ProjectDecision, ProjectHealthScore } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
   planning: "bg-slate-100 text-slate-600",
@@ -89,6 +102,10 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<ReturnType<typeof generateProjectPlan> | null>(null);
   const [applyingPlan, setApplyingPlan] = useState(false);
+  const [health, setHealth] = useState<ProjectHealthScore | null>(null);
+  const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
+  const [reviews, setReviews] = useState<ProjectReview[]>([]);
+  const [decisions, setDecisions] = useState<ProjectDecision[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Edit dialog
@@ -111,9 +128,23 @@ export default function ProjectDetailPage() {
       setTasks(result.tasks);
       setEvents(result.events);
 
-      // Generate plan
+      // Generate plan + governance
       if (result.data) {
         setPlan(generateProjectPlan(result.data, agentsResult.data, result.tasks, specResult.data));
+        setHealth(calculateProjectHealth(result.data, result.tasks, []));
+
+        // Load governance data
+        const [msResult, rvResult, dcResult] = await Promise.all([
+          getProjectMilestones(projectId),
+          getProjectReviews(projectId),
+          getProjectDecisions(projectId),
+        ]);
+        setMilestones(msResult.data);
+        setReviews(rvResult.data);
+        setDecisions(dcResult.data);
+
+        // Recalculate health with milestones
+        setHealth(calculateProjectHealth(result.data, result.tasks, msResult.data));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -509,6 +540,203 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </section>
+
+      {/* Governance */}
+      {health && (
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50">
+                <Shield className="h-4 w-4 text-violet-600" />
+              </div>
+              <h2 className="section-title">Governance</h2>
+              <Badge className={`text-xs ${
+                health.status === "healthy" ? "bg-emerald-100 text-emerald-700" :
+                health.status === "watch" ? "bg-amber-100 text-amber-700" :
+                health.status === "at_risk" ? "bg-orange-100 text-orange-700" :
+                "bg-red-100 text-red-700"
+              }`}>{health.status.replace("_", " ")}</Badge>
+            </div>
+            {canWrite && (
+              <div className="flex gap-2">
+                {(["weekly", "executive", "risk"] as const).map((type) => (
+                  <Button key={type} variant="outline" size="sm" className="gap-1.5 text-xs capitalize" onClick={async () => {
+                    if (!project) return;
+                    const summary = prompt(`${type} review summary:`);
+                    if (summary) {
+                      await createProjectReview({
+                        projectId: project.id,
+                        reviewType: type,
+                        summary,
+                        blockers: tasks.filter((t) => t.status === "blocked").map((t) => t.title),
+                      });
+                      await load();
+                    }
+                  }}>
+                    <Activity className="h-3 w-3" /> {type}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Escalation banner */}
+          {health.escalationNeeded && (
+            <Card className="border-red-200 bg-red-50 mb-4">
+              <CardContent className="flex items-center gap-3 py-4 px-5">
+                <AlertOctagon className="h-5 w-5 text-red-500" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">Escalation Required</p>
+                  <p className="text-xs text-red-600">{health.escalationReason}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Health Score */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Health Score</p>
+                  <div className={`text-2xl font-bold ${
+                    health.score >= 75 ? "text-emerald-600" :
+                    health.score >= 50 ? "text-amber-600" :
+                    health.score >= 25 ? "text-orange-600" :
+                    "text-red-600"
+                  }`}>{health.score}/100</div>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className={`h-full rounded-full ${
+                    health.score >= 75 ? "bg-emerald-500" :
+                    health.score >= 50 ? "bg-amber-500" :
+                    health.score >= 25 ? "bg-orange-500" :
+                    "bg-red-500"
+                  }`} style={{ width: `${health.score}%` }} />
+                </div>
+                <div className="space-y-2">
+                  {health.factors.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{f.label}</span>
+                      <span className={`font-medium ${
+                        f.severity === "good" ? "text-emerald-600" :
+                        f.severity === "warn" ? "text-amber-600" :
+                        "text-red-600"
+                      }`}>{f.impact}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Milestones */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Milestones</p>
+                  {canWrite && (
+                    <Button variant="ghost" size="xs" className="text-[10px] h-6" onClick={async () => {
+                      if (!project) return;
+                      const title = prompt("Milestone title:");
+                      if (title) {
+                        await createProjectMilestone({ projectId: project.id, title });
+                        await load();
+                      }
+                    }}>+ Add</Button>
+                  )}
+                </div>
+                {milestones.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No milestones</p>
+                ) : (
+                  <div className="space-y-2">
+                    {milestones.map((ms) => {
+                      const msColors: Record<string, string> = {
+                        done: "border-l-emerald-500",
+                        in_progress: "border-l-blue-500",
+                        pending: "border-l-slate-300",
+                        missed: "border-l-red-500",
+                      };
+                      return (
+                        <div key={ms.id} className={`rounded-lg border border-l-4 ${msColors[ms.status]} p-3`}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">{ms.title}</p>
+                            <Badge className={`text-[10px] ${
+                              ms.status === "done" ? "bg-emerald-50 text-emerald-700" :
+                              ms.status === "in_progress" ? "bg-blue-50 text-blue-700" :
+                              ms.status === "missed" ? "bg-red-50 text-red-700" :
+                              "bg-slate-100 text-slate-600"
+                            }`}>{ms.status.replace("_", " ")}</Badge>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            {ms.due_date && <span>Due {new Date(ms.due_date).toLocaleDateString()}</span>}
+                            {ms.owner && <span>{ms.owner}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Reviews */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Recent Reviews</p>
+                {reviews.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No reviews yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {reviews.slice(0, 3).map((rv) => (
+                      <div key={rv.id} className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-[10px] capitalize">{rv.review_type}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{new Date(rv.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{rv.summary}</p>
+                        {rv.blockers.length > 0 && (
+                          <p className="text-xs text-red-600">Blockers: {rv.blockers.join(", ")}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Decision Log */}
+            <Card className="stat-card">
+              <CardContent className="p-5 space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Decision Log</p>
+                {decisions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No decisions logged</p>
+                ) : (
+                  <div className="space-y-3">
+                    {decisions.map((dc) => (
+                      <div key={dc.id} className="rounded-lg border p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">{dc.title}</p>
+                          <Badge className={`text-[10px] ${
+                            dc.impact_level === "high" ? "bg-red-50 text-red-700" :
+                            dc.impact_level === "medium" ? "bg-amber-50 text-amber-700" :
+                            "bg-blue-50 text-blue-700"
+                          }`}>{dc.impact_level}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{dc.summary}</p>
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                          <span>{dc.decided_by}</span>
+                          <span>·</span>
+                          <span>{new Date(dc.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       {/* Edit dialog */}
       {canWrite && (
