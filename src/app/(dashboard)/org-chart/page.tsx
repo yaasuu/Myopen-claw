@@ -1,145 +1,218 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
-import { getOrgNodes } from "@/lib/data/org";
-import type { OrgNode } from "@/types/dashboard";
-
-const statusColor: Record<string, string> = {
-  active: "border-emerald-200 bg-[rgba(16,185,129,0.08)]",
-  paused: "border-amber-200 bg-[rgba(245,158,11,0.08)]",
-  retired: "border-[var(--border)] bg-gray-50",
-};
-
-function NodeCard({ node }: { node: OrgNode }) {
-  return (
-    <Card className={`w-56 ${statusColor[node.status]}`}>
-      <CardHeader className="pb-2 text-center">
-        <div className="text-2xl">{node.emoji}</div>
-        <CardTitle className="text-sm font-medium">{node.name}</CardTitle>
-      </CardHeader>
-      <CardContent className="text-center">
-        <p className="text-xs text-muted-foreground">{node.role}</p>
-        <Badge variant="outline" className="mt-2 text-xs">
-          {node.status}
-        </Badge>
-      </CardContent>
-    </Card>
-  );
-}
+import { Loader2, AlertTriangle, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
+import { getAgents } from "@/lib/data/agents";
+import { getDepartments } from "@/lib/data/departments";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
+import type { Agent, Department } from "@/types/dashboard";
 
 export default function OrgChartPage() {
-  const [nodes, setNodes] = useState<OrgNode[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["export-growth", "ops-improvement", "architecture-systems"]));
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getOrgNodes();
-      setNodes(result.data);
-      setError(result.error);
+      const [agentsR, deptsR] = await Promise.all([getAgents(), getDepartments()]);
+      setAgents(agentsR.data);
+      setDepartments(deptsR.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load org chart");
+      setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  const loadRef = useCallback(() => load(), []);
+  useRealtimeMulti(["agents", "departments"], loadRef);
+
+  useEffect(() => { load(); }, []);
+
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Map agents to departments
+  const deptAgents = new Map<string, Agent[]>();
+  for (const dept of departments) {
+    const keyword = dept.name.toLowerCase().split("-")[0];
+    deptAgents.set(
+      dept.id,
+      agents.filter((a) => a.domain.toLowerCase().includes(keyword) || a.name.toLowerCase().includes(keyword))
+    );
+  }
+
+  // Unassigned agents
+  const assignedIds = new Set([...deptAgents.values()].flat().map((a) => a.id));
+  const unassigned = agents.filter((a) => !assignedIds.has(a.id));
 
   if (loading) {
     return (
       <PageShell title="Org Chart" description="Loading...">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading org chart...
+        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading org chart...
         </div>
       </PageShell>
     );
   }
 
-  if (error && nodes.length === 0) {
-    return (
-      <PageShell title="Org Chart" description="Error loading data">
-        <Card>
-          <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Failed to load org chart</p>
-              <p className="text-xs text-muted-foreground">{error}</p>
-            </div>
-            <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" /> Retry
-            </button>
-          </CardContent>
-        </Card>
-      </PageShell>
-    );
-  }
-
-  const root = nodes.find((n) => n.parent_id === null);
-  const children = root
-    ? nodes.filter((n) => n.parent_id === root.id).sort((a, b) => a.sort_order - b.sort_order)
-    : [];
-
   return (
-    <PageShell
-      title="Org Chart"
-      description="Agent hierarchy and routing structure"
-    >
+    <PageShell title="Org Chart" description="Organization hierarchy and department structure">
       {error && (
-        <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
-          Some data may be stale: {error}
+        <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>
+          {error}
         </div>
       )}
 
-      {!root ? (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No org nodes configured
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="py-12">
-            <div className="flex justify-center">
-              <div className="border-2 border-primary/20 rounded-xl">
-                <NodeCard node={root} />
-              </div>
-            </div>
+      {/* Root: Yas Claw */}
+      <div className="flex justify-center">
+        <Link href="/agents" className="block">
+          <div className="surface-card-hover p-5 text-center" style={{ minWidth: "220px" }}>
+            <div className="text-3xl mb-2">🦀</div>
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>CEO / Orchestrator</p>
+            <Badge className="mt-2" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>Active</Badge>
+          </div>
+        </Link>
+      </div>
 
-            {children.length > 0 && (
-              <>
-                <div className="flex justify-center">
-                  <div className="h-8 w-px bg-border" />
+      {/* Connector line */}
+      <div className="flex justify-center">
+        <div className="w-px h-8" style={{ background: "var(--border)" }} />
+      </div>
+
+      {/* Horizontal connector */}
+      <div className="flex justify-center">
+        <div className="h-px" style={{ background: "var(--border)", width: `${Math.min(departments.length * 260, 1000)}px` }} />
+      </div>
+
+      {/* Departments */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {departments.map((dept) => {
+          const deptAgentList = deptAgents.get(dept.id) ?? [];
+          const isExpanded = expanded.has(dept.short_id);
+
+          return (
+            <div key={dept.id} className="space-y-0">
+              {/* Vertical connector */}
+              <div className="flex justify-center">
+                <div className="w-px h-6" style={{ background: "var(--border)" }} />
+              </div>
+
+              {/* Department card */}
+              <div
+                className="surface-card p-4 cursor-pointer"
+                onClick={() => toggleExpand(dept.short_id)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-2xl">{dept.emoji}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{dept.name}</p>
+                      <div className={`h-2 w-2 rounded-full ${dept.status === "active" ? "dot-green" : "dot-amber"}`} />
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--text-quiet)" }}>{deptAgentList.length} agent{deptAgentList.length !== 1 ? "s" : ""}</p>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                  )}
                 </div>
-                <div className="relative mx-auto flex justify-center">
-                  <div className="absolute top-0 left-1/3 right-1/3 h-px bg-border" />
-                  <div className="flex gap-16">
-                    {children.map((child) => (
-                      <div key={child.id} className="flex flex-col items-center">
-                        <div className="h-8 w-px bg-border" />
-                        <NodeCard node={child} />
+              </div>
+
+              {/* Agents under department */}
+              {isExpanded && deptAgentList.length > 0 && (
+                <div className="ml-8 space-y-2 mt-2">
+                  {/* Vertical line */}
+                  <div className="relative">
+                    <div className="absolute left-[-16px] top-0 bottom-0 w-px" style={{ background: "var(--border)" }} />
+                    {deptAgentList.map((agent) => (
+                      <div key={agent.id} className="relative mb-2">
+                        {/* Horizontal connector */}
+                        <div className="absolute left-[-16px] top-4 w-4 h-px" style={{ background: "var(--border)" }} />
+                        <Link href={`/agents/${agent.id}`}>
+                          <div className="surface-card-hover p-3 ml-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="relative">
+                                <span className="text-lg">{agent.emoji}</span>
+                                <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
+                                <p className="text-[11px] truncate" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
                       </div>
                     ))}
                   </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              )}
+
+              {isExpanded && deptAgentList.length === 0 && (
+                <div className="ml-8 mt-2">
+                  <div className="relative">
+                    <div className="absolute left-[-16px] top-0 bottom-0 w-px" style={{ background: "var(--border)" }} />
+                    <div className="relative">
+                      <div className="absolute left-[-16px] top-4 w-4 h-px" style={{ background: "var(--border)" }} />
+                      <div className="rounded-lg border border-dashed p-3 ml-2 text-center text-xs" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
+                        No agents assigned
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Unassigned agents */}
+      {unassigned.length > 0 && (
+        <div className="mt-8">
+          <div className="flex justify-center">
+            <div className="w-px h-6" style={{ background: "var(--border)" }} />
+          </div>
+          <div className="surface-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-quiet)" }}>
+              Unassigned ({unassigned.length})
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {unassigned.map((agent) => (
+                <Link key={agent.id} href={`/agents/${agent.id}`}>
+                  <div className="surface-card-hover p-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">{agent.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
+                        <p className="text-[11px] truncate" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </PageShell>
   );

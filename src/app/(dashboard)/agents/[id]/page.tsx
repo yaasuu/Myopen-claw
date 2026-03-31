@@ -293,7 +293,7 @@ export default function AgentDetailPage() {
       <PageShell title="Agent" description="Error">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load agent</p>
               <p className="text-xs text-muted-foreground">{error}</p>

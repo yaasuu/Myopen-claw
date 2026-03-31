@@ -197,7 +197,7 @@ export default function NotesPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--danger)]">Blockers</p>
                   {todayNote.blockers.map((b, i) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                      <AlertCircle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" /> {b}
+                      <AlertCircle className="h-3 w-3 text-[var(--danger)] mt-0.5 shrink-0" /> {b}
                     </p>
                   ))}
                 </div>

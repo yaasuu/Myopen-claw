@@ -101,7 +101,7 @@ export default function AlertsPage() {
       <PageShell title="Alerts" description="Error loading data">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load alerts</p>
               <p className="text-xs text-muted-foreground">{error}</p>
@@ -140,7 +140,7 @@ export default function AlertsPage() {
       {/* Section 1: Active Blockers — actionable cards */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <AlertTriangle className="h-4 w-4 text-red-500" />
+          <AlertTriangle className="h-4 w-4 text-[var(--danger)]" />
           <h2 className="text-sm font-semibold">Active Blockers</h2>
           {blocked.length > 0 && <Badge variant="destructive" className="text-xs">{blocked.length}</Badge>}
         </div>
@@ -168,7 +168,7 @@ export default function AlertsPage() {
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-[var(--warning)] shrink-0" />
                           {task.blocker}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -215,7 +215,7 @@ export default function AlertsPage() {
           {systemStatus && systemStatus.status !== "healthy" && (
             <Card className="border-l-4 border-l-red-500">
               <CardContent className="flex items-center gap-3 py-4">
-                <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+                <AlertTriangle className="h-5 w-5 text-[var(--danger)] shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-red-800">System Status: {systemStatus.status}</p>
                   <p className="text-xs text-[var(--danger)]">

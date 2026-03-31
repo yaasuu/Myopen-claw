@@ -197,7 +197,7 @@ export default function PortfolioPage() {
         <section>
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(239,68,68,0.08)]">
-              <AlertOctagon className="h-4 w-4 text-red-500" />
+              <AlertOctagon className="h-4 w-4 text-[var(--danger)]" />
             </div>
             <h2 className="section-title">Executive Signals</h2>
             <Badge className="bg-[rgba(239,68,68,0.12)] text-[var(--danger)] text-xs">{signals.length}</Badge>
@@ -299,7 +299,7 @@ export default function PortfolioPage() {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--danger)]">Top Risks</p>
                 {review.topRisks.length > 0 ? review.topRisks.map((r, i) => (
                   <p key={i} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                    <AlertTriangle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" /> {r}
+                    <AlertTriangle className="h-3 w-3 text-[var(--danger)] mt-0.5 shrink-0" /> {r}
                   </p>
                 )) : <p className="text-sm text-muted-foreground">No risks detected</p>}
               </CardContent>

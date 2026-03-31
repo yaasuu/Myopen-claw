@@ -54,8 +54,8 @@ const agentInfo = [
 
 const statusColor = {
   healthy: "text-emerald-500",
-  warning: "text-amber-500",
-  error: "text-red-500",
+  warning: "text-[var(--warning)]",
+  error: "text-[var(--danger)]",
 };
 
 export default function SettingsPage() {

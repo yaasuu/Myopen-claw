@@ -158,7 +158,7 @@ export default function AutonomyPage() {
       <PageShell title="Autonomy Center" description="Error">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load</p>
               <p className="text-xs text-muted-foreground">{error}</p>
@@ -352,7 +352,7 @@ export default function AutonomyPage() {
         <section>
           <div className="flex items-center gap-2 mb-4">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertTriangle className="h-4 w-4 text-[var(--warning)]" />
             </div>
             <h2 className="section-title">Autonomy Signals</h2>
             <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{autonomyStatus.signals.length}</Badge>
@@ -372,8 +372,8 @@ export default function AutonomyPage() {
                     "bg-[rgba(59,130,246,0.08)]"
                   }`}>
                     <AlertTriangle className={`h-4 w-4 ${
-                      signal.severity === "high" ? "text-red-500" :
-                      signal.severity === "medium" ? "text-amber-500" :
+                      signal.severity === "high" ? "text-[var(--danger)]" :
+                      signal.severity === "medium" ? "text-[var(--warning)]" :
                       "text-blue-500"
                     }`} />
                   </div>

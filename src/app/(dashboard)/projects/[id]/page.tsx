@@ -188,7 +188,7 @@ export default function ProjectDetailPage() {
       <PageShell title="Project" description="Error">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1"><p className="text-sm font-medium">{error}</p></div>
             <button onClick={load} className="text-sm text-[var(--info)] hover:underline flex items-center gap-1">
               <RefreshCw className="h-3 w-3" /> Retry
@@ -381,8 +381,8 @@ export default function ProjectDetailPage() {
                 <div className="border-t pt-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Risk Assessment</p>
                   <div className="flex items-center gap-2">
-                    {plan.riskLevel === "high" ? <AlertOctagon className="h-4 w-4 text-red-500" /> :
-                     plan.riskLevel === "medium" ? <AlertTriangle className="h-4 w-4 text-amber-500" /> :
+                    {plan.riskLevel === "high" ? <AlertOctagon className="h-4 w-4 text-[var(--danger)]" /> :
+                     plan.riskLevel === "medium" ? <AlertTriangle className="h-4 w-4 text-[var(--warning)]" /> :
                      <CheckCircle className="h-4 w-4 text-emerald-500" />}
                     <span className={`text-sm font-semibold ${
                       plan.riskLevel === "high" ? "text-[var(--danger)]" :
@@ -430,7 +430,7 @@ export default function ProjectDetailPage() {
                   <div className="space-y-2.5">
                     {plan.specialists.map((spec, i) => (
                       <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
-                        <Zap className="h-4 w-4 text-amber-500" />
+                        <Zap className="h-4 w-4 text-[var(--warning)]" />
                         <div className="flex-1">
                           <p className="text-sm font-medium">{spec.typeName}</p>
                           <p className="text-xs text-muted-foreground">{spec.reason}</p>
@@ -584,7 +584,7 @@ export default function ProjectDetailPage() {
           {health.escalationNeeded && (
             <Card className="border-red-200 bg-[rgba(239,68,68,0.08)] mb-4">
               <CardContent className="flex items-center gap-3 py-4 px-5">
-                <AlertOctagon className="h-5 w-5 text-red-500" />
+                <AlertOctagon className="h-5 w-5 text-[var(--danger)]" />
                 <div>
                   <p className="text-sm font-semibold text-red-800">Escalation Required</p>
                   <p className="text-xs text-[var(--danger)]">{health.escalationReason}</p>

@@ -68,8 +68,8 @@ const colorMap: Record<string, string> = {
   agent_routed: "text-indigo-500 bg-indigo-50",
   agent_paused: "text-[var(--text-quiet)] bg-gray-50",
   agent_resumed: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
-  system_alert: "text-red-500 bg-[rgba(239,68,68,0.08)]",
-  blocker_detected: "text-amber-500 bg-[rgba(245,158,11,0.08)]",
+  system_alert: "text-[var(--danger)] bg-[rgba(239,68,68,0.08)]",
+  blocker_detected: "text-[var(--warning)] bg-[rgba(245,158,11,0.08)]",
   blocker_resolved: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
 };
 
@@ -152,7 +152,7 @@ export default function LiveFeedPage() {
       <PageShell title="Live Feed" description="Error loading data">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load events</p>
               <p className="text-xs text-muted-foreground">{error}</p>

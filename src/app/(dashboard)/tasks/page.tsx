@@ -427,7 +427,7 @@ export default function TasksPage() {
       <PageShell title="Tasks" description="Error loading data">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load tasks</p>
               <p className="text-xs text-muted-foreground">{error}</p>
@@ -1059,7 +1059,7 @@ export default function TasksPage() {
                       sidePanelTask.status === "done" ? "bg-emerald-100 text-emerald-700" :
                       sidePanelTask.status === "in-progress" ? "bg-blue-100 text-blue-700" :
                       sidePanelTask.status === "blocked" ? "bg-red-100 text-red-700" :
-                      "bg-slate-100 text-slate-600"
+                      "bg-[var(--surface-muted)] text-[var(--text-muted)]"
                     }`}>
                       {sidePanelTask.status}
                     </span>

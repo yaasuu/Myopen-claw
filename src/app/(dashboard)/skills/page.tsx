@@ -300,7 +300,7 @@ export default function SkillsPage() {
         <section>
           <div className="flex items-center gap-2 mb-4">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
-              <TrendingUp className="h-4 w-4 text-amber-500" />
+              <TrendingUp className="h-4 w-4 text-[var(--warning)]" />
             </div>
             <h2 className="section-title">Skill Gaps Detected</h2>
             <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{gaps.length}</Badge>

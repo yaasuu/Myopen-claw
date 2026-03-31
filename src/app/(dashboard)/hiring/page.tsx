@@ -212,7 +212,7 @@ export default function HiringPage() {
       <PageShell title="Hiring" description="Error loading data">
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-[var(--danger)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">Failed to load</p>
               <p className="text-xs text-muted-foreground">{error}</p>
@@ -337,7 +337,7 @@ export default function HiringPage() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <AlertTriangle className="h-4 w-4 text-[var(--warning)]" />
           </div>
           <h2 className="section-title">Unassigned Tasks</h2>
           {unassigned.length > 0 && (
