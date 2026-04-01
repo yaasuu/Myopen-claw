@@ -76,6 +76,7 @@ import {
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
 import { getTaskComments, addTaskComment } from "@/lib/data/comments";
+import { getTaskReviews, submitReview } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, Agent, TaskComment } from "@/types/dashboard";
@@ -154,6 +155,7 @@ export default function TasksPage() {
   // Side panel (task detail + comments)
   const [sidePanelTask, setSidePanelTask] = useState<TaskWithAgent | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -241,9 +243,25 @@ export default function TasksPage() {
   async function openSidePanel(task: TaskWithAgent) {
     setSidePanelTask(task);
     setLoadingComments(true);
-    const result = await getTaskComments(task.id);
-    setComments(result.data);
+    const [commentsResult, reviewsResult] = await Promise.all([
+      getTaskComments(task.id),
+      getTaskReviews(task.id),
+    ]);
+    setComments(commentsResult.data);
+    setReviews(reviewsResult.data);
     setLoadingComments(false);
+  }
+
+  async function handleReview(outcome: "approved" | "rejected" | "returned_for_rework") {
+    if (!sidePanelTask) return;
+    const notes = prompt(outcome === "approved" ? "Approval notes (optional):" : "Rejection reason:");
+    if (notes === null) return; // cancelled
+    const result = await submitReview(sidePanelTask.id, outcome, notes);
+    if (result.data) {
+      setReviews((prev) => [result.data!, ...prev]);
+      // Reload to update task status
+      await load();
+    }
   }
 
   async function handleSendComment() {
@@ -1220,6 +1238,59 @@ export default function TasksPage() {
                   <Pencil className="h-3 w-3" /> Edit Task
                 </Button>
               </div>
+
+              {/* Review actions (only for in-review tasks) */}
+              {canWrite && sidePanelTask?.status === "in-review" && (
+                <div className="pt-3 border-t space-y-2" style={{ borderColor: "var(--border)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Review Decision</p>
+                  <div className="flex gap-2">
+                    <button
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-emerald-300 hover:bg-emerald-50"
+                      style={{ borderColor: "var(--border)", color: "var(--success)" }}
+                      onClick={() => handleReview("approved")}
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-amber-300 hover:bg-amber-50"
+                      style={{ borderColor: "var(--border)", color: "var(--warning)" }}
+                      onClick={() => handleReview("returned_for_rework")}
+                    >
+                      ↩ Rework
+                    </button>
+                    <button
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-red-300 hover:bg-red-50"
+                      style={{ borderColor: "var(--border)", color: "var(--danger)" }}
+                      onClick={() => handleReview("rejected")}
+                    >
+                      ✕ Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Review history */}
+              {reviews.length > 0 && (
+                <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-quiet)" }}>Review History</p>
+                  <div className="space-y-2">
+                    {reviews.map((review: any) => (
+                      <div key={review.id} className="rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge className={`text-[10px] ${
+                            review.outcome === "approved" ? "bg-emerald-100 text-emerald-700" :
+                            review.outcome === "rejected" ? "bg-red-100 text-red-700" :
+                            "bg-amber-100 text-amber-700"
+                          }`}>{review.outcome.replace(/_/g, " ")}</Badge>
+                          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(review.created_at)}</span>
+                        </div>
+                        {review.notes && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{review.notes}</p>}
+                        <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>by {review.reviewed_by}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Comments section */}
               <div className="pt-4 flex flex-col" style={{ minHeight: "300px" }}>

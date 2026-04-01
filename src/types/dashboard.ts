@@ -290,3 +290,14 @@ export interface FileRegistry {
   label: string;
   icon: string;
 }
+
+export type ReviewOutcome = "approved" | "rejected" | "returned_for_rework";
+
+export interface TaskReview {
+  id: string;
+  task_id: string;
+  outcome: ReviewOutcome;
+  notes: string;
+  reviewed_by: string;
+  created_at: string;
+}
