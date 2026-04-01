@@ -55,12 +55,22 @@ export default function OrgChartPage() {
     const keyword = dept.name.toLowerCase().split("-")[0];
     deptAgents.set(
       dept.id,
-      agents.filter((a) => a.domain.toLowerCase().includes(keyword) || a.name.toLowerCase().includes(keyword))
+      agents.filter((a) => {
+        if (a.short_id === "research-agent") return false; // Research Agent goes under Yas Claw
+        return a.domain.toLowerCase().includes(keyword) ||
+          a.name.toLowerCase().includes(keyword) ||
+          (a.short_id === "ui-ux-designer" && dept.short_id === "architecture-systems") ||
+          (a.short_id === "data-analyst" && dept.short_id === "ops-improvement");
+      })
     );
   }
 
-  // Unassigned agents
+  // Research Agent goes directly under Yas Claw
+  const researchAgent = agents.find((a) => a.short_id === "research-agent");
+
+  // Unassigned agents (excluding research agent)
   const assignedIds = new Set([...deptAgents.values()].flat().map((a) => a.id));
+  assignedIds.add(researchAgent?.id ?? ""); // Research agent is assigned to Yas Claw
   const unassigned = agents.filter((a) => !assignedIds.has(a.id));
 
   if (loading) {
@@ -108,9 +118,32 @@ export default function OrgChartPage() {
         </Link>
       </div>
 
-      {/* Connector line */}
+      {/* Research Agent under Yas Claw */}
+      {researchAgent && (
+        <>
+          <div className="flex justify-center">
+            <div className="w-px h-6" style={{ background: "var(--border)" }} />
+          </div>
+          <div className="flex justify-center">
+            <Link href={`/agents/${researchAgent.id}`}>
+              <div className="surface-card-hover p-4 flex items-center gap-3" style={{ minWidth: "220px" }}>
+                <div className="relative">
+                  <span className="text-2xl">{researchAgent.emoji}</span>
+                  <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${researchAgent.status === "active" ? "dot-green" : "dot-amber"}`} style={{ borderColor: "var(--surface)" }} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{researchAgent.name}</p>
+                  <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{researchAgent.domain}</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </>
+      )}
+
+      {/* Connector to departments */}
       <div className="flex justify-center">
-        <div className="w-px h-8" style={{ background: "var(--border)" }} />
+        <div className="w-px h-6" style={{ background: "var(--border)" }} />
       </div>
 
       {/* Horizontal connector */}

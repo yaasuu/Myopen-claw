@@ -121,22 +121,45 @@ export default function WorkforcePage() {
   // Build hierarchy
   const hierarchy: HierarchyItem[] = [
     { id: "yas-claw", type: "orchestrator", name: "Yas Claw", emoji: "🦀", status: "active", meta: "Orchestrator" },
-    ...departments.map((d) => ({
-      id: d.id,
-      type: "department" as UnitType,
-      name: d.name,
-      emoji: d.emoji,
-      status: d.status,
-      meta: `${agents.filter((a) => a.domain.toLowerCase().includes(d.name.toLowerCase().split("-")[0])).length} agents`,
-    })),
-    ...agents.map((a) => ({
+    // Research Agent goes directly under Yas Claw
+    ...agents.filter((a) => a.short_id === "research-agent").map((a) => ({
       id: a.id,
       type: "agent" as UnitType,
       name: a.name,
       emoji: a.emoji,
       status: a.status,
       meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
-      parentId: departments.find((d) => a.domain.toLowerCase().includes(d.name.toLowerCase().split("-")[0]))?.id,
+      parentId: "yas-claw",
+    })),
+    // Departments
+    ...departments.map((d) => ({
+      id: d.id,
+      type: "department" as UnitType,
+      name: d.name,
+      emoji: d.emoji,
+      status: d.status,
+      meta: `${agents.filter((a) => {
+        if (a.short_id === "research-agent") return false;
+        const deptKeyword = d.name.toLowerCase().split("-")[0];
+        return a.domain.toLowerCase().includes(deptKeyword) ||
+          (a.short_id === "ui-ux-designer" && d.short_id === "architecture-systems") ||
+          (a.short_id === "data-analyst" && d.short_id === "ops-improvement");
+      }).length} agents`,
+    })),
+    // Agents (excluding research agent which is above)
+    ...agents.filter((a) => a.short_id !== "research-agent").map((a) => ({
+      id: a.id,
+      type: "agent" as UnitType,
+      name: a.name,
+      emoji: a.emoji,
+      status: a.status,
+      meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
+      parentId: departments.find((d) => {
+        const deptKeyword = d.name.toLowerCase().split("-")[0];
+        return a.domain.toLowerCase().includes(deptKeyword) ||
+          (a.short_id === "ui-ux-designer" && d.short_id === "architecture-systems") ||
+          (a.short_id === "data-analyst" && d.short_id === "ops-improvement");
+      })?.id,
     })),
     ...specialists.map((s) => ({
       id: s.id,
