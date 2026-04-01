@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS task_comments (
 CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_comments_created ON task_comments(created_at);
 
+-- Grant permissions to anon role (required for RLS to work)
+GRANT SELECT, INSERT ON task_comments TO anon;
+
+-- Enable RLS
 ALTER TABLE task_comments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "anon_select_comments" ON task_comments FOR SELECT TO anon USING (true);
