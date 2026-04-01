@@ -853,15 +853,27 @@ export default function TasksPage() {
                           </div>
 
                           {/* Quick done on hover */}
-                          {canWrite && !task.is_archived && status !== "done" && (
+                          {/* Quick action: submit for review or approve */}
+                          {canWrite && !task.is_archived && status === "in-review" && (
                             <button
                               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity font-medium"
                               style={{ color: "var(--success)", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.15)" }}
                               onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
                               disabled={updatingId === task.id}
-                              title="Mark done"
+                              title="Approve and mark done"
                             >
-                              ✓
+                              ✓ Approve
+                            </button>
+                          )}
+                          {canWrite && !task.is_archived && status !== "done" && status !== "in-review" && status !== "blocked" && (
+                            <button
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity font-medium"
+                              style={{ color: "var(--info)", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)" }}
+                              onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "in-review"); }}
+                              disabled={updatingId === task.id}
+                              title="Submit for review"
+                            >
+                              ↗ Review
                             </button>
                           )}
                         </div>
