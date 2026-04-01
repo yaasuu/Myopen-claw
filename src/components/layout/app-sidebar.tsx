@@ -19,6 +19,7 @@ import {
   BookOpen,
   FolderKanban,
   BarChart3,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +61,7 @@ const sections = [
     label: "Governance",
     items: [
       { title: "Autonomy", href: "/autonomy", icon: Shield },
+      { title: "Reviews", href: "/reviews", icon: ShieldCheck },
       { title: "Hiring", href: "/hiring", icon: UserPlus },
       { title: "Skills", href: "/skills", icon: GraduationCap },
     ],
