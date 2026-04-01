@@ -452,7 +452,7 @@ export default function TasksPage() {
 
       {/* Header bar — matches Mission Control reference */}
       <div className="sticky top-0 z-30 border-b" style={{ borderColor: "var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
-        <div className="px-4 py-4 md:px-8 md:py-6">
+        <div className="px-4 py-3 md:px-6 md:py-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--text)" }}>Tasks</h1>
@@ -519,7 +519,7 @@ export default function TasksPage() {
           </div>
 
           {/* Filters row */}
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="mt-2 flex flex-wrap items-center gap-3">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-32 h-8 text-xs">
                 <SelectValue placeholder="Status" />
