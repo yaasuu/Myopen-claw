@@ -121,6 +121,21 @@ export default function WorkforcePage() {
   // Agents that sit directly under Yas Claw (not under a department)
   const DIRECT_AGENTS = ["research-agent", "executive-finance"];
 
+  // Explicit agent-to-department mapping (avoids fragile domain keyword matching)
+  const AGENT_DEPT_MAP: Record<string, string> = {
+    "export-growth": "export-growth",
+    "ops-improvement": "ops-improvement",
+    "architecture-systems": "architecture-systems",
+    "ui-ux-designer": "architecture-systems",
+    "data-analyst": "ops-improvement",
+  };
+
+  function getAgentDeptId(agentShortId: string): string | undefined {
+    const deptShortId = AGENT_DEPT_MAP[agentShortId];
+    if (!deptShortId) return undefined;
+    return departments.find((d) => d.short_id === deptShortId)?.id;
+  }
+
   // Build hierarchy
   const hierarchy: HierarchyItem[] = [
     { id: "yas-claw", type: "orchestrator", name: "Yas Claw", emoji: "🦀", status: "active", meta: "Orchestrator" },
@@ -141,13 +156,7 @@ export default function WorkforcePage() {
       name: d.name,
       emoji: d.emoji,
       status: d.status,
-      meta: `${agents.filter((a) => {
-        if (DIRECT_AGENTS.includes(a.short_id)) return false;
-        const deptKeyword = d.name.toLowerCase().split("-")[0];
-        return a.domain.toLowerCase().includes(deptKeyword) ||
-          (a.short_id === "ui-ux-designer" && d.short_id === "architecture-systems") ||
-          (a.short_id === "data-analyst" && d.short_id === "ops-improvement");
-      }).length} agents`,
+      meta: `${agents.filter((a) => !DIRECT_AGENTS.includes(a.short_id) && getAgentDeptId(a.short_id) === d.id).length} agents`,
     })),
     // Agents (excluding direct agents)
     ...agents.filter((a) => !DIRECT_AGENTS.includes(a.short_id)).map((a) => ({
@@ -157,12 +166,7 @@ export default function WorkforcePage() {
       emoji: a.emoji,
       status: a.status,
       meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
-      parentId: departments.find((d) => {
-        const deptKeyword = d.name.toLowerCase().split("-")[0];
-        return a.domain.toLowerCase().includes(deptKeyword) ||
-          (a.short_id === "ui-ux-designer" && d.short_id === "architecture-systems") ||
-          (a.short_id === "data-analyst" && d.short_id === "ops-improvement");
-      })?.id,
+      parentId: getAgentDeptId(a.short_id),
     })),
     ...specialists.map((s) => ({
       id: s.id,
@@ -594,7 +598,7 @@ export default function WorkforcePage() {
                   <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Agents</span>
                 </div>
                 <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-                  {agents.filter((a) => a.domain.toLowerCase().includes(selectedDept.name.toLowerCase().split("-")[0])).map((agent) => (
+                  {agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id).map((agent) => (
                     <button key={agent.id} onClick={() => selectItem({ id: agent.id, type: "agent", name: agent.name, emoji: agent.emoji, status: agent.status, meta: "" })} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-muted)] transition-colors text-left">
                       <span className="text-lg">{agent.emoji}</span>
                       <div className="flex-1 min-w-0">
@@ -604,7 +608,7 @@ export default function WorkforcePage() {
                       <div className={`h-2 w-2 rounded-full ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} />
                     </button>
                   ))}
-                  {agents.filter((a) => a.domain.toLowerCase().includes(selectedDept.name.toLowerCase().split("-")[0])).length === 0 && (
+                  {agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id).length === 0 && (
                     <div className="py-6 text-center text-sm" style={{ color: "var(--text-quiet)" }}>No agents assigned</div>
                   )}
                 </div>
@@ -615,7 +619,7 @@ export default function WorkforcePage() {
                 <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-quiet)" }}>Related Context</p>
                 <RelatedContext
                   tasks={tasks.filter((t) => {
-                    const deptAgents = agents.filter((a) => a.domain.toLowerCase().includes(selectedDept.name.toLowerCase().split("-")[0]));
+                    const deptAgents = agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id);
                     return deptAgents.some((a) => a.id === t.assigned_agent_id) && t.status !== "done";
                   })}
                   lastActivity={selectedDept.created_at}
