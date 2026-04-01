@@ -1111,24 +1111,25 @@ export default function TasksPage() {
               </div>
 
               {/* Comments section */}
-              <div className="pt-4 space-y-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
+              <div className="pt-4 flex flex-col" style={{ minHeight: "300px" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-quiet)" }}>
                   Comments ({comments.length})
                 </p>
 
-                {loadingComments ? (
-                  <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
-                    <Loader2 className="h-3 w-3 animate-spin" /> Loading comments...
-                  </div>
-                ) : comments.length === 0 ? (
-                  <div className="py-6 text-center text-xs" style={{ color: "var(--text-quiet)" }}>
-                    No comments yet. Start the conversation.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {comments.map((comment) => (
+                {/* Comments list */}
+                <div className="flex-1 space-y-3 overflow-y-auto mb-4">
+                  {loadingComments ? (
+                    <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading comments...
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="py-8 text-center text-xs" style={{ color: "var(--text-quiet)" }}>
+                      No comments yet. Start the conversation.
+                    </div>
+                  ) : (
+                    comments.map((comment) => (
                       <div key={comment.id} className="rounded-lg p-3" style={{ background: "var(--surface-muted)" }}>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-xs font-semibold" style={{ color: comment.author_role === "ceo" ? "var(--accent)" : "var(--text)" }}>
                             {comment.author}
                           </span>
@@ -1139,33 +1140,29 @@ export default function TasksPage() {
                         </div>
                         <p className="text-sm" style={{ color: "var(--text-muted)" }}>{comment.content}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
 
-                {/* Comment composer */}
+                {/* Message composer — single line with Send button */}
                 {canWrite && (
-                  <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                    <textarea
-                      className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
+                  <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                    <input
+                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
                       style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
-                      rows={3}
-                      placeholder="Add a comment..."
+                      placeholder="Type a message..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
+                        if (e.key === "Enter") {
                           e.preventDefault();
                           handleSendComment();
                         }
                       }}
                     />
-                    <div className="flex justify-end mt-2">
-                      <Button size="sm" onClick={handleSendComment} disabled={sendingComment || !newComment.trim()}>
-                        {sendingComment ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                        Send
-                      </Button>
-                    </div>
+                    <Button size="sm" onClick={handleSendComment} disabled={sendingComment || !newComment.trim()}>
+                      {sendingComment ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
+                    </Button>
                   </div>
                 )}
               </div>
