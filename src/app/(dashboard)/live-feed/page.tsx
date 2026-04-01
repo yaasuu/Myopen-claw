@@ -31,6 +31,13 @@ import {
   ArchiveRestore,
   Loader2,
   RefreshCw,
+  MessageSquare,
+  FileText,
+  Search,
+  Lightbulb,
+  Clock,
+  XCircle,
+  RotateCcw,
 } from "lucide-react";
 import { getFeedEvents } from "@/lib/data/feed";
 import { getAgents } from "@/lib/data/agents";
@@ -59,6 +66,14 @@ const iconMap: Record<string, typeof Plus> = {
   system_alert: ShieldAlert,
   blocker_detected: AlertTriangle,
   blocker_resolved: ShieldCheck,
+  discussion_started: MessageSquare,
+  discussion_summary_logged: FileText,
+  finding_logged: Search,
+  proposal_created: Lightbulb,
+  approval_requested: Clock,
+  approval_granted: CheckCircle2,
+  approval_rejected: XCircle,
+  task_returned_for_rework: RotateCcw,
 };
 
 const colorMap: Record<string, string> = {
@@ -71,6 +86,14 @@ const colorMap: Record<string, string> = {
   system_alert: "text-[var(--danger)] bg-[rgba(239,68,68,0.08)]",
   blocker_detected: "text-[var(--warning)] bg-[rgba(245,158,11,0.08)]",
   blocker_resolved: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
+  discussion_started: "text-blue-500 bg-[rgba(59,130,246,0.08)]",
+  discussion_summary_logged: "text-violet-500 bg-[rgba(139,92,246,0.08)]",
+  finding_logged: "text-amber-500 bg-[rgba(245,158,11,0.08)]",
+  proposal_created: "text-violet-500 bg-[rgba(139,92,246,0.08)]",
+  approval_requested: "text-amber-500 bg-[rgba(245,158,11,0.08)]",
+  approval_granted: "text-emerald-500 bg-[rgba(16,185,129,0.08)]",
+  approval_rejected: "text-[var(--danger)] bg-[rgba(239,68,68,0.08)]",
+  task_returned_for_rework: "text-amber-500 bg-[rgba(245,158,11,0.08)]",
 };
 
 const typeLabels: Record<string, string> = {
@@ -83,6 +106,14 @@ const typeLabels: Record<string, string> = {
   system_alert: "System Alert",
   blocker_detected: "Blocker Detected",
   blocker_resolved: "Blocker Resolved",
+  discussion_started: "Discussion Started",
+  discussion_summary_logged: "Discussion Summary",
+  finding_logged: "Finding Logged",
+  proposal_created: "Proposal Created",
+  approval_requested: "Approval Requested",
+  approval_granted: "Approval Granted",
+  approval_rejected: "Approval Rejected",
+  task_returned_for_rework: "Returned for Rework",
 };
 
 function timeAgo(iso: string): string {
