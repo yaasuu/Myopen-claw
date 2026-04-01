@@ -827,14 +827,18 @@ export default function TasksPage() {
                             </span>
                           </div>
 
-                          {/* Bottom: assignee + time + project link */}
+                          {/* Bottom: assignee + time */}
                           <div className="mt-2.5 flex items-center justify-between text-[11px]" style={{ color: "var(--text-muted)" }}>
                             <div className="flex items-center gap-1.5 min-w-0">
-                              {task.assigned_agent_emoji ? (
-                                <>
-                                  <span>{task.assigned_agent_emoji}</span>
+                              {task.assigned_agent_id && task.assigned_agent_name ? (
+                                <Link
+                                  href={`/agents/${task.assigned_agent_id}`}
+                                  className="flex items-center gap-1.5 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {task.assigned_agent_emoji && <span>{task.assigned_agent_emoji}</span>}
                                   <span className="truncate">{task.assigned_agent_name}</span>
-                                </>
+                                </Link>
                               ) : (
                                 <span className="italic truncate" style={{ color: "var(--text-quiet)" }}>Unassigned</span>
                               )}
