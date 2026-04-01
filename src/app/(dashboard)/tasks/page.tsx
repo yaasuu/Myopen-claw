@@ -84,6 +84,7 @@ const statusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
   "in-progress": "bg-[rgba(59,130,246,0.08)] text-[var(--info)] border-blue-200",
   blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
+  "in-review": "bg-[rgba(139,92,246,0.08)] text-violet-600 border-violet-200",
   done: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
 };
 
@@ -93,7 +94,7 @@ const priorityColors: Record<string, { text: string; dot: string }> = {
   low: { text: "text-[var(--text-quiet)]", dot: "bg-gray-400" },
 };
 
-const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "done"];
+const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "in-review", "done"];
 
 const priorityBadgeStyle: Record<string, React.CSSProperties> = {
   high: { background: "rgba(220,38,38,0.08)", color: "#dc2626" },
@@ -741,18 +742,21 @@ export default function TasksPage() {
                 pending: "dot-gray",
                 "in-progress": "dot-blue",
                 blocked: "dot-red",
+                "in-review": "bg-violet-500",
                 done: "dot-green",
               };
               const statusLabel: Record<string, string> = {
                 pending: "Pending",
                 "in-progress": "In Progress",
                 blocked: "Blocked",
+                "in-review": "In Review",
                 done: "Done",
               };
               const laneAccent: Record<string, string> = {
                 pending: "rgba(148, 163, 184, 0.06)",
                 "in-progress": "rgba(59, 130, 246, 0.04)",
                 blocked: "rgba(220, 38, 38, 0.04)",
+                "in-review": "rgba(139, 92, 246, 0.04)",
                 done: "rgba(22, 163, 74, 0.04)",
               };
 

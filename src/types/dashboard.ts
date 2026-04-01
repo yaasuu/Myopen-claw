@@ -15,7 +15,7 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  status: "pending" | "in-progress" | "blocked" | "done";
+  status: "pending" | "in-progress" | "blocked" | "in-review" | "done";
   priority: "high" | "medium" | "low";
   assigned_agent_id: string | null;
   blocker: string | null;
