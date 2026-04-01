@@ -272,3 +272,21 @@ export interface AgentWorkspace {
   blockedTasks: number;
   completedTasks: number;
 }
+
+export type UnitType = "orchestrator" | "department" | "agent" | "specialist";
+
+export interface WorkspaceFile {
+  id: string;
+  unit_type: UnitType;
+  unit_id: string;
+  file_name: string;
+  file_content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FileRegistry {
+  name: string;
+  label: string;
+  icon: string;
+}

@@ -34,11 +34,4 @@ export function getAgentWorkspace(
   };
 }
 
-export function getWorkspaceFiles(workspace: AgentWorkspace): WorkspaceFile[] {
-  return [
-    { name: "SOUL.md", label: "Soul", content: workspace.soul, icon: "🧠" },
-    { name: "MEMORY.md", label: "Memory", content: workspace.memory, icon: "💾" },
-    { name: "SKILLS.md", label: "Skills", content: workspace.skills, icon: "⚡" },
-    { name: "HEARTBEAT.md", label: "Heartbeat", content: workspace.heartbeat, icon: "💓" },
-  ];
-}
+

@@ -32,7 +32,13 @@ import { getAgents, updateAgentStatus } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
 import { getSpecialists } from "@/lib/data/departments";
 import { getTasks } from "@/lib/data/tasks";
-import { getAgentWorkspace, getWorkspaceFiles } from "@/lib/data/workspace";
+import { getAgentWorkspace } from "@/lib/data/workspace";
+import {
+  getWorkspaceFiles,
+  getOrCreateFile,
+  updateFile,
+  FILE_REGISTRY,
+} from "@/lib/data/workspace-files";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
@@ -77,7 +83,11 @@ export default function WorkforcePage() {
   const [selectedType, setSelectedType] = useState<UnitType | null>(null);
   const [workspace, setWorkspace] = useState<AgentWorkspace | null>(null);
   const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
+  const [fileRegistry, setFileRegistry] = useState<Array<{ name: string; label: string; icon: string }>>([]);
   const [activeFile, setActiveFile] = useState("SOUL.md");
+  const [fileContent, setFileContent] = useState("");
+  const [editingFile, setEditingFile] = useState(false);
+  const [savingFile, setSavingFile] = useState(false);
   const [toggling, setToggling] = useState(false);
 
   async function load() {
@@ -148,18 +158,71 @@ export default function WorkforcePage() {
   function selectItem(item: HierarchyItem) {
     setSelectedId(item.id);
     setSelectedType(item.type);
+    setActiveFile("SOUL.md");
+    setEditingFile(false);
+
+    const registry = FILE_REGISTRY[item.type] ?? FILE_REGISTRY.agent;
+    setFileRegistry(registry);
+
     if (item.type === "agent" || item.type === "orchestrator") {
       const agent = agents.find((a) => a.id === item.id);
       if (agent) {
         const ws = getAgentWorkspace(agent, tasks);
         setWorkspace(ws);
-        setWorkspaceFiles(getWorkspaceFiles(ws));
-        setActiveFile("SOUL.md");
+        // Load first file
+        loadFile(item.type, item.id, registry[0]?.name ?? "SOUL.md", agent.name);
       }
+    } else if (item.type === "department") {
+      const dept = departments.find((d) => d.id === item.id);
+      setWorkspace(null);
+      if (dept) loadFile(item.type, item.id, registry[0]?.name ?? "SOUL.md", dept.name);
+    } else if (item.type === "specialist") {
+      const spec = specialists.find((s) => s.id === item.id);
+      setWorkspace(null);
+      if (spec) loadFile(item.type, item.id, registry[0]?.name ?? "MISSION.md", spec.name);
     } else {
       setWorkspace(null);
-      setWorkspaceFiles([]);
     }
+  }
+
+  async function loadFile(unitType: string, unitId: string, fileName: string, unitName: string) {
+    const result = await getOrCreateFile(unitType as any, unitId, fileName, unitName);
+    if (result.data) {
+      setWorkspaceFiles(prev => {
+        const exists = prev.find(f => f.file_name === fileName);
+        if (exists) return prev.map(f => f.file_name === fileName ? result.data! : f);
+        return [...prev, result.data!];
+      });
+      setFileContent(result.data.file_content);
+    }
+  }
+
+  async function switchFile(fileName: string) {
+    if (!selectedId || !selectedType) return;
+    const item = hierarchy.find(h => h.id === selectedId);
+    const unitName = item?.name ?? "Unit";
+    setActiveFile(fileName);
+    setEditingFile(false);
+
+    // Check if already loaded
+    const existing = workspaceFiles.find(f => f.file_name === fileName);
+    if (existing) {
+      setFileContent(existing.file_content);
+    } else {
+      await loadFile(selectedType, selectedId, fileName, unitName);
+    }
+  }
+
+  async function handleSaveFile() {
+    const file = workspaceFiles.find(f => f.file_name === activeFile);
+    if (!file) return;
+    setSavingFile(true);
+    const result = await updateFile(file.id, fileContent);
+    if (result.data) {
+      setWorkspaceFiles(prev => prev.map(f => f.id === result.data!.id ? result.data! : f));
+    }
+    setEditingFile(false);
+    setSavingFile(false);
   }
 
   const selectedAgent = selectedType === "agent" || selectedType === "orchestrator"
@@ -324,29 +387,77 @@ export default function WorkforcePage() {
 
               {/* Workspace files */}
               <div className="surface-card">
-                <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--border)" }}>
-                  <FileText className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
-                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Workspace Files</span>
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Workspace Files</span>
+                  </div>
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() => {
+                        if (editingFile) {
+                          setEditingFile(false);
+                          const file = workspaceFiles.find(f => f.file_name === activeFile);
+                          if (file) setFileContent(file.file_content);
+                        } else {
+                          setEditingFile(true);
+                        }
+                      }}
+                    >
+                      {editingFile ? "Cancel" : "Edit"}
+                    </Button>
+                  )}
                 </div>
                 <div className="flex">
+                  {/* File tabs */}
                   <div className="w-40 border-r p-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
-                    {workspaceFiles.map((file) => (
-                      <button
-                        key={file.name}
-                        onClick={() => setActiveFile(file.name)}
-                        className={`w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
-                          activeFile === file.name ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "hover:bg-[var(--surface-muted)] text-[var(--text-muted)]"
-                        }`}
-                      >
-                        <span>{file.icon}</span>
-                        <span>{file.label}</span>
-                      </button>
-                    ))}
+                    {fileRegistry.map((reg) => {
+                      const exists = workspaceFiles.some(f => f.file_name === reg.name);
+                      return (
+                        <button
+                          key={reg.name}
+                          onClick={() => switchFile(reg.name)}
+                          className={`w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
+                            activeFile === reg.name ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "hover:bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                          }`}
+                        >
+                          <span>{reg.icon}</span>
+                          <span className="truncate">{reg.label}</span>
+                          {!exists && <span className="text-[9px] ml-auto" style={{ color: "var(--text-quiet)" }}>+</span>}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex-1 p-4 min-h-[180px] overflow-y-auto">
-                    <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                      {workspaceFiles.find((f) => f.name === activeFile)?.content || "No content"}
-                    </pre>
+                  {/* File content */}
+                  <div className="flex-1 p-4 min-h-[200px] overflow-y-auto">
+                    {editingFile ? (
+                      <div className="space-y-3">
+                        <textarea
+                          className="w-full min-h-[200px] rounded-lg border p-3 text-sm leading-relaxed resize-y"
+                          style={{ background: "var(--surface-muted)", borderColor: "var(--border)", color: "var(--text)", fontFamily: "var(--font-mono)" }}
+                          value={fileContent}
+                          onChange={(e) => setFileContent(e.target.value)}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setEditingFile(false);
+                            const file = workspaceFiles.find(f => f.file_name === activeFile);
+                            if (file) setFileContent(file.file_content);
+                          }}>Cancel</Button>
+                          <Button size="sm" onClick={handleSaveFile} disabled={savingFile}>
+                            {savingFile ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                        {fileContent || "No content yet. Click Edit to add content."}
+                      </pre>
+                    )}
                   </div>
                 </div>
               </div>
