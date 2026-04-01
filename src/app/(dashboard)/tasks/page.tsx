@@ -442,7 +442,7 @@ export default function TasksPage() {
   }
 
   return (
-    <PageShell title="Tasks" description="Manage and track all work items">
+    <PageShell>
       {/* Error banner */}
       {error && (
         <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
