@@ -221,5 +221,58 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
+  // Generate daily summary
+  if (body.action === "generate_summary") {
+    const targetDate = body.date ?? new Date().toISOString().split("T")[0];
+    const startOfDay = `${targetDate}T00:00:00Z`;
+    const endOfDay = `${targetDate}T23:59:59Z`;
+
+    // Fetch today's feed events
+    const { data: events } = await supabase
+      .from("feed_events")
+      .select("*")
+      .gte("created_at", startOfDay)
+      .lte("created_at", endOfDay)
+      .order("created_at", { ascending: true });
+
+    const feedEvents = events ?? [];
+
+    // Categorize events
+    const decisions: string[] = [];
+    const blockers: string[] = [];
+    const priorities: string[] = [];
+
+    for (const event of feedEvents) {
+      if (event.event_type === "task_completed") decisions.push(`Completed: ${event.summary}`);
+      if (event.event_type === "blocker_detected") blockers.push(event.summary);
+      if (event.event_type === "agent_hired" || event.event_type === "skill_approved") decisions.push(event.summary);
+      if (event.event_type === "blocker_resolved") decisions.push(`Resolved: ${event.summary}`);
+    }
+
+    if (blockers.length > 0) priorities.push(`Resolve ${blockers.length} blocker(s)`);
+
+    const summary = feedEvents.length > 0
+      ? `${feedEvents.length} events today.`
+      : "No activity recorded today.";
+
+    // Upsert daily note
+    const { data: note, error } = await supabase
+      .from("daily_notes")
+      .upsert({
+        date: targetDate,
+        summary,
+        events_reviewed: feedEvents.length,
+        decisions,
+        blockers,
+        priorities_tomorrow: priorities,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "date" })
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data: note });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
