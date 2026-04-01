@@ -40,6 +40,7 @@ import {
   FILE_REGISTRY,
 } from "@/lib/data/workspace-files";
 import { useCanWrite } from "@/lib/auth/use-can-write";
+import { RelatedContext } from "@/components/ui/related-context";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
 
@@ -579,6 +580,19 @@ export default function WorkforcePage() {
                     <div className="py-6 text-center text-sm" style={{ color: "var(--text-quiet)" }}>No agents assigned</div>
                   )}
                 </div>
+              </div>
+
+              {/* Department related context */}
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-quiet)" }}>Related Context</p>
+                <RelatedContext
+                  tasks={tasks.filter((t) => {
+                    const deptAgents = agents.filter((a) => a.domain.toLowerCase().includes(selectedDept.name.toLowerCase().split("-")[0]));
+                    return deptAgents.some((a) => a.id === t.assigned_agent_id) && t.status !== "done";
+                  })}
+                  lastActivity={selectedDept.created_at}
+                  viewAllHref="/tasks"
+                />
               </div>
 
               {/* Department workspace files */}
