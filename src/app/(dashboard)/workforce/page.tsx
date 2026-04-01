@@ -164,13 +164,16 @@ export default function WorkforcePage() {
     const registry = FILE_REGISTRY[item.type] ?? FILE_REGISTRY.agent;
     setFileRegistry(registry);
 
-    if (item.type === "agent" || item.type === "orchestrator") {
+    if (item.type === "orchestrator") {
+      // Orchestrator has no agent record — use virtual workspace
+      setWorkspace(null);
+      loadFile("orchestrator", "yas-claw-orchestrator", registry[0]?.name ?? "IDENTITY.md", "Yas Claw");
+    } else if (item.type === "agent") {
       const agent = agents.find((a) => a.id === item.id);
       if (agent) {
         const ws = getAgentWorkspace(agent, tasks);
         setWorkspace(ws);
-        // Load first file
-        loadFile(item.type, item.id, registry[0]?.name ?? "SOUL.md", agent.name);
+        loadFile("agent", item.id, registry[0]?.name ?? "SOUL.md", agent.name);
       }
     } else if (item.type === "department") {
       const dept = departments.find((d) => d.id === item.id);
@@ -225,9 +228,10 @@ export default function WorkforcePage() {
     setSavingFile(false);
   }
 
-  const selectedAgent = selectedType === "agent" || selectedType === "orchestrator"
+  const selectedAgent = selectedType === "agent"
     ? agents.find((a) => a.id === selectedId) ?? null
     : null;
+  const selectedOrchestrator = selectedType === "orchestrator";
   const selectedDept = selectedType === "department"
     ? departments.find((d) => d.id === selectedId) ?? null
     : null;
@@ -331,6 +335,61 @@ export default function WorkforcePage() {
                 <Users className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-quiet)" }} />
                 <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Select a unit</p>
                 <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>Choose from the hierarchy to view workspace</p>
+              </div>
+            </div>
+          ) : selectedOrchestrator ? (
+            // Orchestrator workspace
+            <div className="space-y-4">
+              <div className="surface-card p-5">
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">🦀</span>
+                  <div>
+                    <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Yas Claw</h2>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>CEO / Orchestrator — System Operator</p>
+                    <Badge variant="outline" className="mt-1 text-xs">Active</Badge>
+                  </div>
+                </div>
+                <p className="text-sm mt-3" style={{ color: "var(--text-quiet)" }}>
+                  Top-level orchestrator. Receives work from Yas, classifies it, routes to domain agents, monitors execution, approves completions.
+                </p>
+              </div>
+
+              {/* Orchestrator workspace files */}
+              <div className="surface-card">
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Workspace Files</span>
+                  </div>
+                  {canWrite && (
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditingFile(!editingFile)}>
+                      {editingFile ? "Cancel" : "Edit"}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex">
+                  <div className="w-40 border-r p-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
+                    {fileRegistry.map((reg) => (
+                      <button key={reg.name} onClick={() => switchFile(reg.name)} className={`w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${activeFile === reg.name ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "hover:bg-[var(--surface-muted)] text-[var(--text-muted)]"}`}>
+                        <span>{reg.icon}</span><span className="truncate">{reg.label}</span>
+                        {!workspaceFiles.some(f => f.file_name === reg.name) && <span className="text-[9px] ml-auto" style={{ color: "var(--text-quiet)" }}>+</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 p-4 min-h-[200px] overflow-y-auto">
+                    {editingFile ? (
+                      <div className="space-y-3">
+                        <textarea className="w-full min-h-[160px] rounded-lg border p-3 text-sm resize-y" style={{ background: "var(--surface-muted)", borderColor: "var(--border)", color: "var(--text)", fontFamily: "var(--font-mono)" }} value={fileContent} onChange={(e) => setFileContent(e.target.value)} />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setEditingFile(false); const f = workspaceFiles.find(w => w.file_name === activeFile); if (f) setFileContent(f.file_content); }}>Cancel</Button>
+                          <Button size="sm" onClick={handleSaveFile} disabled={savingFile}>{savingFile ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}Save</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{fileContent || "No content yet. Click Edit to add content."}</pre>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ) : selectedAgent && workspace ? (
