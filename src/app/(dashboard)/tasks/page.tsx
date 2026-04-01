@@ -58,6 +58,9 @@ import {
   LayoutGrid,
   List,
   Clock,
+  Repeat,
+  Calendar,
+  Zap,
 } from "lucide-react";
 import {
   getTasks,
@@ -659,6 +662,33 @@ export default function TasksPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+      {/* Scheduled Routines Strip */}
+      <div className="surface-card px-4 py-3">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Repeat className="h-4 w-4" style={{ color: "var(--accent)" }} />
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Scheduled Routines</span>
+          </div>
+          <div className="divider" />
+          {[
+            { name: "Daily Autonomy", schedule: "Every hour", status: "active", icon: Zap },
+            { name: "Nightly Summary", schedule: "23:00 UTC", status: "active", icon: Calendar },
+            { name: "Weekly Review", schedule: "Mondays", status: "upcoming", icon: Clock },
+          ].map((routine) => (
+            <div key={routine.name} className="flex items-center gap-2 text-xs">
+              <routine.icon className="h-3.5 w-3.5" style={{ color: routine.status === "active" ? "var(--success)" : "var(--text-quiet)" }} />
+              <span style={{ color: "var(--text)" }}>{routine.name}</span>
+              <span style={{ color: "var(--text-quiet)" }}>{routine.schedule}</span>
+              <div className={`h-1.5 w-1.5 rounded-full ${routine.status === "active" ? "dot-green" : "dot-gray"}`} />
+            </div>
+          ))}
+          <div className="flex-1" />
+          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+            {3} active
+          </span>
+        </div>
+      </div>
 
       {/* Board View — Kanban lanes */}
       {viewMode === "board" && (
