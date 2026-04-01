@@ -65,7 +65,15 @@ export interface FeedEvent {
     | "skill_rejected"
     | "skill_installed"
     | "skill_scan_clean"
-    | "skill_scan_flagged";
+    | "skill_scan_flagged"
+    | "discussion_started"
+    | "discussion_summary_logged"
+    | "finding_logged"
+    | "proposal_created"
+    | "approval_requested"
+    | "approval_granted"
+    | "approval_rejected"
+    | "task_returned_for_rework";
   source: string;
   summary: string;
   related_task_id: string | null;
