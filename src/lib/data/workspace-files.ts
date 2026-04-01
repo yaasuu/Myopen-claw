@@ -26,13 +26,25 @@ export const FILE_REGISTRY: Record<UnitType, FileRegistry[]> = {
   agent: [
     { name: "SOUL.md", label: "Soul", icon: "🧠" },
     { name: "MEMORY.md", label: "Memory", icon: "💾" },
+    { name: "SKILLS.md", label: "Skills", icon: "⚡" },
     { name: "SOP.md", label: "SOP", icon: "📖" },
     { name: "PERFORMANCE.md", label: "Performance", icon: "📊" },
+    { name: "HEARTBEAT.md", label: "Heartbeat", icon: "💓" },
     { name: "NOTES.md", label: "Notes", icon: "📝" },
   ],
   specialist: [
     { name: "MISSION.md", label: "Mission", icon: "🎯" },
     { name: "OUTPUT.md", label: "Output", icon: "📤" },
+    { name: "NOTES.md", label: "Notes", icon: "📝" },
+  ],
+  project: [
+    { name: "BRIEF.md", label: "Brief", icon: "📋" },
+    { name: "SCOPE.md", label: "Scope", icon: "🎯" },
+    { name: "MILESTONES.md", label: "Milestones", icon: "🏁" },
+    { name: "RISKS.md", label: "Risks", icon: "⚠️" },
+    { name: "REVIEWS.md", label: "Reviews", icon: "📊" },
+    { name: "DECISIONS.md", label: "Decisions", icon: "📋" },
+    { name: "EXECUTION.md", label: "Execution", icon: "⚡" },
     { name: "NOTES.md", label: "Notes", icon: "📝" },
   ],
 };
@@ -54,6 +66,13 @@ const STARTER_TEMPLATES: Record<string, (name: string) => string> = {
   "PLAYBOOK.md": (name) => `# ${name} — Playbook\n\n## Common Scenarios\n### Scenario 1\n- Trigger: [What happens]\n- Response: [What to do]\n- Owner: [Who]\n\n## Best Practices\n- [Practice 1]\n\n## Anti-patterns\n- [What to avoid]`,
   "NOTES.md": (name) => `# ${name} — Notes\n\n## Working Notes\n- [Note 1]\n\n## Ideas\n- [Idea 1]\n\n## Follow-ups\n- [Item to follow up on]`,
   "OUTPUT.md": (name) => `# ${name} — Output\n\n## Deliverables\n- [Deliverable 1]\n\n## Status\n- [Status of each deliverable]\n\n## Quality Notes\n- [Notes on output quality]`,
+  "BRIEF.md": (name) => `# ${name} — Project Brief\n\n## Objective\n[What this project aims to achieve]\n\n## Owner\n[Who owns this project]\n\n## Why This Exists\n[Business reason for this project]\n\n## Expected Outcome\n[What success looks like]`,
+  "SCOPE.md": (name) => `# ${name} — Scope\n\n## In Scope\n- [What is included]\n\n## Out of Scope\n- [What is excluded]\n\n## Assumptions\n- [Assumption 1]\n\n## Boundaries\n- [Limitations]`,
+  "MILESTONES.md": (name) => `# ${name} — Milestones\n\n## Milestone 1\n- Target: [Date]\n- Dependency: [What blocks this]\n- Status: Pending\n\n## Milestone 2\n- Target: [Date]\n- Dependency: [What blocks this]\n- Status: Pending`,
+  "RISKS.md": (name) => `# ${name} — Risks\n\n## Known Risks\n- [Risk 1]\n\n## Blockers\n- [Blocker 1]\n\n## Escalation Conditions\n- [When to escalate]\n\n## Mitigations\n- [Mitigation 1]`,
+  "REVIEWS.md": (name) => `# ${name} — Reviews\n\n## Weekly Reviews\n- [Review 1]: [Summary]\n\n## Executive Reviews\n- [Review 1]: [Summary]\n\n## Risk Reviews\n- [Review 1]: [Summary]`,
+  "EXECUTION.md": (name) => `# ${name} — Execution\n\n## Current Status\n[What is happening now]\n\n## Active Units\n- [Agent/Department working on this]\n\n## Open Dependencies\n- [Dependency 1]\n\n## Next Actions\n- [Action 1]\n- [Action 2]`,
+  "SKILLS.md": (name) => `# ${name} — Skills\n\n## Installed Skills\n- [Skill 1]\n\n## Requested Skills\n- [Skill gap 1]\n\n## Monthly Quota\n- Limit: 2 per month\n- Used: 0\n- Available: 2`,
 };
 
 // ── CRUD Operations ─────────────────────────────────

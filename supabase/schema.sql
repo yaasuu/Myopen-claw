@@ -85,7 +85,10 @@ insert into agents (name, short_id, emoji, description, status, domain) values
   ('Yas Claw', 'yas-claw', '🦀', 'CEO orchestrator — creates tasks, assigns to agents, monitors, approves completion', 'active', 'Orchestration, task management, agent coordination, approval'),
   ('Export-Growth Agent', 'export-growth', '📦', 'Handles export opportunities, leads, and buyer follow-up', 'active', 'Export execution, lead generation, buyer follow-up'),
   ('Ops-Improvement Agent', 'ops-improvement', '⚙️', 'Handles workflows, process improvement, and routines', 'active', 'Workflows, process improvement, routines'),
-  ('Architecture-Systems Agent', 'architecture-systems', '🏗️', 'Handles platform design, data modeling, and system architecture', 'active', 'Platform design, data modeling, system architecture')
+  ('Architecture-Systems Agent', 'architecture-systems', '🏗️', 'Handles platform design, data modeling, and system architecture', 'active', 'Platform design, data modeling, system architecture'),
+  ('UI/UX Designer', 'ui-ux-designer', '🎨', 'Designs and improves interface clarity, interaction flows, dashboard usability, and visual consistency', 'active', 'Interface design, flow improvement, interaction clarity, dashboard polish'),
+  ('Data Analyst', 'data-analyst', '📊', 'Analyzes metrics, reporting patterns, KPI performance, and operational data for decision support', 'active', 'Analytics, reporting, KPI interpretation, metrics review, business intelligence'),
+  ('Research Agent', 'research-agent', '🔬', 'Performs structured research, comparative analysis, investigation, and insight synthesis', 'active', 'Market research, comparative analysis, structured investigation, synthesis')
 on conflict (short_id) do nothing;
 
 -- Seed data: System status

@@ -273,7 +273,7 @@ export interface AgentWorkspace {
   completedTasks: number;
 }
 
-export type UnitType = "orchestrator" | "department" | "agent" | "specialist";
+export type UnitType = "orchestrator" | "department" | "agent" | "specialist" | "project";
 
 export interface WorkspaceFile {
   id: string;

@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS workspace_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  unit_type TEXT NOT NULL CHECK (unit_type IN ('orchestrator', 'department', 'agent', 'specialist')),
+  unit_type TEXT NOT NULL CHECK (unit_type IN ('orchestrator', 'department', 'agent', 'specialist', 'project')),
   unit_id TEXT NOT NULL,
   file_name TEXT NOT NULL,
   file_content TEXT DEFAULT '',

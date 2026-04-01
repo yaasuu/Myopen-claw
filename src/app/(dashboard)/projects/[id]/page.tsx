@@ -49,6 +49,11 @@ import {
   Shield,
 } from "lucide-react";
 import { getProjectById, updateProject, applyProjectPlan } from "@/lib/data/projects";
+import {
+  getOrCreateFile,
+  updateFile,
+  FILE_REGISTRY,
+} from "@/lib/data/workspace-files";
 import { generateProjectPlan } from "@/lib/data/planning";
 import {
   calculateProjectHealth,
@@ -107,6 +112,11 @@ export default function ProjectDetailPage() {
   const [reviews, setReviews] = useState<ProjectReview[]>([]);
   const [decisions, setDecisions] = useState<ProjectDecision[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [projectFiles, setProjectFiles] = useState<Array<{ name: string; label: string; icon: string; content: string; fileId: string | null }>>([]);
+  const [activeProjectFile, setActiveProjectFile] = useState("BRIEF.md");
+  const [editingProjectFile, setEditingProjectFile] = useState(false);
+  const [projectFileContent, setProjectFileContent] = useState("");
+  const [savingProjectFile, setSavingProjectFile] = useState(false);
 
   // Edit dialog
   const [editOpen, setEditOpen] = useState(false);
@@ -142,6 +152,25 @@ export default function ProjectDetailPage() {
         setMilestones(msResult.data);
         setReviews(rvResult.data);
         setDecisions(dcResult.data);
+
+        // Load project workspace files
+        const registry = FILE_REGISTRY.project;
+        const files = await Promise.all(
+          registry.map(async (reg) => {
+            const res = await getOrCreateFile("project", projectId, reg.name, result.data!.title);
+            return {
+              name: reg.name,
+              label: reg.label,
+              icon: reg.icon,
+              content: res.data?.file_content ?? "",
+              fileId: res.data?.id ?? null,
+            };
+          })
+        );
+        setProjectFiles(files);
+        if (files.length > 0) {
+          setProjectFileContent(files[0].content);
+        }
 
         // Recalculate health with milestones
         setHealth(calculateProjectHealth(result.data, result.tasks, msResult.data));
@@ -737,6 +766,94 @@ export default function ProjectDetailPage() {
           </div>
         </section>
       )}
+
+      {/* Project Workspace Files */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted">
+            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <h2 className="section-title">Project Files</h2>
+        </div>
+
+        <div className="surface-card">
+          <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+            <div className="flex items-center gap-2">
+              {projectFiles.map((file) => (
+                <button
+                  key={file.name}
+                  onClick={() => {
+                    setActiveProjectFile(file.name);
+                    setProjectFileContent(file.content);
+                    setEditingProjectFile(false);
+                  }}
+                  className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    activeProjectFile === file.name ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-muted)] hover:bg-[var(--surface-muted)]"
+                  }`}
+                >
+                  <span className="mr-1">{file.icon}</span>
+                  {file.label}
+                </button>
+              ))}
+            </div>
+            {canWrite && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => {
+                  if (editingProjectFile) {
+                    setEditingProjectFile(false);
+                    const file = projectFiles.find(f => f.name === activeProjectFile);
+                    if (file) setProjectFileContent(file.content);
+                  } else {
+                    setEditingProjectFile(true);
+                  }
+                }}
+              >
+                {editingProjectFile ? "Cancel" : "Edit"}
+              </Button>
+            )}
+          </div>
+          <div className="p-4 min-h-[180px]">
+            {editingProjectFile ? (
+              <div className="space-y-3">
+                <textarea
+                  className="w-full min-h-[160px] rounded-lg border p-3 text-sm leading-relaxed resize-y"
+                  style={{ background: "var(--surface-muted)", borderColor: "var(--border)", color: "var(--text)", fontFamily: "var(--font-mono)" }}
+                  value={projectFileContent}
+                  onChange={(e) => setProjectFileContent(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setEditingProjectFile(false);
+                    const file = projectFiles.find(f => f.name === activeProjectFile);
+                    if (file) setProjectFileContent(file.content);
+                  }}>Cancel</Button>
+                  <Button size="sm" onClick={async () => {
+                    const file = projectFiles.find(f => f.name === activeProjectFile);
+                    if (!file || !file.fileId) return;
+                    setSavingProjectFile(true);
+                    const result = await updateFile(file.fileId, projectFileContent);
+                    if (result.data) {
+                      setProjectFiles(prev => prev.map(f => f.name === activeProjectFile ? { ...f, content: result.data!.file_content } : f));
+                    }
+                    setEditingProjectFile(false);
+                    setSavingProjectFile(false);
+                  }} disabled={savingProjectFile}>
+                    {savingProjectFile ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                {projectFileContent || "No content yet. Click Edit to add content."}
+              </pre>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Edit dialog */}
       {canWrite && (
