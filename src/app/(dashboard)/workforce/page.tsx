@@ -1,0 +1,440 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { PageShell } from "@/components/dashboard/page-shell";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Loader2,
+  AlertTriangle,
+  RefreshCw,
+  Bot,
+  Building2,
+  Zap,
+  Pause,
+  Play,
+  Pencil,
+  FileText,
+  Users,
+  ChevronRight,
+  Clock,
+  Activity,
+  AlertOctagon,
+  CheckCircle2,
+} from "lucide-react";
+import { getAgents, updateAgentStatus } from "@/lib/data/agents";
+import { getDepartments } from "@/lib/data/departments";
+import { getSpecialists } from "@/lib/data/departments";
+import { getTasks } from "@/lib/data/tasks";
+import { getAgentWorkspace, getWorkspaceFiles } from "@/lib/data/workspace";
+import { useCanWrite } from "@/lib/auth/use-can-write";
+import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
+import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+type UnitType = "orchestrator" | "department" | "agent" | "specialist";
+
+interface HierarchyItem {
+  id: string;
+  type: UnitType;
+  name: string;
+  emoji: string;
+  status: string;
+  meta: string;
+  parentId?: string;
+}
+
+const FILTERS = ["all", "departments", "agents", "specialists"] as const;
+
+export default function WorkforcePage() {
+  const canWrite = useCanWrite();
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [specialists, setSpecialists] = useState<Specialist[]>([]);
+  const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
+
+  const [filter, setFilter] = useState<string>(searchParams.get("view") ?? "all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<UnitType | null>(null);
+  const [workspace, setWorkspace] = useState<AgentWorkspace | null>(null);
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
+  const [activeFile, setActiveFile] = useState("SOUL.md");
+  const [toggling, setToggling] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [agentsR, deptsR, specsR, tasksR] = await Promise.all([
+        getAgents(),
+        getDepartments(),
+        getSpecialists(),
+        getTasks(),
+      ]);
+      setAgents(agentsR.data);
+      setDepartments(deptsR.data);
+      setSpecialists(specsR.data);
+      setTasks(tasksR.data);
+      if (agentsR.error) setError(agentsR.error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const loadRef = useCallback(() => load(), []);
+  useRealtimeMulti(["agents", "departments", "specialists", "tasks"], loadRef);
+
+  useEffect(() => { load(); }, []);
+
+  // Build hierarchy
+  const hierarchy: HierarchyItem[] = [
+    { id: "yas-claw", type: "orchestrator", name: "Yas Claw", emoji: "🦀", status: "active", meta: "Orchestrator" },
+    ...departments.map((d) => ({
+      id: d.id,
+      type: "department" as UnitType,
+      name: d.name,
+      emoji: d.emoji,
+      status: d.status,
+      meta: `${agents.filter((a) => a.domain.toLowerCase().includes(d.name.toLowerCase().split("-")[0])).length} agents`,
+    })),
+    ...agents.map((a) => ({
+      id: a.id,
+      type: "agent" as UnitType,
+      name: a.name,
+      emoji: a.emoji,
+      status: a.status,
+      meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
+      parentId: departments.find((d) => a.domain.toLowerCase().includes(d.name.toLowerCase().split("-")[0]))?.id,
+    })),
+    ...specialists.map((s) => ({
+      id: s.id,
+      type: "specialist" as UnitType,
+      name: s.name,
+      emoji: "⚡",
+      status: s.status,
+      meta: s.type,
+    })),
+  ];
+
+  const filtered = hierarchy.filter((item) => {
+    if (filter === "all") return true;
+    if (filter === "departments") return item.type === "department";
+    if (filter === "agents") return item.type === "agent" || item.type === "orchestrator";
+    if (filter === "specialists") return item.type === "specialist";
+    return true;
+  });
+
+  function selectItem(item: HierarchyItem) {
+    setSelectedId(item.id);
+    setSelectedType(item.type);
+    if (item.type === "agent" || item.type === "orchestrator") {
+      const agent = agents.find((a) => a.id === item.id);
+      if (agent) {
+        const ws = getAgentWorkspace(agent, tasks);
+        setWorkspace(ws);
+        setWorkspaceFiles(getWorkspaceFiles(ws));
+        setActiveFile("SOUL.md");
+      }
+    } else {
+      setWorkspace(null);
+      setWorkspaceFiles([]);
+    }
+  }
+
+  const selectedAgent = selectedType === "agent" || selectedType === "orchestrator"
+    ? agents.find((a) => a.id === selectedId) ?? null
+    : null;
+  const selectedDept = selectedType === "department"
+    ? departments.find((d) => d.id === selectedId) ?? null
+    : null;
+  const selectedSpec = selectedType === "specialist"
+    ? specialists.find((s) => s.id === selectedId) ?? null
+    : null;
+
+  const activeCount = agents.filter((a) => a.status === "active").length;
+  const pausedCount = agents.filter((a) => a.status === "paused").length;
+  const overloadedCount = agents.filter((a) => tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length >= 5).length;
+
+  if (loading) {
+    return (
+      <PageShell title="Workforce" description="Loading...">
+        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading workforce...
+        </div>
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell title="Workforce" description="Organization hierarchy and unit workspaces">
+      {error && (
+        <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>{error}</div>
+      )}
+
+      {/* Top metrics */}
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          { label: "Total Agents", value: String(agents.length), color: "var(--text)" },
+          { label: "Active", value: String(activeCount), color: "var(--success)" },
+          { label: "Paused", value: String(pausedCount), color: pausedCount > 0 ? "var(--warning)" : "var(--text-quiet)" },
+          { label: "Departments", value: String(departments.length), color: "var(--accent)" },
+          { label: "Specialists", value: String(specialists.length), color: "var(--info)" },
+          { label: "Overloaded", value: String(overloadedCount), color: overloadedCount > 0 ? "var(--danger)" : "var(--text-quiet)" },
+        ].map((m) => (
+          <div key={m.label} className="surface-card p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{m.label}</p>
+            <p className="text-xl font-bold mt-1" style={{ color: m.color }}>{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors capitalize"
+            style={{
+              background: filter === f ? "var(--text)" : "transparent",
+              color: filter === f ? "var(--surface)" : "var(--text-muted)",
+            }}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {/* Split layout */}
+      <div className="flex gap-4" style={{ minHeight: "500px" }}>
+        {/* Left: Hierarchy */}
+        <div className="w-[260px] shrink-0 rounded-xl border overflow-hidden" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Hierarchy</p>
+          </div>
+          <div className="p-2 space-y-0.5 overflow-y-auto" style={{ maxHeight: "500px" }}>
+            {filtered.map((item) => {
+              const isSelected = selectedId === item.id;
+              return (
+                <button
+                  key={`${item.type}-${item.id}`}
+                  onClick={() => selectItem(item)}
+                  className={`w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
+                    isSelected ? "bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]"
+                  }`}
+                  style={{ paddingLeft: item.parentId ? "2.5rem" : "0.75rem" }}
+                >
+                  <div className="relative">
+                    <span className="text-base">{item.emoji}</span>
+                    <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${item.status === "active" ? "dot-green" : item.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium truncate" style={{ color: isSelected ? "var(--accent)" : "var(--text)" }}>{item.name}</p>
+                    <p className="text-[11px] truncate" style={{ color: "var(--text-quiet)" }}>{item.meta}</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0">{item.type}</Badge>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: Workspace */}
+        <div className="flex-1">
+          {!selectedId ? (
+            <div className="flex items-center justify-center h-full rounded-xl border border-dashed" style={{ borderColor: "var(--border)" }}>
+              <div className="text-center">
+                <Users className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-quiet)" }} />
+                <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>Select a unit</p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>Choose from the hierarchy to view workspace</p>
+              </div>
+            </div>
+          ) : selectedAgent && workspace ? (
+            // Agent workspace
+            <div className="space-y-4">
+              <div className="surface-card p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <span className="text-3xl">{selectedAgent.emoji}</span>
+                      <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 ${selectedAgent.status === "active" ? "dot-green" : selectedAgent.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>{selectedAgent.name}</h2>
+                      <p className="text-sm" style={{ color: "var(--text-muted)" }}>{selectedAgent.domain}</p>
+                      <Badge variant="outline" className="mt-1 text-xs">{selectedAgent.status}</Badge>
+                    </div>
+                  </div>
+                  {canWrite && selectedAgent.status !== "retired" && (
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={async () => {
+                        const newStatus = selectedAgent.status === "active" ? "paused" : "active";
+                        setToggling(true);
+                        const result = await updateAgentStatus(selectedAgent.id, newStatus);
+                        if (result.data) {
+                          setAgents((prev) => prev.map((a) => a.id === result.data!.id ? result.data! : a));
+                        }
+                        setToggling(false);
+                      }} disabled={toggling}>
+                        {toggling ? <Loader2 className="h-3 w-3 animate-spin" /> : selectedAgent.status === "active" ? <><Pause className="h-3 w-3" /> Pause</> : <><Play className="h-3 w-3" /> Resume</>}
+                      </Button>
+                      <Link href={`/agents/${selectedAgent.id}`}>
+                        <Button variant="outline" size="sm" className="gap-1.5"><Pencil className="h-3 w-3" /> Edit</Button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-3 grid-cols-3">
+                <div className="surface-card p-4 text-center">
+                  <div className="text-2xl font-bold" style={{ color: "var(--accent)" }}>{workspace.openTasks}</div>
+                  <div className="text-[10px] uppercase tracking-wider mt-1" style={{ color: "var(--text-quiet)" }}>Open</div>
+                </div>
+                <div className="surface-card p-4 text-center">
+                  <div className="text-2xl font-bold" style={{ color: workspace.blockedTasks > 0 ? "var(--danger)" : "var(--text)" }}>{workspace.blockedTasks}</div>
+                  <div className="text-[10px] uppercase tracking-wider mt-1" style={{ color: "var(--text-quiet)" }}>Blocked</div>
+                </div>
+                <div className="surface-card p-4 text-center">
+                  <div className="text-2xl font-bold" style={{ color: "var(--success)" }}>{workspace.completedTasks}</div>
+                  <div className="text-[10px] uppercase tracking-wider mt-1" style={{ color: "var(--text-quiet)" }}>Done</div>
+                </div>
+              </div>
+
+              {/* Workspace files */}
+              <div className="surface-card">
+                <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--border)" }}>
+                  <FileText className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Workspace Files</span>
+                </div>
+                <div className="flex">
+                  <div className="w-40 border-r p-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
+                    {workspaceFiles.map((file) => (
+                      <button
+                        key={file.name}
+                        onClick={() => setActiveFile(file.name)}
+                        className={`w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
+                          activeFile === file.name ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "hover:bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                        }`}
+                      >
+                        <span>{file.icon}</span>
+                        <span>{file.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 p-4 min-h-[180px] overflow-y-auto">
+                    <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                      {workspaceFiles.find((f) => f.name === activeFile)?.content || "No content"}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent tasks */}
+              <div className="surface-card">
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Open Tasks</span>
+                  <Link href={`/agents/${selectedAgent.id}`} className="text-xs hover:underline" style={{ color: "var(--accent)" }}>View all →</Link>
+                </div>
+                <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                  {tasks.filter((t) => t.assigned_agent_id === selectedAgent.id && t.status !== "done").slice(0, 5).map((task) => (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className={`h-2 w-2 rounded-full ${task.status === "blocked" ? "dot-red" : task.status === "in-progress" ? "dot-blue" : "dot-gray"}`} />
+                      <p className="text-sm flex-1 truncate" style={{ color: "var(--text)" }}>{task.title}</p>
+                      <Badge variant="outline" className="text-[10px] shrink-0">{task.status}</Badge>
+                    </div>
+                  ))}
+                  {tasks.filter((t) => t.assigned_agent_id === selectedAgent.id && t.status !== "done").length === 0 && (
+                    <div className="py-6 text-center text-sm" style={{ color: "var(--text-quiet)" }}>No open tasks</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : selectedDept ? (
+            // Department workspace
+            <div className="space-y-4">
+              <div className="surface-card p-5">
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">{selectedDept.emoji}</span>
+                  <div>
+                    <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>{selectedDept.name}</h2>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>{selectedDept.mandate}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className={`h-2 w-2 rounded-full ${selectedDept.status === "active" ? "dot-green" : "dot-amber"}`} />
+                      <Badge variant="outline" className="text-xs">{selectedDept.status}</Badge>
+                      <Badge variant="outline" className="text-xs">{selectedDept.priority} priority</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Department agents */}
+              <div className="surface-card">
+                <div className="px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Agents</span>
+                </div>
+                <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                  {agents.filter((a) => a.domain.toLowerCase().includes(selectedDept.name.toLowerCase().split("-")[0])).map((agent) => (
+                    <button key={agent.id} onClick={() => selectItem({ id: agent.id, type: "agent", name: agent.name, emoji: agent.emoji, status: agent.status, meta: "" })} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-muted)] transition-colors text-left">
+                      <span className="text-lg">{agent.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{agent.name}</p>
+                        <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
+                      </div>
+                      <div className={`h-2 w-2 rounded-full ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} />
+                    </button>
+                  ))}
+                  {agents.filter((a) => a.domain.toLowerCase().includes(selectedDept.name.toLowerCase().split("-")[0])).length === 0 && (
+                    <div className="py-6 text-center text-sm" style={{ color: "var(--text-quiet)" }}>No agents assigned</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : selectedSpec ? (
+            // Specialist workspace
+            <div className="space-y-4">
+              <div className="surface-card p-5">
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl">⚡</span>
+                  <div>
+                    <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>{selectedSpec.name}</h2>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>{selectedSpec.type}</p>
+                    <Badge variant="outline" className="mt-1 text-xs">{selectedSpec.status}</Badge>
+                  </div>
+                </div>
+                <p className="text-sm mt-4" style={{ color: "var(--text-muted)" }}>{selectedSpec.mission}</p>
+                {selectedSpec.output_summary && (
+                  <div className="mt-3 rounded-lg p-3" style={{ background: "var(--surface-muted)" }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Output</p>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>{selectedSpec.output_summary}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </PageShell>
+  );
+}

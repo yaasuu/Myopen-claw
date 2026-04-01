@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Bell,
   UserPlus,
+  Users,
   Shield,
   Building2,
   Zap,
@@ -52,9 +53,7 @@ const sections = [
   {
     label: "Workforce",
     items: [
-      { title: "Agents", href: "/agents", icon: Bot },
-      { title: "Departments", href: "/departments", icon: Building2 },
-      { title: "Specialists", href: "/specialists", icon: Zap },
+      { title: "Workforce", href: "/workforce", icon: Users },
     ],
   },
   {
