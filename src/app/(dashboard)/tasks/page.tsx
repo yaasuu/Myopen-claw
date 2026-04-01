@@ -1046,7 +1046,7 @@ export default function TasksPage() {
                   {sidePanelTask.title}
                 </SheetTitle>
                 <SheetDescription className="text-left">
-                  Task detail and comments
+                  Task detail and comments · v2
                 </SheetDescription>
               </SheetHeader>
 
