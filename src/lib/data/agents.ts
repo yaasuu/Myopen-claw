@@ -92,6 +92,18 @@ export async function getAgents(): Promise<{ data: Agent[]; error: string | null
           last_activity: null,
           created_at: new Date().toISOString(),
         },
+        {
+          id: "mock-7",
+          name: "Executive Finance Agent",
+          short_id: "executive-finance",
+          emoji: "💰",
+          description: "Personal finance visibility — tracks household cash flow, spending patterns, grocery planning, and budget monitoring for home purposes",
+          status: "active",
+          domain: "Personal finance, cash spending, grocery planning, household budget, spending visibility",
+          task_count: 0,
+          last_activity: null,
+          created_at: new Date().toISOString(),
+        },
       ],
       error: null,
     };

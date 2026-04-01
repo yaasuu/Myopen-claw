@@ -118,11 +118,14 @@ export default function WorkforcePage() {
 
   useEffect(() => { load(); }, []);
 
+  // Agents that sit directly under Yas Claw (not under a department)
+  const DIRECT_AGENTS = ["research-agent", "executive-finance"];
+
   // Build hierarchy
   const hierarchy: HierarchyItem[] = [
     { id: "yas-claw", type: "orchestrator", name: "Yas Claw", emoji: "🦀", status: "active", meta: "Orchestrator" },
-    // Research Agent goes directly under Yas Claw
-    ...agents.filter((a) => a.short_id === "research-agent").map((a) => ({
+    // Direct agents go under Yas Claw
+    ...agents.filter((a) => DIRECT_AGENTS.includes(a.short_id)).map((a) => ({
       id: a.id,
       type: "agent" as UnitType,
       name: a.name,
@@ -139,15 +142,15 @@ export default function WorkforcePage() {
       emoji: d.emoji,
       status: d.status,
       meta: `${agents.filter((a) => {
-        if (a.short_id === "research-agent") return false;
+        if (DIRECT_AGENTS.includes(a.short_id)) return false;
         const deptKeyword = d.name.toLowerCase().split("-")[0];
         return a.domain.toLowerCase().includes(deptKeyword) ||
           (a.short_id === "ui-ux-designer" && d.short_id === "architecture-systems") ||
           (a.short_id === "data-analyst" && d.short_id === "ops-improvement");
       }).length} agents`,
     })),
-    // Agents (excluding research agent which is above)
-    ...agents.filter((a) => a.short_id !== "research-agent").map((a) => ({
+    // Agents (excluding direct agents)
+    ...agents.filter((a) => !DIRECT_AGENTS.includes(a.short_id)).map((a) => ({
       id: a.id,
       type: "agent" as UnitType,
       name: a.name,
