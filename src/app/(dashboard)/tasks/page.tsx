@@ -740,6 +740,12 @@ export default function TasksPage() {
                                   Blocked
                                 </div>
                               )}
+                              {!task.assigned_agent_id && status !== "done" && (
+                                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "var(--warning)" }}>
+                                  <span className="h-1.5 w-1.5 rounded-full dot-amber" />
+                                  Unassigned
+                                </div>
+                              )}
                             </div>
                             <span
                               className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
@@ -749,13 +755,19 @@ export default function TasksPage() {
                             </span>
                           </div>
 
-                          {/* Bottom: assignee + time */}
+                          {/* Bottom: assignee + time + project link */}
                           <div className="mt-2.5 flex items-center justify-between text-[11px]" style={{ color: "var(--text-muted)" }}>
-                            <div className="flex items-center gap-1.5">
-                              {task.assigned_agent_emoji && <span>{task.assigned_agent_emoji}</span>}
-                              <span className="truncate">{task.assigned_agent_name ?? "Unassigned"}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {task.assigned_agent_emoji ? (
+                                <>
+                                  <span>{task.assigned_agent_emoji}</span>
+                                  <span className="truncate">{task.assigned_agent_name}</span>
+                                </>
+                              ) : (
+                                <span className="italic truncate" style={{ color: "var(--text-quiet)" }}>Unassigned</span>
+                              )}
                             </div>
-                            <span className="shrink-0" style={{ color: "var(--text-quiet)" }}>
+                            <span className="shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>
                               {timeAgo(task.updated_at)}
                             </span>
                           </div>
