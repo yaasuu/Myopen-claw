@@ -61,6 +61,8 @@ import {
   Repeat,
   Calendar,
   Zap,
+  Eye,
+  UserCheck,
 } from "lucide-react";
 import {
   getTasks,
@@ -119,6 +121,7 @@ export default function TasksPage() {
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [filterAgent, setFilterAgent] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<"board" | "table">("board");
@@ -409,6 +412,8 @@ export default function TasksPage() {
   const filtered = tasks.filter((t) => {
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
     if (filterAgent !== "all" && t.assigned_agent_id !== filterAgent) return false;
+    if (quickFilter === "unassigned" && (t.assigned_agent_id || t.status === "done")) return false;
+    if (quickFilter === "blocked" && t.status !== "blocked") return false;
     return true;
   });
 
@@ -499,6 +504,43 @@ export default function TasksPage() {
                   <Plus className="h-4 w-4" />
                 </button>
               )}
+
+              {/* Quick actions */}
+              <div className="divider" />
+
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+                style={{
+                  borderColor: quickFilter === "unassigned" ? "var(--accent)" : "var(--border)",
+                  color: quickFilter === "unassigned" ? "var(--accent)" : "var(--text-muted)",
+                  background: quickFilter === "unassigned" ? "var(--accent-soft)" : "transparent",
+                }}
+                onClick={() => setQuickFilter(quickFilter === "unassigned" ? null : "unassigned")}
+                title="View unassigned tasks"
+              >
+                <UserCheck className="h-3.5 w-3.5" />
+                Unassigned
+                <span className="text-[10px] font-semibold" style={{ color: "var(--warning)" }}>
+                  {tasks.filter((t) => !t.assigned_agent_id && t.status !== "done").length}
+                </span>
+              </button>
+
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]"
+                style={{
+                  borderColor: quickFilter === "blocked" ? "var(--danger)" : "var(--border)",
+                  color: quickFilter === "blocked" ? "var(--danger)" : "var(--text-muted)",
+                  background: quickFilter === "blocked" ? "rgba(220,38,38,0.06)" : "transparent",
+                }}
+                onClick={() => setQuickFilter(quickFilter === "blocked" ? null : "blocked")}
+                title="View blocked tasks"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Blocked
+                <span className="text-[10px] font-semibold" style={{ color: "var(--danger)" }}>
+                  {tasks.filter((t) => t.status === "blocked").length}
+                </span>
+              </button>
 
               {/* Archive toggle */}
               <button
