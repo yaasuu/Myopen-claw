@@ -161,6 +161,8 @@ export default function WorkforcePage() {
     setSelectedType(item.type);
     setActiveFile("SOUL.md");
     setEditingFile(false);
+    setWorkspaceFiles([]); // Clear files from previous selection
+    setFileContent(""); // Clear content from previous selection
 
     const registry = FILE_REGISTRY[item.type] ?? FILE_REGISTRY.agent;
     setFileRegistry(registry);
