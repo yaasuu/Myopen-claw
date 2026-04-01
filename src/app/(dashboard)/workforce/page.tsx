@@ -346,7 +346,7 @@ export default function WorkforcePage() {
                   <span className="text-3xl">🦀</span>
                   <div>
                     <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Yas Claw</h2>
-                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>CEO / Orchestrator — System Operator</p>
+                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>Central AI Orchestrator — Coordinates all departments and agents</p>
                     <Badge variant="outline" className="mt-1 text-xs">Active</Badge>
                   </div>
                 </div>

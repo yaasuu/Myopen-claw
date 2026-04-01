@@ -81,13 +81,28 @@ export default function OrgChartPage() {
         </div>
       )}
 
-      {/* Root: Yas Claw */}
+      {/* CEO */}
       <div className="flex justify-center">
-        <Link href="/agents" className="block">
+        <div className="surface-card-hover p-5 text-center" style={{ minWidth: "220px" }}>
+          <div className="text-3xl mb-2">👤</div>
+          <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas</p>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Chief Executive Officer</p>
+          <Badge className="mt-2" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>Owner</Badge>
+        </div>
+      </div>
+
+      {/* Connector */}
+      <div className="flex justify-center">
+        <div className="w-px h-6" style={{ background: "var(--border)" }} />
+      </div>
+
+      {/* Yas Claw — Central Orchestrator */}
+      <div className="flex justify-center">
+        <Link href="/workforce" className="block">
           <div className="surface-card-hover p-5 text-center" style={{ minWidth: "220px" }}>
             <div className="text-3xl mb-2">🦀</div>
             <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>CEO / Orchestrator</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Central AI Orchestrator</p>
             <Badge className="mt-2" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>Active</Badge>
           </div>
         </Link>
