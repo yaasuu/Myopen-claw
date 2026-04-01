@@ -521,6 +521,44 @@ export default function WorkforcePage() {
                   )}
                 </div>
               </div>
+
+              {/* Department workspace files */}
+              <div className="surface-card">
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Workspace Files</span>
+                  </div>
+                  {canWrite && (
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditingFile(!editingFile)}>
+                      {editingFile ? "Cancel" : "Edit"}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex">
+                  <div className="w-40 border-r p-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
+                    {fileRegistry.map((reg) => (
+                      <button key={reg.name} onClick={() => switchFile(reg.name)} className={`w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${activeFile === reg.name ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "hover:bg-[var(--surface-muted)] text-[var(--text-muted)]"}`}>
+                        <span>{reg.icon}</span><span className="truncate">{reg.label}</span>
+                        {!workspaceFiles.some(f => f.file_name === reg.name) && <span className="text-[9px] ml-auto" style={{ color: "var(--text-quiet)" }}>+</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 p-4 min-h-[150px] overflow-y-auto">
+                    {editingFile ? (
+                      <div className="space-y-3">
+                        <textarea className="w-full min-h-[120px] rounded-lg border p-3 text-sm resize-y" style={{ background: "var(--surface-muted)", borderColor: "var(--border)", color: "var(--text)", fontFamily: "var(--font-mono)" }} value={fileContent} onChange={(e) => setFileContent(e.target.value)} />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setEditingFile(false); const f = workspaceFiles.find(w => w.file_name === activeFile); if (f) setFileContent(f.file_content); }}>Cancel</Button>
+                          <Button size="sm" onClick={handleSaveFile} disabled={savingFile}>{savingFile ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}Save</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{fileContent || "No content yet. Click Edit to add content."}</pre>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           ) : selectedSpec ? (
             // Specialist workspace
@@ -541,6 +579,44 @@ export default function WorkforcePage() {
                     <p className="text-sm" style={{ color: "var(--text-muted)" }}>{selectedSpec.output_summary}</p>
                   </div>
                 )}
+              </div>
+
+              {/* Specialist workspace files */}
+              <div className="surface-card">
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Workspace Files</span>
+                  </div>
+                  {canWrite && (
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditingFile(!editingFile)}>
+                      {editingFile ? "Cancel" : "Edit"}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex">
+                  <div className="w-40 border-r p-2 space-y-0.5" style={{ borderColor: "var(--border)" }}>
+                    {fileRegistry.map((reg) => (
+                      <button key={reg.name} onClick={() => switchFile(reg.name)} className={`w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${activeFile === reg.name ? "bg-[var(--accent-soft)] text-[var(--accent)] font-medium" : "hover:bg-[var(--surface-muted)] text-[var(--text-muted)]"}`}>
+                        <span>{reg.icon}</span><span className="truncate">{reg.label}</span>
+                        {!workspaceFiles.some(f => f.file_name === reg.name) && <span className="text-[9px] ml-auto" style={{ color: "var(--text-quiet)" }}>+</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex-1 p-4 min-h-[150px] overflow-y-auto">
+                    {editingFile ? (
+                      <div className="space-y-3">
+                        <textarea className="w-full min-h-[120px] rounded-lg border p-3 text-sm resize-y" style={{ background: "var(--surface-muted)", borderColor: "var(--border)", color: "var(--text)", fontFamily: "var(--font-mono)" }} value={fileContent} onChange={(e) => setFileContent(e.target.value)} />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setEditingFile(false); const f = workspaceFiles.find(w => w.file_name === activeFile); if (f) setFileContent(f.file_content); }}>Cancel</Button>
+                          <Button size="sm" onClick={handleSaveFile} disabled={savingFile}>{savingFile ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}Save</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <pre className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{fileContent || "No content yet. Click Edit to add content."}</pre>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
