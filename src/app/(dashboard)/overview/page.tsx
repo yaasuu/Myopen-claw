@@ -22,8 +22,11 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { getSystemStatus } from "@/lib/data/system";
-import { getTaskStats, getBlockedTasks } from "@/lib/data/tasks";
+import { getTaskStats, getBlockedTasks, getTasks } from "@/lib/data/tasks";
 import { getFeedEvents, getCriticalFeedEvents } from "@/lib/data/feed";
+import { getAgents } from "@/lib/data/agents";
+import { getAgentSkills } from "@/lib/data/skills";
+import { getProjects } from "@/lib/data/projects";
 import { getPausedAgents } from "@/lib/data/alerts";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { SystemStatus, TaskWithAgent, FeedEvent, Agent } from "@/types/dashboard";
@@ -52,21 +55,29 @@ export default function OverviewPage() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [taskStats, setTaskStats] = useState({ total: 0, pending: 0, inProgress: 0, blocked: 0, done: 0 });
   const [blocked, setBlocked] = useState<TaskWithAgent[]>([]);
+  const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [criticalEvents, setCriticalEvents] = useState<FeedEvent[]>([]);
   const [pausedAgents, setPausedAgents] = useState<Agent[]>([]);
+  const [allAgents, setAllAgents] = useState<Agent[]>([]);
+  const [skillCoverage, setSkillCoverage] = useState({ installed: 0, total: 0 });
+  const [projectCount, setProjectCount] = useState(0);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [sResult, stats, bResult, eResult, pausedResult, critResult] = await Promise.all([
+      const [sResult, stats, bResult, eResult, pausedResult, critResult, agentsResult, skillsResult, projResult, tasksResult] = await Promise.all([
         getSystemStatus(),
         getTaskStats(),
         getBlockedTasks(),
         getFeedEvents(5),
         getPausedAgents(),
         getCriticalFeedEvents(3),
+        getAgents(),
+        getAgentSkills(),
+        getProjects(),
+        getTasks(),
       ]);
 
       const errors = [sResult.error, bResult.error, eResult.error, pausedResult.error, critResult.error].filter(Boolean);
@@ -78,6 +89,18 @@ export default function OverviewPage() {
       setEvents(eResult.data);
       setPausedAgents(pausedResult.data);
       setCriticalEvents(critResult.data);
+      setAllAgents(agentsResult.data);
+
+      // Skill coverage
+      const totalPossible = agentsResult.data.length * 3; // 3 skills per agent target
+      setSkillCoverage({
+        installed: skillsResult.data.length,
+        total: totalPossible,
+      });
+
+      // Project count
+      setProjectCount(projResult.data.length);
+      setTasks(tasksResult.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -126,6 +149,13 @@ export default function OverviewPage() {
 
   const summaryCards = [
     {
+      label: "System Health",
+      value: status?.status === "healthy" ? "Healthy" : status?.status ?? "Unknown",
+      sub: status?.checked_at ? `Last check: ${timeAgo(status.checked_at)}` : "No data",
+      icon: ShieldAlert,
+      color: status?.status === "healthy" ? "var(--success)" : "var(--danger)",
+    },
+    {
       label: "Active Agents",
       value: String(status?.active_agents ?? 0),
       sub: status?.active_agents ? "Operational" : "None active",
@@ -133,23 +163,16 @@ export default function OverviewPage() {
       color: "var(--accent)",
     },
     {
-      label: "Open Tasks",
-      value: String(taskStats.total - taskStats.done),
-      sub: `${taskStats.inProgress} in progress`,
+      label: "Skill Coverage",
+      value: skillCoverage.total > 0 ? `${Math.round((skillCoverage.installed / skillCoverage.total) * 100)}%` : "0%",
+      sub: `${skillCoverage.installed} of ${skillCoverage.total} skills`,
       icon: TrendingUp,
       color: "var(--info)",
     },
     {
-      label: "Blocked",
-      value: String(taskStats.blocked),
-      sub: taskStats.blocked > 0 ? "Needs attention" : "All clear",
-      icon: AlertTriangle,
-      color: taskStats.blocked > 0 ? "var(--danger)" : "var(--text-quiet)",
-    },
-    {
-      label: "Completed",
-      value: String(taskStats.done),
-      sub: `${taskStats.total} total`,
+      label: "Projects",
+      value: String(projectCount),
+      sub: `${taskStats.total} tasks across projects`,
       icon: CheckCircle2,
       color: "var(--success)",
     },
@@ -338,6 +361,53 @@ export default function OverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* Agent Sessions */}
+      {allAgents.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="icon-box-sm" style={{ background: "var(--accent-soft)" }}>
+              <Bot className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+            </div>
+            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Agent Sessions</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {allAgents.map((agent) => {
+              const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
+              const openCount = agentTasks.filter((t) => t.status !== "done").length;
+              return (
+                <Link key={agent.id} href={`/agents/${agent.id}`}>
+                  <div className="surface-card-hover p-4 cursor-pointer">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="relative">
+                        <span className="text-2xl">{agent.emoji}</span>
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{agent.name}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="rounded-lg p-2" style={{ background: "var(--surface-muted)" }}>
+                        <div className="text-sm font-bold" style={{ color: "var(--text)" }}>{openCount}</div>
+                        <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Tasks</div>
+                      </div>
+                      <div className="rounded-lg p-2" style={{ background: "var(--surface-muted)" }}>
+                        <div className="text-sm font-bold" style={{ color: "var(--text)" }}>{agent.task_count}</div>
+                        <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Total</div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] mt-2" style={{ color: "var(--text-quiet)" }}>
+                      {agent.last_activity ? `Active ${timeAgo(agent.last_activity)}` : "No recent activity"}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Activity + System */}
       <div className="grid gap-3 lg:grid-cols-2">
