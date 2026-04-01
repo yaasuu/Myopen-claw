@@ -254,3 +254,21 @@ export interface TaskComment {
   content: string;
   created_at: string;
 }
+
+export interface WorkspaceFile {
+  name: string;
+  label: string;
+  content: string;
+  icon: string;
+}
+
+export interface AgentWorkspace {
+  agent: Agent;
+  soul: string;
+  memory: string;
+  skills: string;
+  heartbeat: string;
+  openTasks: number;
+  blockedTasks: number;
+  completedTasks: number;
+}
