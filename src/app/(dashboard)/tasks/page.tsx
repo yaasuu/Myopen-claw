@@ -660,7 +660,7 @@ export default function TasksPage() {
           </DialogContent>
         </Dialog>
 
-      {/* Board View */}
+      {/* Board View — Kanban lanes */}
       {viewMode === "board" && (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
             {STATUSES.map((status) => {
@@ -677,96 +677,103 @@ export default function TasksPage() {
                 blocked: "Blocked",
                 done: "Done",
               };
+              const laneAccent: Record<string, string> = {
+                pending: "rgba(148, 163, 184, 0.06)",
+                "in-progress": "rgba(59, 130, 246, 0.04)",
+                blocked: "rgba(220, 38, 38, 0.04)",
+                done: "rgba(22, 163, 74, 0.04)",
+              };
 
               return (
-                <div key={status} className="space-y-3">
-                  {/* Column header */}
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${dotColor[status]}`} />
-                    <span className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{statusLabel[status]}</span>
-                    <span className="text-[11px] font-medium" style={{ color: "var(--text-quiet)" }}>{columnTasks.length}</span>
+                <div key={status} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)", background: laneAccent[status] }}>
+                  {/* Lane header */}
+                  <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${dotColor[status]}`} />
+                      <span className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>{statusLabel[status]}</span>
+                    </div>
+                    <span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full px-1.5 text-[10px] font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+                      {columnTasks.length}
+                    </span>
                   </div>
 
-                  {/* Cards */}
-                  <div className="space-y-2 min-h-[200px]">
+                  {/* Lane content */}
+                  <div className="p-3 space-y-2 min-h-[200px]">
                     {columnTasks.length === 0 ? (
-                      <div className="rounded-lg border border-dashed py-10 text-center text-[11px]" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
-                        No tasks
+                      <div className="rounded-lg border border-dashed py-10 text-center" style={{ borderColor: "var(--border)" }}>
+                        <p className="text-xs" style={{ color: "var(--text-quiet)" }}>No tasks in {statusLabel[status].toLowerCase()}</p>
                       </div>
                     ) : (
-                      columnTasks.map((task) => {
-                        return (
-                          <div
-                            key={task.id}
-                            className={`group relative cursor-pointer rounded-lg border p-4 transition-all hover:-translate-y-0.5 ${task.is_archived ? "opacity-50" : ""} ${task.blocker ? "border-[rgba(220,38,38,0.3)]" : ""}`}
-                            style={{
-                              background: "var(--surface)",
-                              borderColor: task.blocker ? undefined : "var(--border)",
-                              boxShadow: "var(--shadow-card)",
-                            }}
-                            onClick={() => openSidePanel(task)}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.boxShadow = "var(--shadow-card-hover)";
-                              if (!task.blocker) e.currentTarget.style.borderColor = "var(--border-strong)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.boxShadow = "var(--shadow-card)";
-                              if (!task.blocker) e.currentTarget.style.borderColor = "var(--border)";
-                            }}
-                          >
-                            {/* Left color bar for blocked */}
-                            {task.blocker && (
-                              <span className="absolute left-0 top-0 h-full w-1 rounded-l-lg" style={{ background: "var(--danger)" }} />
-                            )}
+                      columnTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`group relative cursor-pointer rounded-lg border p-3.5 transition-all hover:-translate-y-0.5 ${task.is_archived ? "opacity-50" : ""} ${task.blocker ? "border-[rgba(220,38,38,0.3)]" : ""}`}
+                          style={{
+                            background: "var(--surface)",
+                            borderColor: task.blocker ? undefined : "var(--border)",
+                            boxShadow: "var(--shadow-card)",
+                          }}
+                          onClick={() => openSidePanel(task)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = "var(--shadow-card-hover)";
+                            if (!task.blocker) e.currentTarget.style.borderColor = "var(--border-strong)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = "var(--shadow-card)";
+                            if (!task.blocker) e.currentTarget.style.borderColor = "var(--border)";
+                          }}
+                        >
+                          {/* Left color bar for blocked */}
+                          {task.blocker && (
+                            <span className="absolute left-0 top-0 h-full w-1 rounded-l-lg" style={{ background: "var(--danger)" }} />
+                          )}
 
-                            {/* Top: title + priority badge */}
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 space-y-2 flex-1">
-                                <p className="text-sm font-medium line-clamp-2 break-words" style={{ color: "var(--text)" }}>
-                                  {task.title}
-                                </p>
-                                {task.blocker && (
-                                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--danger)" }}>
-                                    <span className="h-1.5 w-1.5 rounded-full dot-red" />
-                                    Blocked
-                                  </div>
-                                )}
-                              </div>
-                              <span
-                                className="inline-flex shrink-0 items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
-                                style={priorityBadgeStyle[task.priority]}
-                              >
-                                {task.priority.toUpperCase()}
-                              </span>
+                          {/* Top: title + priority badge */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 space-y-1.5 flex-1">
+                              <p className="text-[13px] font-medium line-clamp-2 break-words" style={{ color: "var(--text)" }}>
+                                {task.title}
+                              </p>
+                              {task.blocker && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--danger)" }}>
+                                  <span className="h-1.5 w-1.5 rounded-full dot-red" />
+                                  Blocked
+                                </div>
+                              )}
                             </div>
-
-                            {/* Bottom: assignee + time */}
-                            <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-                              <div className="flex items-center gap-2">
-                                {task.assigned_agent_emoji && <span className="text-sm">{task.assigned_agent_emoji}</span>}
-                                <span>{task.assigned_agent_name ?? "Unassigned"}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
-                                <span>{timeAgo(task.updated_at)}</span>
-                              </div>
-                            </div>
-
-                            {/* Quick done on hover */}
-                            {canWrite && !task.is_archived && status !== "done" && (
-                              <button
-                                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-[10px] px-2 py-1 rounded-md transition-opacity font-medium"
-                                style={{ color: "var(--success)", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)" }}
-                                onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
-                                disabled={updatingId === task.id}
-                                title="Mark done"
-                              >
-                                ✓ Done
-                              </button>
-                            )}
+                            <span
+                              className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                              style={priorityBadgeStyle[task.priority]}
+                            >
+                              {task.priority.charAt(0).toUpperCase()}
+                            </span>
                           </div>
-                        );
-                      })
+
+                          {/* Bottom: assignee + time */}
+                          <div className="mt-2.5 flex items-center justify-between text-[11px]" style={{ color: "var(--text-muted)" }}>
+                            <div className="flex items-center gap-1.5">
+                              {task.assigned_agent_emoji && <span>{task.assigned_agent_emoji}</span>}
+                              <span className="truncate">{task.assigned_agent_name ?? "Unassigned"}</span>
+                            </div>
+                            <span className="shrink-0" style={{ color: "var(--text-quiet)" }}>
+                              {timeAgo(task.updated_at)}
+                            </span>
+                          </div>
+
+                          {/* Quick done on hover */}
+                          {canWrite && !task.is_archived && status !== "done" && (
+                            <button
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity font-medium"
+                              style={{ color: "var(--success)", background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.15)" }}
+                              onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "done"); }}
+                              disabled={updatingId === task.id}
+                              title="Mark done"
+                            >
+                              ✓
+                            </button>
+                          )}
+                        </div>
+                      ))
                     )}
                   </div>
                 </div>
