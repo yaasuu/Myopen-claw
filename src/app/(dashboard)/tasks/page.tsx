@@ -757,7 +757,7 @@ export default function TasksPage() {
               };
 
               return (
-                <div key={status} className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)", background: laneAccent[status] }}>
+                <div key={status} className="rounded-xl border flex flex-col" style={{ borderColor: "var(--border)", background: laneAccent[status], maxHeight: "calc(100vh - 280px)" }}>
                   {/* Lane header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
                     <div className="flex items-center gap-2">
@@ -769,8 +769,8 @@ export default function TasksPage() {
                     </span>
                   </div>
 
-                  {/* Lane content */}
-                  <div className="p-3 space-y-2 min-h-[200px]">
+                  {/* Lane content — independent scroll */}
+                  <div className="p-3 space-y-2 flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 340px)" }}>
                     {columnTasks.length === 0 ? (
                       <div className="rounded-lg border border-dashed py-10 text-center" style={{ borderColor: "var(--border)" }}>
                         <p className="text-xs" style={{ color: "var(--text-quiet)" }}>No tasks in {statusLabel[status].toLowerCase()}</p>
