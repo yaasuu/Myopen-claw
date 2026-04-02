@@ -665,55 +665,63 @@ function Agent3D({
     if (!meshRef.current) return;
     const target = targetRef.current;
     const current = currentRef.current;
-    const speed = 2.5; // units per second
+    const baseSpeed = 2.2; // units per second (slightly slower, more natural)
 
     const dx = target[0] - current[0];
     const dz = target[2] - current[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    const isMoving = dist > 0.05;
+    const isMoving = dist > 0.08;
 
     if (isMoving) {
-      // Move toward target
+      // Ease-out: slow down as approaching target
+      const easeFactor = Math.min(1, dist / 2); // start easing within 2 units
+      const speed = baseSpeed * (0.3 + 0.7 * easeFactor);
+
       const step = Math.min(speed * delta, dist);
       current[0] += (dx / dist) * step;
       current[2] += (dz / dist) * step;
       meshRef.current.position.set(current[0], 0, current[2]);
 
-      // Face movement direction
-      facingRef.current = Math.atan2(dx, dz);
+      // Face movement direction (smooth, not snapping)
+      const moveAngle = Math.atan2(dx, dz);
+      let angleDiff = moveAngle - facingRef.current;
+      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      facingRef.current += angleDiff * Math.min(1, delta * 8);
       meshRef.current.rotation.y = facingRef.current;
 
-      // Walking bob
-      bobRef.current += delta * 8;
-      meshRef.current.position.y = Math.abs(Math.sin(bobRef.current)) * 0.04;
+      // Walking bob (variable intensity based on speed)
+      bobRef.current += delta * 7 * (speed / baseSpeed);
+      meshRef.current.position.y = Math.abs(Math.sin(bobRef.current)) * 0.035;
 
       // Stand up while moving
-      sitRef.current = Math.max(0, sitRef.current - delta * 3);
+      sitRef.current = Math.max(0, sitRef.current - delta * 4);
     } else {
       // At destination
       bobRef.current = 0;
+      meshRef.current.position.y = 0;
 
       // Sitting transition
       if (shouldSit) {
-        sitRef.current = Math.min(1, sitRef.current + delta * 2);
+        sitRef.current = Math.min(1, sitRef.current + delta * 2.5);
       } else {
-        sitRef.current = Math.max(0, sitRef.current - delta * 3);
+        sitRef.current = Math.max(0, sitRef.current - delta * 3.5);
       }
 
-      // Apply sitting offset (lower position when seated)
+      // Apply sitting offset
       meshRef.current.position.y = -sitRef.current * 0.2;
 
-      // Face toward zone center when stationary
+      // Face toward work area (smoother interpolation)
       let faceTarget: [number, number] = [0, 0];
       if (zone === "desk") {
-        faceTarget = [homePosition[0], homePosition[2] - 0.5]; // face desk
+        faceTarget = [homePosition[0], homePosition[2] - 0.5];
       } else if (zone === "meeting") {
-        faceTarget = [MEETING_POSITION[0], MEETING_POSITION[2]]; // face table center
+        faceTarget = [MEETING_POSITION[0], MEETING_POSITION[2]];
       } else if (zone === "review") {
-        faceTarget = [REVIEW_POSITION[0], REVIEW_POSITION[2]]; // face review desk
+        faceTarget = [REVIEW_POSITION[0], REVIEW_POSITION[2]];
       } else if (zone === "attention") {
-        faceTarget = [ATTENTION_POSITION[0], ATTENTION_POSITION[2]]; // face attention desk
+        faceTarget = [ATTENTION_POSITION[0], ATTENTION_POSITION[2]];
       }
       const faceDx = faceTarget[0] - current[0];
       const faceDz = faceTarget[1] - current[2];
@@ -721,7 +729,7 @@ function Agent3D({
       let angleDiff = targetAngle - facingRef.current;
       while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
       while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-      facingRef.current += angleDiff * Math.min(1, delta * 5);
+      facingRef.current += angleDiff * Math.min(1, delta * 4);
       meshRef.current.rotation.y = facingRef.current;
     }
   });
