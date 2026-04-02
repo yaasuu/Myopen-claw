@@ -516,52 +516,120 @@ function AgentDetailPanel({ agent, presence, signal, tasks, events, departments,
   );
 }
 
+// ─── Time Pressure Helpers ───
+
+function getAgeMs(iso: string): number {
+  return Date.now() - new Date(iso).getTime();
+}
+
+function ageLabel(iso: string): string {
+  const ms = getAgeMs(iso);
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
+function agePressure(iso: string): "fresh" | "aging" | "attention" | "stale" {
+  const ms = getAgeMs(iso);
+  if (ms < 30 * 60000) return "fresh";         // < 30 min
+  if (ms < 2 * 3600000) return "aging";         // < 2 hours
+  if (ms < 8 * 3600000) return "attention";     // < 8 hours
+  return "stale";                                // > 8 hours
+}
+
+function pressureColor(p: "fresh" | "aging" | "attention" | "stale"): string {
+  if (p === "fresh") return "var(--text-quiet)";
+  if (p === "aging") return "var(--warning)";
+  if (p === "attention") return "#f97316"; // orange
+  return "var(--danger)";
+}
+
+function pressureChipBg(p: "fresh" | "aging" | "attention" | "stale"): string {
+  if (p === "fresh") return "var(--surface)";
+  if (p === "aging") return "rgba(245,158,11,0.08)";
+  if (p === "attention") return "rgba(249,115,22,0.08)";
+  return "rgba(239,68,68,0.08)";
+}
+
 // ─── CEO Command Center ───
 
 function CEOCommandCenter({ agents, presences, governance, tasks, departments }: {
   agents: Agent[]; presences: AgentPresence[]; governance: OrchestratorGovernance;
   tasks: TaskWithAgent[]; departments: Department[];
 }) {
-  // Compute executive summary
   const blockedAgents = presences.filter((p) => p.state === "blocked");
   const reviewAgents = presences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input");
   const discussionAgents = presences.filter((p) => p.state === "in_discussion");
   const workingAgents = presences.filter((p) => p.state === "working");
 
-  // Department pressure
-  const deptPressure: { name: string; blocked: number; review: number }[] = [];
+  // Compute aged items
+  const blockedWithAge = blockedAgents.map((p) => {
+    const agent = agents.find((a) => a.id === p.agentId);
+    const blockedTask = tasks.find((t) => t.assigned_agent_id === p.agentId && t.status === "blocked");
+    const age = blockedTask ? ageLabel(blockedTask.updated_at) : "unknown";
+    const pressure = blockedTask ? agePressure(blockedTask.updated_at) : "fresh";
+    return { presence: p, agent, age, pressure, ageMs: blockedTask ? getAgeMs(blockedTask.updated_at) : 0 };
+  }).sort((a, b) => b.ageMs - a.ageMs); // oldest first
+
+  const reviewWithAge = reviewAgents.map((p) => {
+    const agent = agents.find((a) => a.id === p.agentId);
+    const reviewTask = tasks.find((t) => t.assigned_agent_id === p.agentId && t.status === "in-review");
+    const age = reviewTask ? ageLabel(reviewTask.updated_at) : "unknown";
+    const pressure = reviewTask ? agePressure(reviewTask.updated_at) : "fresh";
+    return { presence: p, agent, age, pressure, ageMs: reviewTask ? getAgeMs(reviewTask.updated_at) : 0 };
+  }).sort((a, b) => b.ageMs - a.ageMs); // oldest first
+
+  // Department pressure with aging
+  const deptPressure: { name: string; blocked: number; review: number; oldestAge: string; oldestPressure: string }[] = [];
   for (const dept of departments) {
     const deptAgents = agents.filter((a) => (a as any).department_slug === dept.slug);
-    const deptPresences = presences.filter((p) => deptAgents.some((a) => a.id === p.agentId));
-    const blocked = deptPresences.filter((p) => p.state === "blocked").length;
-    const review = deptPresences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input").length;
-    if (blocked > 0 || review > 0) {
-      deptPressure.push({ name: dept.name, blocked, review });
+    const deptTasks = tasks.filter((t) => deptAgents.some((a) => a.id === t.assigned_agent_id));
+    const blocked = deptTasks.filter((t) => t.status === "blocked");
+    const review = deptTasks.filter((t) => t.status === "in-review");
+    if (blocked.length > 0 || review.length > 0) {
+      const allAged = [...blocked, ...review].map((t) => ({ ageMs: getAgeMs(t.updated_at), updated: t.updated_at }));
+      const oldest = allAged.sort((a, b) => b.ageMs - a.ageMs)[0];
+      deptPressure.push({
+        name: dept.name,
+        blocked: blocked.length,
+        review: review.length,
+        oldestAge: oldest ? ageLabel(oldest.updated) : "",
+        oldestPressure: oldest ? agePressure(oldest.updated) : "fresh",
+      });
     }
   }
 
-  // Priority items
-  const priorityItems: { label: string; detail: string; href: string; color: string }[] = [];
+  // Priority items with age
+  const priorityItems: { label: string; detail: string; href: string; color: string; age: string; pressure: "fresh" | "aging" | "attention" | "stale"; ageMs: number }[] = [];
 
-  if (governance.pendingReviews > 0) {
+  if (reviewWithAge.length > 0) {
+    const oldest = reviewWithAge[0];
     priorityItems.push({
       label: `${governance.pendingReviews} review${governance.pendingReviews > 1 ? "s" : ""} awaiting`,
-      detail: "CEO approval needed",
+      detail: `pending ${oldest.age} · CEO approval needed`,
       href: "/reviews",
       color: "var(--warning)",
+      age: oldest.age,
+      pressure: oldest.pressure,
+      ageMs: oldest.ageMs,
     });
   }
 
-  if (governance.blockedAgents > 0) {
-    const blockedNames = blockedAgents.map((p) => {
-      const agent = agents.find((a) => a.id === p.agentId);
-      return agent?.name ?? "Unknown";
-    });
+  if (blockedWithAge.length > 0) {
+    const oldest = blockedWithAge[0];
+    const names = blockedWithAge.map((b) => b.agent?.name ?? "Unknown").join(", ");
     priorityItems.push({
       label: `${governance.blockedAgents} blocked agent${governance.blockedAgents > 1 ? "s" : ""}`,
-      detail: blockedNames.join(", "),
+      detail: `blocked ${oldest.age} · ${names}`,
       href: "/tasks",
       color: "var(--danger)",
+      age: oldest.age,
+      pressure: oldest.pressure,
+      ageMs: oldest.ageMs,
     });
   }
 
@@ -571,6 +639,9 @@ function CEOCommandCenter({ agents, presences, governance, tasks, departments }:
       detail: "Capability recommendation pending",
       href: "/skills",
       color: "var(--accent)",
+      age: "",
+      pressure: "fresh",
+      ageMs: 0,
     });
   }
 
@@ -580,24 +651,42 @@ function CEOCommandCenter({ agents, presences, governance, tasks, departments }:
       detail: "Workload rebalancing may help",
       href: "/workforce",
       color: "var(--warning)",
+      age: "",
+      pressure: "fresh",
+      ageMs: 0,
     });
   }
 
-  // Executive summary sentence
+  // Sort by age (oldest first) then by type priority
+  priorityItems.sort((a, b) => {
+    if (a.ageMs > 0 && b.ageMs > 0) return b.ageMs - a.ageMs;
+    if (a.ageMs > 0) return -1;
+    if (b.ageMs > 0) return 1;
+    return 0;
+  });
+
+  // Executive summary
+  const worstBlocked = blockedWithAge.length > 0 ? blockedWithAge[0].pressure : "fresh";
+  const worstReview = reviewWithAge.length > 0 ? reviewWithAge[0].pressure : "fresh";
+  const worstPressure = worstBlocked === "stale" || worstReview === "stale" ? "stale"
+    : worstBlocked === "attention" || worstReview === "attention" ? "attention"
+    : worstBlocked === "aging" || worstReview === "aging" ? "aging" : "fresh";
+
   let summary = "Office running smoothly";
   if (blockedAgents.length > 0 && reviewAgents.length > 0) {
-    summary = "Review pressure elevated, blockers present";
+    const oldest = blockedWithAge[0]?.age ?? reviewWithAge[0]?.age ?? "";
+    summary = `Review + blockers pressure — oldest ${oldest}`;
   } else if (blockedAgents.length > 0) {
-    summary = `Blocker pressure on ${blockedAgents.length} agent${blockedAgents.length > 1 ? "s" : ""}`;
+    summary = `Blocker pressure on ${blockedAgents.length} agent${blockedAgents.length > 1 ? "s" : ""} — oldest ${blockedWithAge[0]?.age}`;
   } else if (reviewAgents.length > 0) {
-    summary = `Review backlog — ${reviewAgents.length} awaiting approval`;
+    summary = `Review backlog — ${reviewAgents.length} awaiting, oldest ${reviewWithAge[0]?.age}`;
   } else if (discussionAgents.length > 0) {
     summary = `Active discussions — ${discussionAgents.length} in meeting`;
   } else if (workingAgents.length > 0) {
     summary = `${workingAgents.length} agent${workingAgents.length > 1 ? "s" : ""} working — office active`;
   }
 
-  // Don't render if no attention items
+  // Collapsed state
   if (priorityItems.length === 0 && deptPressure.length === 0) {
     return (
       <div className="rounded-lg p-3 mb-4 flex items-center gap-2" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
@@ -611,7 +700,7 @@ function CEOCommandCenter({ agents, presences, governance, tasks, departments }:
     <div className="rounded-lg p-3 mb-4" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
       {/* Executive summary */}
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px]" style={{ color: priorityItems.some((i) => i.color === "var(--danger)") ? "var(--danger)" : "var(--warning)" }}>●</span>
+        <span className="text-[10px]" style={{ color: pressureColor(worstPressure) }}>●</span>
         <span className="text-xs font-medium" style={{ color: "var(--text)" }}>{summary}</span>
       </div>
 
@@ -619,26 +708,31 @@ function CEOCommandCenter({ agents, presences, governance, tasks, departments }:
       {priorityItems.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {priorityItems.slice(0, 4).map((item, i) => (
-            <Link key={i} href={item.href} className="flex items-center justify-between p-2 rounded hover:opacity-80" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full" style={{ background: item.color }} />
-                <div>
+            <Link key={i} href={item.href} className="flex items-center justify-between p-2 rounded hover:opacity-80" style={{ background: pressureChipBg(item.pressure), border: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: pressureColor(item.pressure) }} />
+                <div className="min-w-0">
                   <span className="text-[11px] font-medium" style={{ color: "var(--text)" }}>{item.label}</span>
-                  <span className="text-[10px] ml-2" style={{ color: "var(--text-quiet)" }}>{item.detail}</span>
+                  <span className="text-[10px] ml-1.5 truncate" style={{ color: "var(--text-quiet)" }}>{item.detail}</span>
                 </div>
               </div>
-              <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>→</span>
+              {item.age && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ml-2" style={{ background: pressureChipBg(item.pressure), color: pressureColor(item.pressure) }}>
+                  {item.age}
+                </span>
+              )}
             </Link>
           ))}
         </div>
       )}
 
-      {/* Department pressure */}
+      {/* Department pressure with aging */}
       {deptPressure.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
           {deptPressure.map((dept, i) => (
-            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: dept.blocked > 0 ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)", color: dept.blocked > 0 ? "var(--danger)" : "var(--warning)" }}>
+            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: pressureChipBg(dept.oldestPressure as any), color: pressureColor(dept.oldestPressure as any) }}>
               {dept.name}: {dept.blocked > 0 ? `${dept.blocked} blocked` : ""}{dept.blocked > 0 && dept.review > 0 ? ", " : ""}{dept.review > 0 ? `${dept.review} review` : ""}
+              {dept.oldestAge && <span className="opacity-70">({dept.oldestAge})</span>}
             </span>
           ))}
         </div>
