@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import {
   Loader2,
   Monitor,
@@ -13,12 +15,14 @@ import {
   CheckCircle2,
   GitBranch,
   ShieldCheck,
-  ExternalLink,
   X,
   ListTodo,
   Users,
   Radio,
   FolderOpen,
+  Search,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
@@ -67,6 +71,49 @@ const ZONES: OfficeZone[] = [
   { id: "available", label: "Available", icon: CheckCircle2, description: "No active work, ready", color: "var(--success)", presenceStates: AVAIL_STATES },
   { id: "subdued", label: "Away", icon: Monitor, description: "Paused or offline", color: "var(--text-muted)", presenceStates: SUBDUED_STATES },
 ];
+
+const DEPT_SLUGS = ["export-growth", "ops-improvement", "architecture-systems"];
+const DIRECT_SHORT_IDS = ["research-agent", "executive-finance", "qa-agent"];
+
+// ─── Filter helpers ───
+
+function getAgentDeptSlug(agent: Agent): string {
+  if (DIRECT_SHORT_IDS.includes(agent.short_id)) return "direct";
+  return (agent as any).department_slug ?? "";
+}
+
+function getDeptLabel(slug: string, departments: Department[]): string {
+  if (slug === "direct") return "Direct";
+  const dept = departments.find((d) => d.slug === slug);
+  return dept?.name ?? slug;
+}
+
+function filterAgents(
+  agents: Agent[],
+  presences: AgentPresence[],
+  deptFilter: string[],
+  stateFilter: string[],
+  searchQuery: string
+): Agent[] {
+  return agents.filter((agent) => {
+    // Department filter
+    if (deptFilter.length > 0) {
+      const agentDept = getAgentDeptSlug(agent);
+      if (!deptFilter.includes(agentDept)) return false;
+    }
+    // State filter
+    if (stateFilter.length > 0) {
+      const presence = presences.find((p) => p.agentId === agent.id);
+      if (!presence || !stateFilter.includes(presence.state)) return false;
+    }
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!agent.name.toLowerCase().includes(q) && !agent.short_id.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
 
 // ─── Collaboration context chip ───
 
@@ -142,25 +189,13 @@ function getEventConfig(eventType: string) {
   return EVENT_CONFIG[eventType] ?? { icon: Activity, color: "var(--text-quiet)", label: eventType };
 }
 
-// ─── Detail panel (side panel when agent is clicked) ───
+// ─── Detail panel ───
 
 function AgentDetailPanel({
-  agent,
-  presence,
-  signal,
-  tasks,
-  events,
-  departments,
-  projects,
-  onClose,
+  agent, presence, signal, tasks, events, departments, projects, onClose,
 }: {
-  agent: Agent;
-  presence: AgentPresence;
-  signal: CollaborationSignal | undefined;
-  tasks: TaskWithAgent[];
-  events: FeedEvent[];
-  departments: Department[];
-  projects: Project[];
+  agent: Agent; presence: AgentPresence; signal: CollaborationSignal | undefined;
+  tasks: TaskWithAgent[]; events: FeedEvent[]; departments: Department[]; projects: Project[];
   onClose: () => void;
 }) {
   const config = getPresenceConfig(presence.state);
@@ -168,11 +203,8 @@ function AgentDetailPanel({
   const openAgentTasks = allAgentTasks.filter((t) => t.status !== "done");
   const agentEvents = events.filter((e) => e.related_agent_id === agent.id).slice(0, 8);
   const dept = departments.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
-  const departmentLabel = dept
-    ? dept.name
-    : ["research-agent", "executive-finance", "qa-agent"].includes(agent.short_id) ? "Direct" : "Unassigned";
+  const departmentLabel = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
 
-  // Today summary
   const today = new Date().toISOString().slice(0, 10);
   const completedToday = allAgentTasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === today).length;
   const inProgressToday = allAgentTasks.filter((t) => t.status === "in-progress").length;
@@ -180,23 +212,13 @@ function AgentDetailPanel({
   const blockedToday = allAgentTasks.filter((t) => t.status === "blocked").length;
   const eventsToday = agentEvents.filter((e) => e.created_at?.slice(0, 10) === today).length;
 
-  // Current work context
   const primaryTask = openAgentTasks.find((t) => t.status === "in-progress") ?? openAgentTasks[0] ?? null;
   const waitingTask = openAgentTasks.find((t) => t.status === "in-review");
   const blockedTask = openAgentTasks.find((t) => t.status === "blocked");
   const linkedProject = primaryTask?.project_id ? projects.find((p) => p.id === primaryTask.project_id) : null;
 
   return (
-    <div
-      className="fixed right-0 top-0 h-full z-50 overflow-y-auto"
-      style={{
-        width: "min(380px, 92vw)",
-        background: "var(--surface)",
-        borderLeft: "1px solid var(--border)",
-        boxShadow: "0 0 20px rgba(0,0,0,0.1)",
-      }}
-    >
-      {/* Header */}
+    <div className="fixed right-0 top-0 h-full z-50 overflow-y-auto" style={{ width: "min(380px, 92vw)", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "0 0 20px rgba(0,0,0,0.1)" }}>
       <div className="p-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -208,148 +230,50 @@ function AgentDetailPanel({
             <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{departmentLabel}</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:opacity-70" style={{ color: "var(--text-quiet)" }}>
-          <X className="h-4 w-4" />
-        </button>
+        <button onClick={onClose} className="p-1 rounded hover:opacity-70" style={{ color: "var(--text-quiet)" }}><X className="h-4 w-4" /></button>
       </div>
 
-      {/* Status */}
       <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2 mb-1">
           <div className={`h-2 w-2 rounded-full ${config?.dot ?? "dot-gray"}`} />
-          <span className="text-xs font-semibold" style={{ color: config?.color ?? "var(--text-quiet)" }}>
-            {config?.label ?? presence.state}
-          </span>
+          <span className="text-xs font-semibold" style={{ color: config?.color ?? "var(--text-quiet)" }}>{config?.label ?? presence.state}</span>
         </div>
-        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
-          Last activity: {presence.lastActivity ? timeAgo(presence.lastActivity) : "None"}
-        </p>
+        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Last activity: {presence.lastActivity ? timeAgo(presence.lastActivity) : "None"}</p>
       </div>
 
-      {/* Today summary */}
       <div className="p-4 grid grid-cols-3 gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="text-center">
-          <p className="text-sm font-bold" style={{ color: completedToday > 0 ? "var(--success)" : "var(--text)" }}>{completedToday}</p>
-          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Done today</p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{inProgressToday}</p>
-          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>In progress</p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-bold" style={{ color: inReviewToday > 0 ? "var(--warning)" : "var(--text)" }}>{inReviewToday}</p>
-          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>In review</p>
-        </div>
-        {blockedToday > 0 && (
-          <div className="text-center col-span-3">
-            <p className="text-sm font-bold" style={{ color: "var(--danger)" }}>{blockedToday}</p>
-            <p className="text-[10px]" style={{ color: "var(--danger)" }}>Blocked</p>
-          </div>
-        )}
-        {eventsToday > 0 && (
-          <div className="text-center col-span-3 -mt-1">
-            <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{eventsToday} event{eventsToday !== 1 ? "s" : ""} today</p>
-          </div>
-        )}
+        <div className="text-center"><p className="text-sm font-bold" style={{ color: completedToday > 0 ? "var(--success)" : "var(--text)" }}>{completedToday}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Done today</p></div>
+        <div className="text-center"><p className="text-sm font-bold" style={{ color: "var(--text)" }}>{inProgressToday}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>In progress</p></div>
+        <div className="text-center"><p className="text-sm font-bold" style={{ color: inReviewToday > 0 ? "var(--warning)" : "var(--text)" }}>{inReviewToday}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>In review</p></div>
+        {blockedToday > 0 && <div className="text-center col-span-3"><p className="text-sm font-bold" style={{ color: "var(--danger)" }}>{blockedToday}</p><p className="text-[10px]" style={{ color: "var(--danger)" }}>Blocked</p></div>}
+        {eventsToday > 0 && <div className="text-center col-span-3 -mt-1"><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{eventsToday} event{eventsToday !== 1 ? "s" : ""} today</p></div>}
       </div>
 
-      {/* Current work context */}
       {(primaryTask || waitingTask || blockedTask || signal) && (
         <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
           <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Current Context</p>
           <div className="flex flex-col gap-2">
-            {primaryTask && (
-              <Link href="/tasks" className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <ListTodo className="h-3 w-3" style={{ color: "var(--info)" }} />
-                  <span className="text-[10px] font-semibold" style={{ color: "var(--text-quiet)" }}>Working on</span>
-                </div>
-                <p className="text-[11px]" style={{ color: "var(--text)" }}>{primaryTask.title}</p>
-              </Link>
-            )}
-            {waitingTask && (
-              <Link href="/reviews" className="p-2 rounded hover:opacity-80" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <ShieldCheck className="h-3 w-3" style={{ color: "var(--warning)" }} />
-                  <span className="text-[10px] font-semibold" style={{ color: "var(--warning)" }}>Awaiting review</span>
-                </div>
-                <p className="text-[11px]" style={{ color: "var(--text)" }}>{waitingTask.title}</p>
-              </Link>
-            )}
-            {blockedTask && (
-              <div className="p-2 rounded" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <AlertTriangle className="h-3 w-3" style={{ color: "var(--danger)" }} />
-                  <span className="text-[10px] font-semibold" style={{ color: "var(--danger)" }}>Blocked</span>
-                </div>
-                <p className="text-[11px]" style={{ color: "var(--text)" }}>{blockedTask.title}</p>
-                {blockedTask.blocker && (
-                  <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>{blockedTask.blocker}</p>
-                )}
-              </div>
-            )}
-            {signal?.isRouted && signal.routedBy && (
-              <div className="p-2 rounded" style={{ background: "rgba(59,130,246,0.06)" }}>
-                <div className="flex items-center gap-1.5">
-                  <GitBranch className="h-3 w-3" style={{ color: "var(--info)" }} />
-                  <span className="text-[10px]" style={{ color: "var(--info)" }}>Routed by {signal.routedBy}</span>
-                </div>
-              </div>
-            )}
-            {linkedProject && (
-              <Link href={`/projects/${linkedProject.id}`} className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <FolderOpen className="h-3 w-3" style={{ color: "var(--accent)" }} />
-                  <span className="text-[10px] font-semibold" style={{ color: "var(--text-quiet)" }}>Project</span>
-                </div>
-                <p className="text-[11px]" style={{ color: "var(--text)" }}>{linkedProject.title}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[9px] px-1 rounded" style={{ background: "var(--accent)", color: "white" }}>{linkedProject.project_code}</span>
-                  <span className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{linkedProject.progress}%</span>
-                </div>
-              </Link>
-            )}
+            {primaryTask && <Link href="/tasks" className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}><div className="flex items-center gap-1.5 mb-1"><ListTodo className="h-3 w-3" style={{ color: "var(--info)" }} /><span className="text-[10px] font-semibold" style={{ color: "var(--text-quiet)" }}>Working on</span></div><p className="text-[11px]" style={{ color: "var(--text)" }}>{primaryTask.title}</p></Link>}
+            {waitingTask && <Link href="/reviews" className="p-2 rounded hover:opacity-80" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}><div className="flex items-center gap-1.5 mb-1"><ShieldCheck className="h-3 w-3" style={{ color: "var(--warning)" }} /><span className="text-[10px] font-semibold" style={{ color: "var(--warning)" }}>Awaiting review</span></div><p className="text-[11px]" style={{ color: "var(--text)" }}>{waitingTask.title}</p></Link>}
+            {blockedTask && <div className="p-2 rounded" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}><div className="flex items-center gap-1.5 mb-1"><AlertTriangle className="h-3 w-3" style={{ color: "var(--danger)" }} /><span className="text-[10px] font-semibold" style={{ color: "var(--danger)" }}>Blocked</span></div><p className="text-[11px]" style={{ color: "var(--text)" }}>{blockedTask.title}</p>{blockedTask.blocker && <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>{blockedTask.blocker}</p>}</div>}
+            {signal?.isRouted && signal.routedBy && <div className="p-2 rounded" style={{ background: "rgba(59,130,246,0.06)" }}><div className="flex items-center gap-1.5"><GitBranch className="h-3 w-3" style={{ color: "var(--info)" }} /><span className="text-[10px]" style={{ color: "var(--info)" }}>Routed by {signal.routedBy}</span></div></div>}
+            {linkedProject && <Link href={`/projects/${linkedProject.id}`} className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}><div className="flex items-center gap-1.5 mb-1"><FolderOpen className="h-3 w-3" style={{ color: "var(--accent)" }} /><span className="text-[10px] font-semibold" style={{ color: "var(--text-quiet)" }}>Project</span></div><p className="text-[11px]" style={{ color: "var(--text)" }}>{linkedProject.title}</p><div className="flex items-center gap-2 mt-1"><span className="text-[9px] px-1 rounded" style={{ background: "var(--accent)", color: "white" }}>{linkedProject.project_code}</span><span className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{linkedProject.progress}%</span></div></Link>}
           </div>
         </div>
       )}
 
-      {/* Timeline */}
       <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-quiet)" }}>Recent Timeline</p>
-        {agentEvents.length === 0 ? (
-          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No recent activity</p>
-        ) : (
-          <div className="flex flex-col gap-0">
-            {agentEvents.map((event, i) => {
-              const evConfig = getEventConfig(event.event_type);
-              const EvIcon = evConfig.icon;
-              return (
-                <div key={event.id} className="flex gap-2">
-                  {/* Timeline line */}
-                  <div className="flex flex-col items-center">
-                    <div className="mt-1 flex h-4 w-4 items-center justify-center rounded-full" style={{ background: evConfig.color + "18" }}>
-                      <EvIcon className="h-2.5 w-2.5" style={{ color: evConfig.color }} />
-                    </div>
-                    {i < agentEvents.length - 1 && (
-                      <div className="w-px flex-1" style={{ background: "var(--border)" }} />
-                    )}
-                  </div>
-                  {/* Content */}
-                  <div className="pb-3 flex-1 min-w-0">
-                    <p className="text-[10px] font-medium truncate" style={{ color: "var(--text)" }}>{event.summary}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[9px] px-1 rounded" style={{ background: evConfig.color + "12", color: evConfig.color }}>{evConfig.label}</span>
-                      <span className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {agentEvents.length === 0 ? <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No recent activity</p> : (
+          <div className="flex flex-col gap-0">{agentEvents.map((event, i) => { const evConfig = getEventConfig(event.event_type); const EvIcon = evConfig.icon; return (
+            <div key={event.id} className="flex gap-2">
+              <div className="flex flex-col items-center"><div className="mt-1 flex h-4 w-4 items-center justify-center rounded-full" style={{ background: evConfig.color + "18" }}><EvIcon className="h-2.5 w-2.5" style={{ color: evConfig.color }} /></div>{i < agentEvents.length - 1 && <div className="w-px flex-1" style={{ background: "var(--border)" }} />}</div>
+              <div className="pb-3 flex-1 min-w-0"><p className="text-[10px] font-medium truncate" style={{ color: "var(--text)" }}>{event.summary}</p><div className="flex items-center gap-2 mt-0.5"><span className="text-[9px] px-1 rounded" style={{ background: evConfig.color + "12", color: evConfig.color }}>{evConfig.label}</span><span className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</span></div></div>
+            </div>
+          ); })}</div>
         )}
       </div>
 
-      {/* Quick links */}
       <div className="p-4">
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Quick Links</p>
         <div className="flex flex-wrap gap-2">
@@ -363,85 +287,29 @@ function AgentDetailPanel({
   );
 }
 
-// ─── Agent card (click to expand detail panel) ───
+// ─── Agent card ───
 
-function AgentCard({
-  presence,
-  agent,
-  department,
-  signal,
-  tasks,
-  isBlocked,
-  govSignals,
-  onClick,
-}: {
-  presence: AgentPresence;
-  agent: Agent;
-  department: string;
-  signal: CollaborationSignal | undefined;
-  tasks: TaskWithAgent[];
-  isBlocked: boolean;
-  govSignals: GovernanceSignal[];
-  onClick: () => void;
+function AgentCard({ presence, agent, department, signal, tasks, isBlocked, govSignals, onClick }: {
+  presence: AgentPresence; agent: Agent; department: string;
+  signal: CollaborationSignal | undefined; tasks: TaskWithAgent[];
+  isBlocked: boolean; govSignals: GovernanceSignal[]; onClick: () => void;
 }) {
   const config = getPresenceConfig(presence.state);
   const openTasks = presence.openTasks ?? 0;
-
   return (
-    <div
-      className="rounded-md p-3 cursor-pointer transition-all hover:scale-[1.01]"
-      onClick={onClick}
-      style={{
-        background: isBlocked ? "rgba(239,68,68,0.04)" : "var(--surface)",
-        border: isBlocked ? "1px solid rgba(239,68,68,0.2)" : "1px solid var(--border)",
-        opacity: SUBDUED_STATES.includes(presence.state) ? 0.55 : 1,
-      }}
-    >
+    <div className="rounded-md p-3 cursor-pointer transition-all hover:scale-[1.01]" onClick={onClick}
+      style={{ background: isBlocked ? "rgba(239,68,68,0.04)" : "var(--surface)", border: isBlocked ? "1px solid rgba(239,68,68,0.2)" : "1px solid var(--border)", opacity: SUBDUED_STATES.includes(presence.state) ? 0.55 : 1 }}>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">{agent.emoji}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
-          <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{department}</p>
-        </div>
+        <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{agent.name}</p><p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{department}</p></div>
         <div className={`h-2 w-2 rounded-full ${config?.dot ?? "dot-gray"}`} />
       </div>
-      {signal && (
-        <div className="mb-2">
-          <ContextChip signal={signal} tasks={tasks} />
-        </div>
-      )}
-      {openTasks > 0 && (
-        <div className="flex items-center gap-3 text-[10px] mb-2" style={{ color: "var(--text-quiet)" }}>
-          <span>{openTasks} task{openTasks !== 1 ? "s" : ""}</span>
-          {presence.inReviewTasks > 0 && <span style={{ color: "var(--warning)" }}>{presence.inReviewTasks} review</span>}
-          {presence.blockedTasks > 0 && <span style={{ color: "var(--danger)" }}>{presence.blockedTasks} blocked</span>}
-        </div>
-      )}
-      {/* Governance signals */}
-      {govSignals.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {govSignals.slice(0, 2).map((gs, i) => {
-            const gsColor = gs.severity === "critical" ? "var(--danger)" : gs.severity === "attention" ? "var(--warning)" : gs.severity === "watch" ? "var(--info)" : "var(--text-quiet)";
-            return (
-              <span key={i} className="text-[9px] px-1 py-0.5 rounded" style={{ background: gsColor + "12", color: gsColor }}>
-                {gs.label}
-              </span>
-            );
-          })}
-          {govSignals.length > 2 && (
-            <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>
-              +{govSignals.length - 2}
-            </span>
-          )}
-        </div>
-      )}
+      {signal && <div className="mb-2"><ContextChip signal={signal} tasks={tasks} /></div>}
+      {openTasks > 0 && <div className="flex items-center gap-3 text-[10px] mb-2" style={{ color: "var(--text-quiet)" }}><span>{openTasks} task{openTasks !== 1 ? "s" : ""}</span>{presence.inReviewTasks > 0 && <span style={{ color: "var(--warning)" }}>{presence.inReviewTasks} review</span>}{presence.blockedTasks > 0 && <span style={{ color: "var(--danger)" }}>{presence.blockedTasks} blocked</span>}</div>}
+      {govSignals.length > 0 && <div className="flex flex-wrap gap-1 mb-2">{govSignals.slice(0, 2).map((gs, i) => { const gsColor = gs.severity === "critical" ? "var(--danger)" : gs.severity === "attention" ? "var(--warning)" : gs.severity === "watch" ? "var(--info)" : "var(--text-quiet)"; return <span key={i} className="text-[9px] px-1 py-0.5 rounded" style={{ background: gsColor + "12", color: gsColor }}>{gs.label}</span>; })}{govSignals.length > 2 && <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>+{govSignals.length - 2}</span>}</div>}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium" style={{ color: config?.color ?? "var(--text-quiet)" }}>
-          {config?.label ?? presence.state}
-        </span>
-        <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
-          {presence.lastActivity ? timeAgo(presence.lastActivity) : "—"}
-        </span>
+        <span className="text-[10px] font-medium" style={{ color: config?.color ?? "var(--text-quiet)" }}>{config?.label ?? presence.state}</span>
+        <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{presence.lastActivity ? timeAgo(presence.lastActivity) : "—"}</span>
       </div>
     </div>
   );
@@ -449,27 +317,14 @@ function AgentCard({
 
 // ─── Zone panel ───
 
-function ZonePanel({
-  zone,
-  zonePresences,
-  agents,
-  allDepts,
-  signals,
-  tasks,
-  governance,
-  onSelectAgent,
-}: {
-  zone: OfficeZone;
-  zonePresences: AgentPresence[];
-  agents: Agent[];
-  allDepts: Department[];
-  signals: Map<string, CollaborationSignal>;
-  tasks: TaskWithAgent[];
-  governance: OrchestratorGovernance;
+function ZonePanel({ zone, zonePresences, agents, allDepts, signals, tasks, governance, onSelectAgent }: {
+  zone: OfficeZone; zonePresences: AgentPresence[]; agents: Agent[]; allDepts: Department[];
+  signals: Map<string, CollaborationSignal>; tasks: TaskWithAgent[]; governance: OrchestratorGovernance;
   onSelectAgent: (agent: Agent) => void;
 }) {
   const Icon = zone.icon;
   const count = zonePresences.length;
+  const isBlockedZone = zone.id === "blockers";
 
   if (count === 0) {
     return (
@@ -484,16 +339,8 @@ function ZonePanel({
     );
   }
 
-  const isBlockedZone = zone.id === "blockers";
-
   return (
-    <div
-      className="rounded-lg p-4"
-      style={{
-        background: isBlockedZone ? "rgba(239,68,68,0.02)" : "var(--surface)",
-        border: isBlockedZone ? "1px solid rgba(239,68,68,0.15)" : "1px solid var(--border)",
-      }}
-    >
+    <div className="rounded-lg p-4" style={{ background: isBlockedZone ? "rgba(239,68,68,0.02)" : "var(--surface)", border: isBlockedZone ? "1px solid rgba(239,68,68,0.15)" : "1px solid var(--border)" }}>
       <div className="flex items-center gap-2 mb-3">
         <Icon className="h-4 w-4" style={{ color: zone.color }} />
         <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{zone.label}</span>
@@ -506,24 +353,108 @@ function ZonePanel({
         {zonePresences.map((presence) => {
           const agent = agents.find((a) => a.id === presence.agentId)!;
           const dept = allDepts.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
-          const departmentLabel = dept
-            ? dept.name
-            : ["research-agent", "executive-finance", "qa-agent"].includes(agent.short_id) ? "Direct" : "Unassigned";
-          return (
-            <AgentCard
-              key={presence.agentId}
-              presence={presence}
-              agent={agent}
-              department={departmentLabel}
-              signal={signals.get(agent.id)}
-              tasks={tasks}
-              isBlocked={isBlockedZone}
-              govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)}
-              onClick={() => onSelectAgent(agent)}
-            />
-          );
+          const departmentLabel = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
+          return <AgentCard key={presence.agentId} presence={presence} agent={agent} department={departmentLabel} signal={signals.get(agent.id)} tasks={tasks} isBlocked={isBlockedZone} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} onClick={() => onSelectAgent(agent)} />;
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Department section (collapsible) ───
+
+function DepartmentSection({ slug, label, agents: deptAgents, presences, signals, tasks, governance, onSelectAgent, allDepts }: {
+  slug: string; label: string; agents: Agent[]; presences: AgentPresence[];
+  signals: Map<string, CollaborationSignal>; tasks: TaskWithAgent[]; governance: OrchestratorGovernance;
+  onSelectAgent: (agent: Agent) => void; allDepts: Department[];
+}) {
+  const [expanded, setExpanded] = useState(true);
+  if (deptAgents.length === 0) return null;
+
+  return (
+    <div className="rounded-lg" style={{ border: "1px solid var(--border)" }}>
+      <button className="w-full flex items-center gap-2 p-3 hover:opacity-80" onClick={() => setExpanded(!expanded)} style={{ background: "var(--surface)" }}>
+        {expanded ? <ChevronDown className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} /> : <ChevronRight className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />}
+        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{label}</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>{deptAgents.length}</span>
+      </button>
+      {expanded && (
+        <div className="p-3 pt-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {deptAgents.map((agent) => {
+            const presence = presences.find((p) => p.agentId === agent.id);
+            if (!presence) return null;
+            const dept = allDepts.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
+            const departmentLabel = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
+            return <AgentCard key={agent.id} presence={presence} agent={agent} department={departmentLabel} signal={signals.get(agent.id)} tasks={tasks} isBlocked={presence.state === "blocked"} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} onClick={() => onSelectAgent(agent)} />;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Filter bar ───
+
+function FilterBar({ deptFilter, stateFilter, searchQuery, onDeptFilter, onStateFilter, onSearch, departments }: {
+  deptFilter: string[]; stateFilter: string[]; searchQuery: string;
+  onDeptFilter: (v: string[]) => void; onStateFilter: (v: string[]) => void; onSearch: (v: string) => void;
+  departments: Department[];
+}) {
+  function toggleDept(slug: string) {
+    onDeptFilter(deptFilter.includes(slug) ? deptFilter.filter((s) => s !== slug) : [...deptFilter, slug]);
+  }
+  function toggleState(state: string) {
+    onStateFilter(stateFilter.includes(state) ? stateFilter.filter((s) => s !== state) : [...stateFilter, state]);
+  }
+
+  const stateOptions = [
+    { value: "working", label: "Working", color: "var(--info)" },
+    { value: "in_discussion", label: "Discussion", color: "var(--accent)" },
+    { value: "in_review", label: "In Review", color: "var(--warning)" },
+    { value: "blocked", label: "Blocked", color: "var(--danger)" },
+    { value: "available", label: "Available", color: "var(--success)" },
+    { value: "paused", label: "Away", color: "var(--text-muted)" },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-4">
+      {/* Search */}
+      <div className="relative flex-1 min-w-[180px] max-w-[280px]">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
+        <Input value={searchQuery} onChange={(e) => onSearch(e.target.value)} placeholder="Search agents…" className="pl-8 h-8 text-xs" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }} />
+      </div>
+      {/* Department chips */}
+      <div className="flex flex-wrap gap-1">
+        {DEPT_SLUGS.map((slug) => (
+          <button key={slug} onClick={() => toggleDept(slug)}
+            className="text-[10px] px-2 py-1 rounded-full transition-colors"
+            style={{ background: deptFilter.includes(slug) ? "var(--accent)" : "var(--surface-muted)", color: deptFilter.includes(slug) ? "white" : "var(--text-quiet)", border: "1px solid var(--border)" }}>
+            {getDeptLabel(slug, departments)}
+          </button>
+        ))}
+        <button onClick={() => toggleDept("direct")}
+          className="text-[10px] px-2 py-1 rounded-full transition-colors"
+          style={{ background: deptFilter.includes("direct") ? "var(--accent)" : "var(--surface-muted)", color: deptFilter.includes("direct") ? "white" : "var(--text-quiet)", border: "1px solid var(--border)" }}>
+          Direct
+        </button>
+      </div>
+      {/* State chips */}
+      <div className="flex flex-wrap gap-1">
+        {stateOptions.map((opt) => (
+          <button key={opt.value} onClick={() => toggleState(opt.value)}
+            className="text-[10px] px-2 py-1 rounded-full transition-colors"
+            style={{ background: stateFilter.includes(opt.value) ? opt.color : "var(--surface-muted)", color: stateFilter.includes(opt.value) ? "white" : "var(--text-quiet)", border: "1px solid var(--border)" }}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {/* Clear filters */}
+      {(deptFilter.length > 0 || stateFilter.length > 0 || searchQuery) && (
+        <button onClick={() => { onDeptFilter([]); onStateFilter([]); onSearch(""); }}
+          className="text-[10px] px-2 py-1 rounded-full hover:opacity-80" style={{ color: "var(--text-quiet)" }}>
+          Clear
+        </button>
+      )}
     </div>
   );
 }
@@ -531,23 +462,16 @@ function ZonePanel({
 // ─── Orchestrator panel ───
 
 function OrchestratorRow({ agents, departments, workingCount, coordination, governance }: {
-  agents: Agent[];
-  departments: Department[];
-  workingCount: number;
-  coordination: CoordinationState;
-  governance: OrchestratorGovernance;
+  agents: Agent[]; departments: Department[]; workingCount: number;
+  coordination: CoordinationState; governance: OrchestratorGovernance;
 }) {
   return (
     <div className="rounded-lg p-4 mb-6" style={{ border: "1px solid var(--border)" }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🦀</span>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p>
-            <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Orchestrator</p>
-          </div>
+          <div><p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p><p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Orchestrator</p></div>
         </div>
-        {/* Quick links */}
         <div className="flex gap-2">
           <QuickLink href="/reviews" icon={ShieldCheck} label="Reviews" />
           <QuickLink href="/tasks" icon={ListTodo} label="Tasks" />
@@ -555,64 +479,22 @@ function OrchestratorRow({ agents, departments, workingCount, coordination, gove
         </div>
       </div>
       <div className="flex items-center gap-3 mt-3">
-        <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
-          {agents.length} agents · {departments.length} departments · {workingCount} working now
-        </span>
+        <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agents.length} agents · {departments.length} departments · {workingCount} working now</span>
         {coordination.isCoordinating && (
           <div className="flex gap-2 ml-auto">
-            {coordination.recentRoutes.length > 0 && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(59,130,246,0.1)", color: "var(--info)" }}>
-                <GitBranch className="h-2.5 w-2.5" />
-                {coordination.recentRoutes.length} routing{coordination.recentRoutes.length > 1 ? "s" : ""}
-              </span>
-            )}
-            {coordination.pendingReviews.length > 0 && (
-              <Link href="/reviews" className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 hover:opacity-80" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}>
-                <ShieldCheck className="h-2.5 w-2.5" />
-                {coordination.pendingReviews.length} pending review{coordination.pendingReviews.length > 1 ? "s" : ""}
-              </Link>
-            )}
-            {coordination.activeDiscussions.length > 0 && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(139,92,246,0.1)", color: "var(--accent)" }}>
-                <MessageSquare className="h-2.5 w-2.5" />
-                {coordination.activeDiscussions.length} discussion{coordination.activeDiscussions.length > 1 ? "s" : ""}
-              </span>
-            )}
+            {coordination.recentRoutes.length > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(59,130,246,0.1)", color: "var(--info)" }}><GitBranch className="h-2.5 w-2.5" />{coordination.recentRoutes.length} routing{coordination.recentRoutes.length > 1 ? "s" : ""}</span>}
+            {coordination.pendingReviews.length > 0 && <Link href="/reviews" className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 hover:opacity-80" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}><ShieldCheck className="h-2.5 w-2.5" />{coordination.pendingReviews.length} pending review{coordination.pendingReviews.length > 1 ? "s" : ""}</Link>}
+            {coordination.activeDiscussions.length > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(139,92,246,0.1)", color: "var(--accent)" }}><MessageSquare className="h-2.5 w-2.5" />{coordination.activeDiscussions.length} discussion{coordination.activeDiscussions.length > 1 ? "s" : ""}</span>}
           </div>
         )}
       </div>
-      {/* Governance intelligence */}
       {governance.needsAttention > 0 && (
         <div className="flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-          {governance.pendingReviews > 0 && (
-            <Link href="/reviews" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}>
-              <Clock className="h-2.5 w-2.5" />
-              {governance.pendingReviews} review{governance.pendingReviews > 1 ? "s" : ""}
-            </Link>
-          )}
-          {governance.blockedAgents > 0 && (
-            <Link href="/tasks" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}>
-              <AlertTriangle className="h-2.5 w-2.5" />
-              {governance.blockedAgents} blocked
-            </Link>
-          )}
-          {governance.overloadedAgents > 0 && (
-            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.08)", color: "var(--warning)" }}>
-              <Activity className="h-2.5 w-2.5" />
-              {governance.overloadedAgents} overloaded
-            </span>
-          )}
-          {governance.capabilityAlerts > 0 && (
-            <Link href="/skills" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(139,92,246,0.1)", color: "var(--accent)" }}>
-              <ShieldCheck className="h-2.5 w-2.5" />
-              {governance.capabilityAlerts} skill gap{governance.capabilityAlerts > 1 ? "s" : ""}
-            </Link>
-          )}
-          {governance.needsAttention > 0 && (
-            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: "rgba(239,68,68,0.08)", color: "var(--danger)" }}>
-              {governance.needsAttention} need{governance.needsAttention === 1 ? "s" : ""} attention
-            </span>
-          )}
+          {governance.pendingReviews > 0 && <Link href="/reviews" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}><Clock className="h-2.5 w-2.5" />{governance.pendingReviews} review{governance.pendingReviews > 1 ? "s" : ""}</Link>}
+          {governance.blockedAgents > 0 && <Link href="/tasks" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}><AlertTriangle className="h-2.5 w-2.5" />{governance.blockedAgents} blocked</Link>}
+          {governance.overloadedAgents > 0 && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.08)", color: "var(--warning)" }}><Activity className="h-2.5 w-2.5" />{governance.overloadedAgents} overloaded</span>}
+          {governance.capabilityAlerts > 0 && <Link href="/skills" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(139,92,246,0.1)", color: "var(--accent)" }}><ShieldCheck className="h-2.5 w-2.5" />{governance.capabilityAlerts} skill gap{governance.capabilityAlerts > 1 ? "s" : ""}</Link>}
+          {governance.needsAttention > 0 && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: "rgba(239,68,68,0.08)", color: "var(--danger)" }}>{governance.needsAttention} need{governance.needsAttention === 1 ? "s" : ""} attention</span>}
         </div>
       )}
     </div>
@@ -630,61 +512,42 @@ export default function OfficePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [presences, setPresences] = useState<AgentPresence[]>([]);
   const [signals, setSignals] = useState<Map<string, CollaborationSignal>>(new Map());
-  const [coordination, setCoordination] = useState<CoordinationState>({
-    isCoordinating: false, recentRoutes: [], pendingReviews: [], activeDiscussions: [],
-  });
-  const [governance, setGovernance] = useState<OrchestratorGovernance>({
-    pendingReviews: 0, blockedAgents: 0, overloadedAgents: 0, capabilityAlerts: 0, needsAttention: 0, signals: [],
-  });
+  const [coordination, setCoordination] = useState<CoordinationState>({ isCoordinating: false, recentRoutes: [], pendingReviews: [], activeDiscussions: [] });
+  const [governance, setGovernance] = useState<OrchestratorGovernance>({ pendingReviews: 0, blockedAgents: 0, overloadedAgents: 0, capabilityAlerts: 0, needsAttention: 0, signals: [] });
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+
+  // Filter state
+  const [activeTab, setActiveTab] = useState("zones");
+  const [deptFilter, setDeptFilter] = useState<string[]>([]);
+  const [stateFilter, setStateFilter] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   async function load() {
     setLoading(true);
     const [a, d, t, e, p] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50), getProjects()]);
-    setAgents(a.data);
-    setDepartments(d.data);
-    setTasks(t.data);
-    setEvents(e.data);
-    setProjects(p.data);
-
-    // Presence
+    setAgents(a.data); setDepartments(d.data); setTasks(t.data); setEvents(e.data); setProjects(p.data);
     const presenceList = a.data.map((agent) => deriveAgentPresence(agent, t.data, e.data));
     setPresences(presenceList);
-
-    // Collaboration signals
     const agentIds = a.data.map((agent) => agent.id);
     const collabSignals = computeCollaborationSignals(e.data, agentIds);
-    setSignals(collabSignals);
-    setCoordination(computeCoordinationState(e.data, agentIds));
-
-    // Governance signals
+    setSignals(collabSignals); setCoordination(computeCoordinationState(e.data, agentIds));
     const { getAllTaskReviews } = await import("@/lib/data/reviews");
     const [reviewsResult, gapsResult] = await Promise.all([getAllTaskReviews(100), getCapabilityGaps({ limit: 50 })]);
     const reviewOutcomes = reviewsResult.data.map((r) => ({ task_id: r.task_id, outcome: r.outcome }));
     const gapsFlat = gapsResult.data.map((g) => ({ agent_id: (g as any).agent_id ?? null, urgency_level: (g as any).urgency_level ?? "low", composite_score: (g as any).composite_score ?? 0 }));
     setGovernance(computeOrchestratorGovernance(a.data, t.data, e.data, reviewOutcomes, gapsFlat));
-
     setLoading(false);
   }
 
   const loadRef = useCallback(() => load(), []);
   useRealtimeMulti(["agents", "tasks", "feed_events"], loadRef);
-
-  useEffect(() => {
-    const interval = setInterval(() => load(), 10000);
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => { const interval = setInterval(() => load(), 10000); return () => clearInterval(interval); }, []);
   useEffect(() => { load(); }, []);
 
-  if (loading) {
-    return (
-      <PageShell title="Office" description="Loading...">
-        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading office...
-        </div>
-      </PageShell>
-    );
-  }
+  if (loading) return <PageShell title="Office" description="Loading..."><div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading office...</div></PageShell>;
+
+  const filteredAgents = filterAgents(agents, presences, deptFilter, stateFilter, searchQuery);
+  const filteredPresences = presences.filter((p) => filteredAgents.some((a) => a.id === p.agentId));
 
   const workingCount = presences.filter((p) => WORK_STATES.includes(p.state)).length;
   const discussionCount = presences.filter((p) => DISCUSSION_STATES.includes(p.state)).length;
@@ -693,93 +556,68 @@ export default function OfficePage() {
   const availableCount = presences.filter((p) => AVAIL_STATES.includes(p.state)).length;
   const subduedCount = presences.filter((p) => SUBDUED_STATES.includes(p.state)).length;
 
-  // Selected agent data
   const selectedPresence = selectedAgent ? presences.find((p) => p.agentId === selectedAgent.id) : null;
 
   return (
     <PageShell title="Office" description="Live view — agents, work states, and active operations">
       {/* Summary strip */}
-      <div className="rounded-lg p-3 mb-6 flex flex-wrap items-center gap-4 sm:gap-6 text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} />
-          <span style={{ color: "var(--text-quiet)" }}>Online {availableCount + workingCount + discussionCount + reviewCount + blockedCount}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full" style={{ background: "var(--info)" }} />
-          <span style={{ color: "var(--text-quiet)" }}>At Work {workingCount}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
-          <span style={{ color: "var(--text-quiet)" }}>In Discussion {discussionCount}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full" style={{ background: "var(--warning)" }} />
-          <span style={{ color: "var(--text-quiet)" }}>Awaiting Review {reviewCount}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} />
-          <span style={{ color: "var(--text-quiet)" }}>Blocked {blockedCount}</span>
-        </div>
-        {subduedCount > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} />
-            <span style={{ color: "var(--text-quiet)" }}>Away {subduedCount}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} />
-          <span style={{ color: "var(--text-quiet)" }}>live</span>
-        </div>
+      <div className="rounded-lg p-3 mb-4 flex flex-wrap items-center gap-4 sm:gap-6 text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>Online {availableCount + workingCount + discussionCount + reviewCount + blockedCount}</span></div>
+        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--info)" }} /><span style={{ color: "var(--text-quiet)" }}>At Work {workingCount}</span></div>
+        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} /><span style={{ color: "var(--text-quiet)" }}>Discussion {discussionCount}</span></div>
+        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--warning)" }} /><span style={{ color: "var(--text-quiet)" }}>Review {reviewCount}</span></div>
+        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} /><span style={{ color: "var(--text-quiet)" }}>Blocked {blockedCount}</span></div>
+        {subduedCount > 0 && <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {subduedCount}</span></div>}
+        <div className="flex items-center gap-1.5 ml-auto"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
 
       {/* Orchestrator */}
-      <OrchestratorRow
-        agents={agents}
-        departments={departments}
-        workingCount={workingCount}
-        coordination={coordination}
-        governance={governance}
-      />
+      <OrchestratorRow agents={agents} departments={departments} workingCount={workingCount} coordination={coordination} governance={governance} />
 
-      {/* Spatial zones */}
-      <div className="flex flex-col gap-4">
-        {ZONES.map((zone) => {
-          const zonePresences = presences.filter((p) => zone.presenceStates.includes(p.state));
-          return (
-            <ZonePanel
-              key={zone.id}
-              zone={zone}
-              zonePresences={zonePresences}
-              agents={agents}
-              allDepts={departments}
-              signals={signals}
-              tasks={tasks}
-              governance={governance}
-              onSelectAgent={setSelectedAgent}
-            />
-          );
-        })}
-      </div>
+      {/* Tabs + Filters */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList variant="line">
+            <TabsTrigger value="zones">Zones</TabsTrigger>
+            <TabsTrigger value="departments">Departments</TabsTrigger>
+          </TabsList>
+          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+            {filteredAgents.length} of {agents.length} agents
+          </span>
+        </div>
+
+        <FilterBar deptFilter={deptFilter} stateFilter={stateFilter} searchQuery={searchQuery} onDeptFilter={setDeptFilter} onStateFilter={setStateFilter} onSearch={setSearchQuery} departments={departments} />
+
+        {/* Zones tab */}
+        <TabsContent value="zones">
+          <div className="flex flex-col gap-4">
+            {ZONES.map((zone) => {
+              const zonePresences = filteredPresences.filter((p) => zone.presenceStates.includes(p.state));
+              return <ZonePanel key={zone.id} zone={zone} zonePresences={zonePresences} agents={filteredAgents} allDepts={departments} signals={signals} tasks={tasks} governance={governance} onSelectAgent={setSelectedAgent} />;
+            })}
+          </div>
+        </TabsContent>
+
+        {/* Departments tab */}
+        <TabsContent value="departments">
+          <div className="flex flex-col gap-3">
+            {DEPT_SLUGS.map((slug) => {
+              const deptAgents = filteredAgents.filter((a) => getAgentDeptSlug(a) === slug);
+              return <DepartmentSection key={slug} slug={slug} label={getDeptLabel(slug, departments)} agents={deptAgents} presences={presences} signals={signals} tasks={tasks} governance={governance} onSelectAgent={setSelectedAgent} allDepts={departments} />;
+            })}
+            {(() => {
+              const directAgents = filteredAgents.filter((a) => getAgentDeptSlug(a) === "direct");
+              return <DepartmentSection key="direct" slug="direct" label="Direct" agents={directAgents} presences={presences} signals={signals} tasks={tasks} governance={governance} onSelectAgent={setSelectedAgent} allDepts={departments} />;
+            })()}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Detail side panel */}
       {selectedAgent && selectedPresence && (
         <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            style={{ background: "rgba(0,0,0,0.15)" }}
-            onClick={() => setSelectedAgent(null)}
-          />
-          <AgentDetailPanel
-            agent={selectedAgent}
-            presence={selectedPresence}
-            signal={signals.get(selectedAgent.id)}
-            tasks={tasks}
-            events={events}
-            departments={departments}
-            projects={projects}
-            onClose={() => setSelectedAgent(null)}
-          />
+          <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.15)" }} onClick={() => setSelectedAgent(null)} />
+          <AgentDetailPanel agent={selectedAgent} presence={selectedPresence} signal={signals.get(selectedAgent.id)} tasks={tasks} events={events} departments={departments} projects={projects} onClose={() => setSelectedAgent(null)} />
         </>
       )}
     </PageShell>
