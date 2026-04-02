@@ -94,6 +94,18 @@ export async function getAgents(): Promise<{ data: Agent[]; error: string | null
         },
         {
           id: "mock-7",
+          name: "Quality Assurance Agent",
+          short_id: "qa-agent",
+          emoji: "✅",
+          description: "Reviews work quality before CEO approval. Checks completeness, accuracy, and consistency",
+          status: "active",
+          domain: "Quality review, completeness check, accuracy verification, consistency audit",
+          task_count: 0,
+          last_activity: null,
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: "mock-7",
           name: "Executive Finance Agent",
           short_id: "executive-finance",
           emoji: "💰",
