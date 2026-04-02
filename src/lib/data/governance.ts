@@ -8,6 +8,7 @@ import type {
   ProjectHealthScore,
   ProjectHealth,
   TaskWithAgent,
+  FeedEvent,
   MilestoneStatus,
   ReviewType,
 } from "@/types/dashboard";
@@ -296,4 +297,103 @@ export async function createProjectDecision(input: {
 
   if (error) return { data: null, error: error.message };
   return { data: data as ProjectDecision, error: null };
+}
+
+// ─── Office Governance Signals ───
+
+const BLOCKED_STALE_MS = 2 * 60 * 60 * 1000;   // 2 hours
+const REVIEW_STALE_MS = 60 * 60 * 1000;         // 1 hour
+const OVERLOAD_THRESHOLD = 5;                     // open tasks
+
+export type Severity = "info" | "watch" | "attention" | "critical";
+
+export interface GovernanceSignal {
+  agentId: string;
+  severity: Severity;
+  kind: "blocked_stale" | "review_backlog" | "overloaded" | "rework_risk" | "skill_gap" | "needs_ceo";
+  label: string;
+  detail: string;
+  jumpTo: string;
+}
+
+export interface OrchestratorGovernance {
+  pendingReviews: number;
+  blockedAgents: number;
+  overloadedAgents: number;
+  capabilityAlerts: number;
+  needsAttention: number;
+  signals: GovernanceSignal[];
+}
+
+function isStale(iso: string, windowMs: number): boolean {
+  return Date.now() - new Date(iso).getTime() > windowMs;
+}
+
+export function computeAgentGovernanceSignals(
+  agent: { id: string },
+  tasks: TaskWithAgent[],
+  reviewOutcomes: { task_id: string; outcome: string }[],
+  capabilityGaps: { agent_id: string | null; urgency_level: string; composite_score: number }[]
+): GovernanceSignal[] {
+  const signals: GovernanceSignal[] = [];
+  const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
+  const openTasks = agentTasks.filter((t) => t.status !== "done");
+  const blockedTasks = agentTasks.filter((t) => t.status === "blocked");
+  const inReviewTasks = agentTasks.filter((t) => t.status === "in-review");
+
+  for (const task of blockedTasks) {
+    if (isStale(task.updated_at, BLOCKED_STALE_MS)) {
+      signals.push({ agentId: agent.id, severity: "attention", kind: "blocked_stale", label: "Blocked too long", detail: task.blocker ?? "No reason", jumpTo: "/tasks" });
+    }
+  }
+
+  for (const task of inReviewTasks) {
+    if (isStale(task.updated_at, REVIEW_STALE_MS)) {
+      signals.push({ agentId: agent.id, severity: "watch", kind: "review_backlog", label: "Review waiting", detail: `Task "${task.title}" awaiting review`, jumpTo: "/reviews" });
+    }
+  }
+
+  if (openTasks.length >= OVERLOAD_THRESHOLD) {
+    signals.push({ agentId: agent.id, severity: openTasks.length >= 7 ? "attention" : "watch", kind: "overloaded", label: "Overloaded", detail: `${openTasks.length} open tasks`, jumpTo: `/agents/${agent.id}` });
+  }
+
+  const agentReviewTaskIds = new Set(agentTasks.map((t) => t.id));
+  const rejections = reviewOutcomes.filter((r) => agentReviewTaskIds.has(r.task_id) && (r.outcome === "rejected" || r.outcome === "returned_for_rework"));
+  if (rejections.length >= 2) {
+    signals.push({ agentId: agent.id, severity: "attention", kind: "rework_risk", label: "Rework risk", detail: `${rejections.length} recent rejections`, jumpTo: "/reviews" });
+  }
+
+  const agentGaps = capabilityGaps.filter((g) => g.agent_id === agent.id);
+  for (const gap of agentGaps) {
+    if (gap.composite_score >= 3.0) {
+      signals.push({ agentId: agent.id, severity: gap.composite_score >= 4.0 ? "critical" : "attention", kind: "skill_gap", label: "Skill gap", detail: `Score: ${gap.composite_score}`, jumpTo: "/skills" });
+    }
+  }
+
+  if (blockedTasks.some((t) => t.priority === "high" && isStale(t.updated_at, BLOCKED_STALE_MS))) {
+    signals.push({ agentId: agent.id, severity: "critical", kind: "needs_ceo", label: "Needs CEO attention", detail: "High-priority task blocked too long", jumpTo: "/tasks" });
+  }
+
+  return signals;
+}
+
+export function computeOrchestratorGovernance(
+  agents: { id: string }[],
+  tasks: TaskWithAgent[],
+  _feedEvents: FeedEvent[],
+  reviewOutcomes: { task_id: string; outcome: string }[],
+  capabilityGaps: { agent_id: string | null; urgency_level: string; composite_score: number }[]
+): OrchestratorGovernance {
+  const allSignals: GovernanceSignal[] = [];
+  for (const agent of agents) {
+    allSignals.push(...computeAgentGovernanceSignals(agent, tasks, reviewOutcomes, capabilityGaps));
+  }
+
+  const pendingReviews = tasks.filter((t) => t.status === "in-review").length;
+  const blockedAgents = new Set(tasks.filter((t) => t.status === "blocked").map((t) => t.assigned_agent_id)).size;
+  const overloadedAgents = agents.filter((a) => tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length >= OVERLOAD_THRESHOLD).length;
+  const capabilityAlerts = capabilityGaps.filter((g) => g.composite_score >= 3.0).length;
+  const needsAttention = allSignals.filter((s) => s.severity === "critical" || s.severity === "attention").length;
+
+  return { pendingReviews, blockedAgents, overloadedAgents, capabilityAlerts, needsAttention, signals: allSignals };
 }

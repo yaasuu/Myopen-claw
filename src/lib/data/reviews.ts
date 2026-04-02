@@ -3,6 +3,20 @@ import { updateTaskStatus } from "@/lib/data/tasks";
 import { logFeedEvent } from "@/lib/data/feed-events";
 import type { TaskReview, ReviewOutcome } from "@/types/dashboard";
 
+export async function getAllTaskReviews(limit = 50): Promise<{ data: TaskReview[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: null };
+
+  const { data, error } = await supabase
+    .from("task_reviews")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) return { data: [], error: error.message };
+  return { data: (data ?? []) as TaskReview[], error: null };
+}
+
 export async function getTaskReviews(taskId: string): Promise<{ data: TaskReview[]; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: [], error: null };

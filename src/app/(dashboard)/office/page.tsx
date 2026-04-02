@@ -25,8 +25,10 @@ import { getDepartments } from "@/lib/data/departments";
 import { getTasks } from "@/lib/data/tasks";
 import { getFeedEvents } from "@/lib/data/feed";
 import { getProjects } from "@/lib/data/projects";
+import { getCapabilityGaps } from "@/lib/data/capability-governance";
 import { deriveAgentPresence, getPresenceConfig, type AgentPresence, type PresenceState } from "@/lib/data/presence";
 import { computeCollaborationSignals, computeCoordinationState, type CollaborationSignal, type CoordinationState } from "@/lib/data/collaboration";
+import { computeOrchestratorGovernance, type GovernanceSignal, type OrchestratorGovernance } from "@/lib/data/governance";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent, Department, FeedEvent, Project } from "@/types/dashboard";
 
@@ -370,6 +372,7 @@ function AgentCard({
   signal,
   tasks,
   isBlocked,
+  govSignals,
   onClick,
 }: {
   presence: AgentPresence;
@@ -378,6 +381,7 @@ function AgentCard({
   signal: CollaborationSignal | undefined;
   tasks: TaskWithAgent[];
   isBlocked: boolean;
+  govSignals: GovernanceSignal[];
   onClick: () => void;
 }) {
   const config = getPresenceConfig(presence.state);
@@ -413,6 +417,24 @@ function AgentCard({
           {presence.blockedTasks > 0 && <span style={{ color: "var(--danger)" }}>{presence.blockedTasks} blocked</span>}
         </div>
       )}
+      {/* Governance signals */}
+      {govSignals.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {govSignals.slice(0, 2).map((gs, i) => {
+            const gsColor = gs.severity === "critical" ? "var(--danger)" : gs.severity === "attention" ? "var(--warning)" : gs.severity === "watch" ? "var(--info)" : "var(--text-quiet)";
+            return (
+              <span key={i} className="text-[9px] px-1 py-0.5 rounded" style={{ background: gsColor + "12", color: gsColor }}>
+                {gs.label}
+              </span>
+            );
+          })}
+          {govSignals.length > 2 && (
+            <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>
+              +{govSignals.length - 2}
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-medium" style={{ color: config?.color ?? "var(--text-quiet)" }}>
           {config?.label ?? presence.state}
@@ -434,6 +456,7 @@ function ZonePanel({
   allDepts,
   signals,
   tasks,
+  governance,
   onSelectAgent,
 }: {
   zone: OfficeZone;
@@ -442,6 +465,7 @@ function ZonePanel({
   allDepts: Department[];
   signals: Map<string, CollaborationSignal>;
   tasks: TaskWithAgent[];
+  governance: OrchestratorGovernance;
   onSelectAgent: (agent: Agent) => void;
 }) {
   const Icon = zone.icon;
@@ -494,6 +518,7 @@ function ZonePanel({
               signal={signals.get(agent.id)}
               tasks={tasks}
               isBlocked={isBlockedZone}
+              govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)}
               onClick={() => onSelectAgent(agent)}
             />
           );
@@ -505,11 +530,12 @@ function ZonePanel({
 
 // ─── Orchestrator panel ───
 
-function OrchestratorRow({ agents, departments, workingCount, coordination }: {
+function OrchestratorRow({ agents, departments, workingCount, coordination, governance }: {
   agents: Agent[];
   departments: Department[];
   workingCount: number;
   coordination: CoordinationState;
+  governance: OrchestratorGovernance;
 }) {
   return (
     <div className="rounded-lg p-4 mb-6" style={{ border: "1px solid var(--border)" }}>
@@ -555,6 +581,40 @@ function OrchestratorRow({ agents, departments, workingCount, coordination }: {
           </div>
         )}
       </div>
+      {/* Governance intelligence */}
+      {governance.needsAttention > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+          {governance.pendingReviews > 0 && (
+            <Link href="/reviews" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}>
+              <Clock className="h-2.5 w-2.5" />
+              {governance.pendingReviews} review{governance.pendingReviews > 1 ? "s" : ""}
+            </Link>
+          )}
+          {governance.blockedAgents > 0 && (
+            <Link href="/tasks" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}>
+              <AlertTriangle className="h-2.5 w-2.5" />
+              {governance.blockedAgents} blocked
+            </Link>
+          )}
+          {governance.overloadedAgents > 0 && (
+            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.08)", color: "var(--warning)" }}>
+              <Activity className="h-2.5 w-2.5" />
+              {governance.overloadedAgents} overloaded
+            </span>
+          )}
+          {governance.capabilityAlerts > 0 && (
+            <Link href="/skills" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full hover:opacity-80" style={{ background: "rgba(139,92,246,0.1)", color: "var(--accent)" }}>
+              <ShieldCheck className="h-2.5 w-2.5" />
+              {governance.capabilityAlerts} skill gap{governance.capabilityAlerts > 1 ? "s" : ""}
+            </Link>
+          )}
+          {governance.needsAttention > 0 && (
+            <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: "rgba(239,68,68,0.08)", color: "var(--danger)" }}>
+              {governance.needsAttention} need{governance.needsAttention === 1 ? "s" : ""} attention
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -573,6 +633,9 @@ export default function OfficePage() {
   const [coordination, setCoordination] = useState<CoordinationState>({
     isCoordinating: false, recentRoutes: [], pendingReviews: [], activeDiscussions: [],
   });
+  const [governance, setGovernance] = useState<OrchestratorGovernance>({
+    pendingReviews: 0, blockedAgents: 0, overloadedAgents: 0, capabilityAlerts: 0, needsAttention: 0, signals: [],
+  });
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   async function load() {
@@ -584,13 +647,22 @@ export default function OfficePage() {
     setEvents(e.data);
     setProjects(p.data);
 
+    // Presence
     const presenceList = a.data.map((agent) => deriveAgentPresence(agent, t.data, e.data));
     setPresences(presenceList);
 
+    // Collaboration signals
     const agentIds = a.data.map((agent) => agent.id);
     const collabSignals = computeCollaborationSignals(e.data, agentIds);
     setSignals(collabSignals);
     setCoordination(computeCoordinationState(e.data, agentIds));
+
+    // Governance signals
+    const { getAllTaskReviews } = await import("@/lib/data/reviews");
+    const [reviewsResult, gapsResult] = await Promise.all([getAllTaskReviews(100), getCapabilityGaps({ limit: 50 })]);
+    const reviewOutcomes = reviewsResult.data.map((r) => ({ task_id: r.task_id, outcome: r.outcome }));
+    const gapsFlat = gapsResult.data.map((g) => ({ agent_id: (g as any).agent_id ?? null, urgency_level: (g as any).urgency_level ?? "low", composite_score: (g as any).composite_score ?? 0 }));
+    setGovernance(computeOrchestratorGovernance(a.data, t.data, e.data, reviewOutcomes, gapsFlat));
 
     setLoading(false);
   }
@@ -666,6 +738,7 @@ export default function OfficePage() {
         departments={departments}
         workingCount={workingCount}
         coordination={coordination}
+        governance={governance}
       />
 
       {/* Spatial zones */}
@@ -681,6 +754,7 @@ export default function OfficePage() {
               allDepts={departments}
               signals={signals}
               tasks={tasks}
+              governance={governance}
               onSelectAgent={setSelectedAgent}
             />
           );
