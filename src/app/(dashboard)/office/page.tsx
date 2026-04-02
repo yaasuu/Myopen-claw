@@ -488,11 +488,14 @@ function Agent3D({
   const currentRef = useRef<[number, number, number]>([...homePosition]);
   const facingRef = useRef<number>(0); // y-rotation
   const bobRef = useRef<number>(0); // walking bob phase
+  const sitRef = useRef<number>(0); // sitting interpolation (0=standing, 1=sitting)
 
   const state = presence?.state ?? "available";
   const dotColor = getDotColor(state);
   const isAway = state === "paused" || state === "offline";
   const hasAlert = govSignals.some((s) => s.severity === "critical" || s.severity === "attention");
+  const zone = getTargetZone(state);
+  const shouldSit = zone === "desk"; // sit when at desk
 
   // Compute target position based on state
   useEffect(() => {
@@ -505,7 +508,7 @@ function Agent3D({
     }
   }, [state, homePosition, slotMap, agent.id]);
 
-  // Smooth movement + facing + walking bob
+  // Smooth movement + facing + walking bob + sitting transition
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const target = targetRef.current;
@@ -516,7 +519,9 @@ function Agent3D({
     const dz = target[2] - current[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist > 0.05) {
+    const isMoving = dist > 0.05;
+
+    if (isMoving) {
       // Move toward target
       const step = Math.min(speed * delta, dist);
       current[0] += (dx / dist) * step;
@@ -527,16 +532,27 @@ function Agent3D({
       facingRef.current = Math.atan2(dx, dz);
       meshRef.current.rotation.y = facingRef.current;
 
-      // Walking bob (subtle vertical oscillation)
+      // Walking bob
       bobRef.current += delta * 8;
       meshRef.current.position.y = Math.abs(Math.sin(bobRef.current)) * 0.04;
+
+      // Stand up while moving
+      sitRef.current = Math.max(0, sitRef.current - delta * 3);
     } else {
-      // At destination — face desk/zone center
+      // At destination
       bobRef.current = 0;
-      meshRef.current.position.y = 0;
+
+      // Sitting transition
+      if (shouldSit) {
+        sitRef.current = Math.min(1, sitRef.current + delta * 2);
+      } else {
+        sitRef.current = Math.max(0, sitRef.current - delta * 3);
+      }
+
+      // Apply sitting offset (lower position when seated)
+      meshRef.current.position.y = -sitRef.current * 0.2;
 
       // Face toward zone center when stationary
-      const zone = getTargetZone(state);
       let faceTarget: [number, number] = [0, 0];
       if (zone === "desk") {
         faceTarget = [homePosition[0], homePosition[2] - 0.5]; // face desk
@@ -550,7 +566,6 @@ function Agent3D({
       const faceDx = faceTarget[0] - current[0];
       const faceDz = faceTarget[1] - current[2];
       const targetAngle = Math.atan2(faceDx, faceDz);
-      // Smooth rotation toward facing direction
       let angleDiff = targetAngle - facingRef.current;
       while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
       while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
