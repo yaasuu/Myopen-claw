@@ -132,9 +132,9 @@ export default function WorkforcePage() {
   };
 
   function getAgentDeptId(agentShortId: string): string | undefined {
-    const deptShortId = AGENT_DEPT_MAP[agentShortId];
-    if (!deptShortId) return undefined;
-    return departments.find((d) => d.short_id === deptShortId)?.id;
+    const deptSlug = AGENT_DEPT_MAP[agentShortId];
+    if (!deptSlug) return undefined;
+    return departments.find((d) => d.slug === deptSlug || d.short_id === deptSlug)?.id;
   }
 
   // Build hierarchy

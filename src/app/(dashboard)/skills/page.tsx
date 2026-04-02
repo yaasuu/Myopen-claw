@@ -53,6 +53,9 @@ import {
   getAuditRuns,
   reviewCapabilityGap,
 } from "@/lib/data/capability-governance";
+import type {
+  CapabilityAuditRun,
+} from "@/types/dashboard";
 import { getAgents } from "@/lib/data/agents";
 import { getTasks } from "@/lib/data/tasks";
 import { useCanWrite } from "@/lib/auth/use-can-write";
@@ -65,7 +68,6 @@ import type {
   Agent,
   TaskWithAgent,
   CapabilityGap,
-  AuditRun,
   GapReviewStatus,
 } from "@/types/dashboard";
 
@@ -98,7 +100,7 @@ export default function SkillsPage() {
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [gaps, setGaps] = useState<ReturnType<typeof analyzeSkillGaps>>([]);
   const [capabilityGaps, setCapabilityGaps] = useState<CapabilityGap[]>([]);
-  const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
+  const [auditRuns, setAuditRuns] = useState<CapabilityAuditRun[]>([]);
 
   const [processing, setProcessing] = useState<string | null>(null);
 
@@ -378,9 +380,9 @@ export default function SkillsPage() {
               <Activity className="h-3.5 w-3.5" />
               <span>Last audit: {auditRuns[0]?.run_date}</span>
               <span>·</span>
-              <span>{auditRuns[0]?.sessions_scanned} sessions</span>
+              <span>{auditRuns[0]?.total_agents_scanned} agents</span>
               <span>·</span>
-              <span>{auditRuns[0]?.gaps_detected} gaps found</span>
+              <span>{auditRuns[0]?.total_gaps_created} gaps found</span>
               {auditRuns[0]?.summary && (
                 <>
                   <span>·</span>
@@ -407,7 +409,7 @@ export default function SkillsPage() {
                 approved: "border-l-emerald-500",
                 rejected: "border-l-red-500",
                 resolved: "border-l-gray-300",
-                monitoring: "border-l-blue-400",
+                monitored: "border-l-blue-400",
               };
               const categoryLabels = {
                 missing_skill: "Missing Skill",
@@ -425,7 +427,7 @@ export default function SkillsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-semibold">{gap.capability_area}</span>
+                          <span className="text-sm font-semibold">{gap.missing_skill_name}</span>
                           <Badge variant="outline" className="text-[10px]">
                             {categoryLabels[gap.gap_category]}
                           </Badge>
@@ -473,15 +475,15 @@ export default function SkillsPage() {
                       )}
                     </div>
 
-                    {/* Evidence summary */}
-                    {gap.evidence_summary && (
-                      <p className="text-xs text-muted-foreground">{gap.evidence_summary}</p>
+                    {/* Why flagged (detailed) */}
+                    {gap.why_flagged && gap.why_flagged !== gap.missing_skill_name && (
+                      <p className="text-xs text-muted-foreground">{gap.why_flagged}</p>
                     )}
 
                     {/* Status badge */}
                     {gap.review_status !== "pending" && (
                       <Badge variant="outline" className="text-[10px]">
-                        {gap.review_status === "monitoring" && <Eye className="h-3 w-3 mr-1" />}
+                        {gap.review_status === "monitored" && <Eye className="h-3 w-3 mr-1" />}
                         {gap.review_status === "approved" && <ThumbsUp className="h-3 w-3 mr-1" />}
                         {gap.review_status === "rejected" && <ThumbsDown className="h-3 w-3 mr-1" />}
                         {gap.review_status}
@@ -515,7 +517,7 @@ export default function SkillsPage() {
                           variant="ghost"
                           className="gap-1.5"
                           disabled={processing === gap.id}
-                          onClick={() => handleReviewGap(gap.id, "monitoring")}
+                          onClick={() => handleReviewGap(gap.id, "monitored")}
                         >
                           <Eye className="h-3.5 w-3.5" />
                           Monitor

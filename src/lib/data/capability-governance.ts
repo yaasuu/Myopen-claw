@@ -1,13 +1,14 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { logFeedEvent } from "@/lib/data/feed-events";
 import type {
+  CapabilityAuditRun,
   CapabilityGap,
-  GapEvidence,
-  AuditRun,
+  CapabilityGapEvidence,
   GapCategory,
   ConfidenceLevel,
   UrgencyLevel,
   GapReviewStatus,
+  OwnerRoute,
   SignalType,
   Agent,
   TaskWithAgent,
@@ -19,67 +20,63 @@ export function classifyGap(params: {
   signalType: SignalType;
   blockerText?: string;
   reviewNotes?: string;
-  taskStatus?: string;
   agentId?: string;
   taskAgentId?: string;
-}): { category: GapCategory; confidence: ConfidenceLevel } {
-  const { signalType, blockerText, reviewNotes, taskStatus, agentId, taskAgentId } = params;
+}): { category: GapCategory; confidence: ConfidenceLevel; ownerRoute: OwnerRoute } {
+  const { signalType, blockerText, reviewNotes, agentId, taskAgentId } = params;
   const bt = (blockerText ?? "").toLowerCase();
   const rn = (reviewNotes ?? "").toLowerCase();
 
   switch (signalType) {
-    case "repeated_blocked_tasks":
+    case "blocked_task":
       if (bt.includes("don't know") || bt.includes("no tool") || bt.includes("not available"))
-        return { category: "missing_skill", confidence: "high" };
+        return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
       if (bt.includes("waiting on") || bt.includes("waiting for"))
-        return { category: "dependency_blocker", confidence: "high" };
+        return { category: "dependency_blocker", confidence: "high", ownerRoute: "yas-claw" };
       if (bt.includes("not clear") || bt.includes("scope") || bt.includes("vague"))
-        return { category: "unclear_scope", confidence: "medium" };
-      return { category: "missing_skill", confidence: "medium" };
+        return { category: "unclear_scope", confidence: "medium", ownerRoute: "yas-claw" };
+      return { category: "missing_skill", confidence: "medium", ownerRoute: "architecture-systems" };
 
     case "rejected_review":
       if (rn.includes("wrong method") || rn.includes("incomplete knowledge") || rn.includes("missing data"))
-        return { category: "missing_skill", confidence: "high" };
+        return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
       if (rn.includes("scope too broad") || rn.includes("unclear"))
-        return { category: "unclear_scope", confidence: "medium" };
+        return { category: "unclear_scope", confidence: "medium", ownerRoute: "yas-claw" };
       if (rn.includes("needs approval"))
-        return { category: "approval_delay", confidence: "medium" };
-      return { category: "missing_process", confidence: "medium" };
+        return { category: "approval_delay", confidence: "medium", ownerRoute: "ceo" };
+      return { category: "missing_process", confidence: "medium", ownerRoute: "yas-claw" };
 
-    case "rework_cycle":
+    case "returned_for_rework":
       if (agentId && taskAgentId && agentId === taskAgentId)
-        return { category: "missing_skill", confidence: "high" };
-      return { category: "wrong_assignment", confidence: "medium" };
+        return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
+      return { category: "wrong_assignment", confidence: "medium", ownerRoute: "yas-claw" };
 
-    case "tool_mention_no_skill":
-      return { category: "missing_skill", confidence: "high" };
+    case "manual_workaround":
+    case "missing_installed_skill":
+      return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
 
-    case "session_tool_failure":
-    case "fallback_chain":
-      return { category: "missing_skill", confidence: "high" };
+    case "keyword_mention":
+      return { category: "missing_skill", confidence: "low", ownerRoute: "data-analyst" };
 
-    case "unassigned_pending":
-      return { category: "missing_skill", confidence: "low" };
+    case "discussion_signal":
+      return { category: "missing_skill", confidence: "medium", ownerRoute: "data-analyst" };
 
-    case "user_correction":
-      return { category: "missing_skill", confidence: "medium" };
-
-    case "keyword_cluster":
-      return { category: "missing_skill", confidence: "low" };
+    case "repeated_failure":
+      return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
 
     default:
-      return { category: "missing_skill", confidence: "low" };
+      return { category: "missing_skill", confidence: "low", ownerRoute: "yas-claw" };
   }
 }
 
 // ── Evidence Scoring ─────────────────────────────────
 
 export function scoreGapEvidence(params: {
-  frequency: number;     // 1-5
-  impact: number;        // 1-5
-  recurrence: number;    // 1-5
-  confidence: number;    // 1-5
-  specificity: number;   // 1-5
+  frequency: number;
+  impact: number;
+  recurrence: number;
+  confidence: number;
+  specificity: number;
 }): { composite: number; urgency: UrgencyLevel } {
   const { frequency, impact, recurrence, confidence, specificity } = params;
   const composite =
@@ -104,43 +101,52 @@ export function getRecommendedAction(params: {
   confidence: ConfidenceLevel;
   urgency: UrgencyLevel;
   evidenceCount: number;
-  hasInstalledSkill: boolean;
 }): string {
-  const { gapCategory, confidence, urgency, evidenceCount, hasInstalledSkill } = params;
+  const { gapCategory, confidence, urgency, evidenceCount } = params;
 
   if (gapCategory !== "missing_skill") {
     switch (gapCategory) {
       case "wrong_assignment":
-        return "Reassign work to correct agent type";
+        return "reassign";
       case "unclear_scope":
-        return "Clarify task scope with requestor";
+        return "clarify_scope";
       case "dependency_blocker":
-        return "Resolve dependency or update blocker status";
+        return "resolve_dependency";
       case "missing_process":
-        return "Create SOP or workflow for this process";
+        return "create_sop";
       case "approval_delay":
-        return "Escalate to CEO for approval";
+        return "escalate_to_ceo";
     }
   }
 
   if (urgency === "high" && evidenceCount >= 3) {
-    return hasInstalledSkill
-      ? "Skill exists but not applied — brief agent or retrain"
-      : "Request skill install — strong evidence of need";
+    return "recommend_install";
   }
 
   if (urgency === "medium" || evidenceCount >= 2) {
-    return "Validate with Architecture-Systems Agent before recommending";
+    return "validate_with_architecture";
   }
 
-  if (confidence === "low") {
-    return "Monitor for another cycle — weak signal";
-  }
-
-  return "Review evidence and decide";
+  return "monitor";
 }
 
-// ── CRUD Operations ──────────────────────────────────
+// ── CRUD: Audit Runs ─────────────────────────────────
+
+export async function getAuditRuns(limit = 7): Promise<{ data: CapabilityAuditRun[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: null };
+
+  const { data, error } = await supabase
+    .from("capability_audit_runs")
+    .select("*")
+    .order("run_date", { ascending: false })
+    .limit(limit);
+
+  if (error) return { data: [], error: error.message };
+  return { data: (data ?? []) as CapabilityAuditRun[], error: null };
+}
+
+// ── CRUD: Capability Gaps ────────────────────────────
 
 export async function getCapabilityGaps(options?: {
   status?: GapReviewStatus;
@@ -164,70 +170,41 @@ export async function getCapabilityGaps(options?: {
 
   const gaps = (data ?? []).map((row: Record<string, unknown>) => ({
     ...row,
-    agent_name: (row.agents as Record<string, unknown>)?.name ?? null,
-    agent_emoji: (row.agents as Record<string, unknown>)?.emoji ?? null,
+    agent_name: (row.agents as Record<string, unknown>)?.name ?? undefined,
+    agent_emoji: (row.agents as Record<string, unknown>)?.emoji ?? undefined,
   })) as CapabilityGap[];
 
   return { data: gaps, error: null };
 }
 
-export async function getGapEvidence(gapId: string): Promise<{ data: GapEvidence[]; error: string | null }> {
-  const supabase = getSupabase();
-  if (!supabase) return { data: [], error: null };
-
-  const { data, error } = await supabase
-    .from("gap_evidence")
-    .select("*")
-    .eq("gap_id", gapId)
-    .order("detected_at", { ascending: false });
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data ?? []) as GapEvidence[], error: null };
-}
-
-export async function getAuditRuns(limit = 7): Promise<{ data: AuditRun[]; error: string | null }> {
-  const supabase = getSupabase();
-  if (!supabase) return { data: [], error: null };
-
-  const { data, error } = await supabase
-    .from("audit_runs")
-    .select("*")
-    .order("run_date", { ascending: false })
-    .limit(limit);
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data ?? []) as AuditRun[], error: null };
-}
-
 export async function createCapabilityGap(input: {
-  agentId?: string;
-  gapCategory: GapCategory;
-  capabilityArea: string;
+  auditRunId?: string;
+  agentId: string;
   missingSkillSlug?: string;
-  missingSkillName?: string;
+  missingSkillName: string;
+  gapCategory: GapCategory;
   confidenceLevel: ConfidenceLevel;
   urgencyLevel: UrgencyLevel;
+  compositeScore: number;
   evidenceCount: number;
-  evidenceSummary?: string;
-  evidenceTaskIds?: string[];
-  evidenceSessionIds?: string[];
-  whyFlagged?: string;
-  recommendedAction?: string;
+  whyFlagged: string;
+  recommendedAction: string;
+  ownerRoute: OwnerRoute;
 }): Promise<{ data: CapabilityGap | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
 
-  // Check for existing gap in same area
+  // Upsert: if open gap exists for same agent+skill+category, update it
   const { data: existing } = await supabase
     .from("capability_gaps")
     .select("id, evidence_count, last_seen_at")
-    .eq("capability_area", input.capabilityArea)
+    .eq("agent_id", input.agentId)
+    .eq("coalesce(missing_skill_slug, missing_skill_name)", input.missingSkillName)
     .eq("gap_category", input.gapCategory)
-    .in("review_status", ["pending", "monitoring"])
+    .in("review_status", ["pending", "approved", "monitored"])
     .maybeSingle();
 
   if (existing) {
-    // Update existing gap
     const { data: updated, error } = await supabase
       .from("capability_gaps")
       .update({
@@ -235,6 +212,7 @@ export async function createCapabilityGap(input: {
         last_seen_at: new Date().toISOString(),
         urgency_level: input.urgencyLevel,
         confidence_level: input.confidenceLevel,
+        composite_score: input.compositeScore,
       })
       .eq("id", (existing as Record<string, unknown>).id as string)
       .select()
@@ -244,35 +222,32 @@ export async function createCapabilityGap(input: {
     return { data: updated as CapabilityGap, error: null };
   }
 
-  // Create new gap
   const { data, error } = await supabase
     .from("capability_gaps")
     .insert({
+      audit_run_id: input.auditRunId,
       agent_id: input.agentId,
+      missing_skill_slug: input.missingSkillSlug,
+      missing_skill_name: input.missingSkillName,
       gap_category: input.gapCategory,
-      capability_area: input.capabilityArea,
-      missing_skill_slug: input.missingSkillSlug ?? "",
-      missing_skill_name: input.missingSkillName ?? "",
       confidence_level: input.confidenceLevel,
       urgency_level: input.urgencyLevel,
+      composite_score: input.compositeScore,
       evidence_count: input.evidenceCount,
-      evidence_summary: input.evidenceSummary ?? "",
-      evidence_task_ids: input.evidenceTaskIds ?? [],
-      evidence_session_ids: input.evidenceSessionIds ?? [],
-      why_flagged: input.whyFlagged ?? "",
-      recommended_action: input.recommendedAction ?? "",
+      why_flagged: input.whyFlagged,
+      recommended_action: input.recommendedAction,
+      owner_route: input.ownerRoute,
     })
     .select()
     .single();
 
   if (error) return { data: null, error: error.message };
 
-  // Log to feed — only for medium+ urgency
   if (input.urgencyLevel !== "low") {
     await logFeedEvent({
       event_type: "capability_gap_detected",
       source: "capability-governance",
-      summary: `[${input.urgencyLevel.toUpperCase()}] ${input.capabilityArea} — ${input.whyFlagged ?? "capability gap detected"}`,
+      summary: `[${input.urgencyLevel.toUpperCase()}] ${input.missingSkillName} — ${input.whyFlagged}`,
       related_agent_id: input.agentId,
     });
   }
@@ -280,33 +255,11 @@ export async function createCapabilityGap(input: {
   return { data: data as CapabilityGap, error: null };
 }
 
-export async function addGapEvidence(input: {
-  gapId: string;
-  signalType: SignalType;
-  severity: GapEvidence["severity"];
-  source: GapEvidence["source"];
-  sourceId?: string;
-  evidenceText?: string;
-}): Promise<{ error: string | null }> {
-  const supabase = getSupabase();
-  if (!supabase) return { error: "Supabase not connected" };
-
-  const { error } = await supabase.from("gap_evidence").insert({
-    gap_id: input.gapId,
-    signal_type: input.signalType,
-    severity: input.severity,
-    source: input.source,
-    source_id: input.sourceId ?? "",
-    evidence_text: input.evidenceText ?? "",
-  });
-
-  return { error: error?.message ?? null };
-}
-
 export async function reviewCapabilityGap(
   gapId: string,
   status: GapReviewStatus,
-  reviewedBy: string
+  reviewedBy: string,
+  resolutionNotes?: string
 ): Promise<{ error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { error: "Supabase not connected" };
@@ -317,6 +270,7 @@ export async function reviewCapabilityGap(
       review_status: status,
       reviewed_by: reviewedBy,
       reviewed_at: new Date().toISOString(),
+      resolution_notes: resolutionNotes ?? "",
     })
     .eq("id", gapId)
     .select()
@@ -326,17 +280,17 @@ export async function reviewCapabilityGap(
 
   const gap = data as CapabilityGap;
 
-  const eventType = status === "approved"
-    ? "skill_recommendation_approved"
-    : status === "rejected"
-    ? "skill_recommendation_rejected"
-    : "capability_gap_resolved";
-
   if (status === "approved" || status === "rejected" || status === "resolved") {
+    const eventType = status === "approved"
+      ? "skill_recommendation_approved"
+      : status === "rejected"
+      ? "skill_recommendation_rejected"
+      : "capability_gap_resolved";
+
     await logFeedEvent({
       event_type: eventType,
       source: reviewedBy,
-      summary: `${gap.capability_area} — ${status} (${gap.why_flagged})`,
+      summary: `${gap.missing_skill_name} — ${status} (${gap.why_flagged})`,
       related_agent_id: gap.agent_id,
     });
   }
@@ -344,32 +298,38 @@ export async function reviewCapabilityGap(
   return { error: null };
 }
 
-export async function logAuditRun(input: {
-  runDate: string;
-  sessionsScanned: number;
-  tasksScanned: number;
-  feedEventsScanned: number;
-  gapsDetected: number;
-  newGaps: number;
-  criticalGaps: number;
-  resolvedGaps: number;
-  summary: string;
-  runDurationMs: number;
+// ── CRUD: Evidence ───────────────────────────────────
+
+export async function getGapEvidence(gapId: string): Promise<{ data: CapabilityGapEvidence[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: null };
+
+  const { data, error } = await supabase
+    .from("capability_gap_evidence")
+    .select("*")
+    .eq("gap_id", gapId)
+    .order("detected_at", { ascending: false });
+
+  if (error) return { data: [], error: error.message };
+  return { data: (data ?? []) as CapabilityGapEvidence[], error: null };
+}
+
+export async function addGapEvidence(input: {
+  gapId: string;
+  signalType: SignalType;
+  source: CapabilityGapEvidence["source"];
+  sourceId?: string;
+  evidenceText?: string;
 }): Promise<{ error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { error: "Supabase not connected" };
 
-  const { error } = await supabase.from("audit_runs").insert({
-    run_date: input.runDate,
-    sessions_scanned: input.sessionsScanned,
-    tasks_scanned: input.tasksScanned,
-    feed_events_scanned: input.feedEventsScanned,
-    gaps_detected: input.gapsDetected,
-    new_gaps: input.newGaps,
-    critical_gaps: input.criticalGaps,
-    resolved_gaps: input.resolvedGaps,
-    summary: input.summary,
-    run_duration_ms: input.runDurationMs,
+  const { error } = await supabase.from("capability_gap_evidence").insert({
+    gap_id: input.gapId,
+    signal_type: input.signalType,
+    source: input.source,
+    source_id: input.sourceId ?? "",
+    evidence_text: input.evidenceText ?? "",
   });
 
   return { error: error?.message ?? null };
@@ -380,76 +340,54 @@ export async function logAuditRun(input: {
 function getMockGaps(): CapabilityGap[] {
   return [
     {
-      id: "cg-1",
+      id: "cg-mock-1",
+      audit_run_id: null,
       agent_id: "mock-1",
       agent_name: "Export-Growth Agent",
       agent_emoji: "📦",
-      gap_category: "missing_skill",
-      capability_area: "export pricing",
       missing_skill_slug: "financial-modeling",
       missing_skill_name: "Financial Modeling",
+      gap_category: "missing_skill",
       confidence_level: "high",
       urgency_level: "high",
+      composite_score: 4.55,
       evidence_count: 5,
-      evidence_summary: "3 blocked tasks citing lack of pricing methodology. 2 sessions show fallback to basic calculation.",
-      evidence_task_ids: ["t-1", "t-2", "t-3"],
-      evidence_session_ids: ["s-1"],
       why_flagged: "Repeated blocked tasks + session fallback — 3 tasks blocked, 2 sessions improvised",
-      recommended_action: "Request skill install — strong evidence of need",
+      recommended_action: "recommend_install",
+      owner_route: "architecture-systems",
       review_status: "pending",
       reviewed_by: null,
       reviewed_at: null,
+      resolution_notes: "",
+      first_seen_at: new Date(Date.now() - 48 * 3600000).toISOString(),
       last_seen_at: new Date(Date.now() - 2 * 3600000).toISOString(),
       created_at: new Date(Date.now() - 48 * 3600000).toISOString(),
       updated_at: new Date(Date.now() - 2 * 3600000).toISOString(),
     },
     {
-      id: "cg-2",
-      agent_id: null,
-      agent_name: undefined,
-      agent_emoji: undefined,
-      gap_category: "missing_skill",
-      capability_area: "buyer research",
-      missing_skill_slug: "market-research",
-      missing_skill_name: "Market Research",
-      confidence_level: "medium",
-      urgency_level: "medium",
-      evidence_count: 3,
-      evidence_summary: "2 unassigned tasks mention buyer research. 1 session attempted manual search.",
-      evidence_task_ids: ["t-4", "t-5"],
-      evidence_session_ids: [],
-      why_flagged: "Keyword cluster + unassigned tasks — no agent can handle buyer research",
-      recommended_action: "Validate with Architecture-Systems Agent before recommending",
-      review_status: "monitoring",
-      reviewed_by: null,
-      reviewed_at: null,
-      last_seen_at: new Date(Date.now() - 24 * 3600000).toISOString(),
-      created_at: new Date(Date.now() - 72 * 3600000).toISOString(),
-      updated_at: new Date(Date.now() - 24 * 3600000).toISOString(),
-    },
-    {
-      id: "cg-3",
+      id: "cg-mock-2",
+      audit_run_id: null,
       agent_id: "mock-2",
       agent_name: "Ops-Improvement Agent",
       agent_emoji: "⚙️",
-      gap_category: "missing_process",
-      capability_area: "document QA",
-      missing_skill_slug: "",
-      missing_skill_name: "",
-      confidence_level: "low",
-      urgency_level: "low",
-      evidence_count: 1,
-      evidence_summary: "1 rejected review citing missing QA checklist",
-      evidence_task_ids: [],
-      evidence_session_ids: [],
-      why_flagged: "Rejected review — process gap, not skill gap",
-      recommended_action: "Create SOP or workflow for this process",
-      review_status: "pending",
+      missing_skill_slug: null,
+      missing_skill_name: "Buyer Research",
+      gap_category: "missing_skill",
+      confidence_level: "medium",
+      urgency_level: "medium",
+      composite_score: 3.2,
+      evidence_count: 3,
+      why_flagged: "Keyword cluster + unassigned tasks — no agent handles buyer research",
+      recommended_action: "validate_with_architecture",
+      owner_route: "data-analyst",
+      review_status: "monitored",
       reviewed_by: null,
       reviewed_at: null,
-      last_seen_at: new Date(Date.now() - 12 * 3600000).toISOString(),
-      created_at: new Date(Date.now() - 12 * 3600000).toISOString(),
-      updated_at: new Date(Date.now() - 12 * 3600000).toISOString(),
+      resolution_notes: "",
+      first_seen_at: new Date(Date.now() - 72 * 3600000).toISOString(),
+      last_seen_at: new Date(Date.now() - 24 * 3600000).toISOString(),
+      created_at: new Date(Date.now() - 72 * 3600000).toISOString(),
+      updated_at: new Date(Date.now() - 24 * 3600000).toISOString(),
     },
   ];
 }

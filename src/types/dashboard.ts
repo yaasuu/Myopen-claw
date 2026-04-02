@@ -111,6 +111,7 @@ export interface Department {
   id: string;
   name: string;
   short_id: string;
+  slug: string;
   emoji: string;
   mandate: string;
   domain: string;
@@ -204,69 +205,80 @@ export type GapReviewStatus =
   | "pending"
   | "approved"
   | "rejected"
-  | "resolved"
-  | "monitoring";
+  | "monitored"
+  | "resolved";
+
+export type OwnerRoute =
+  | "yas-claw"
+  | "data-analyst"
+  | "architecture-systems"
+  | "ceo";
 
 export type SignalType =
-  | "repeated_blocked_tasks"
+  | "blocked_task"
   | "rejected_review"
-  | "rework_cycle"
-  | "tool_mention_no_skill"
-  | "session_tool_failure"
-  | "unassigned_pending"
-  | "user_correction"
-  | "fallback_chain"
-  | "keyword_cluster";
+  | "returned_for_rework"
+  | "keyword_mention"
+  | "manual_workaround"
+  | "missing_installed_skill"
+  | "discussion_signal"
+  | "repeated_failure";
+
+export type AuditRunStatus = "running" | "completed" | "failed";
+
+export interface CapabilityAuditRun {
+  id: string;
+  run_date: string;
+  run_started_at: string;
+  run_completed_at: string | null;
+  status: AuditRunStatus;
+  total_agents_scanned: number;
+  total_tasks_scanned: number;
+  total_signals_detected: number;
+  total_gaps_created: number;
+  total_high_confidence: number;
+  total_medium_confidence: number;
+  total_low_confidence: number;
+  summary: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface CapabilityGap {
   id: string;
-  agent_id: string | null;
+  audit_run_id: string | null;
+  agent_id: string;
   agent_name?: string;
   agent_emoji?: string;
-  gap_category: GapCategory;
-  capability_area: string;
-  missing_skill_slug: string;
+  missing_skill_slug: string | null;
   missing_skill_name: string;
+  gap_category: GapCategory;
   confidence_level: ConfidenceLevel;
   urgency_level: UrgencyLevel;
+  composite_score: number;
   evidence_count: number;
-  evidence_summary: string;
-  evidence_task_ids: string[];
-  evidence_session_ids: string[];
   why_flagged: string;
   recommended_action: string;
+  owner_route: OwnerRoute;
   review_status: GapReviewStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  resolution_notes: string;
+  first_seen_at: string;
   last_seen_at: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface GapEvidence {
+export interface CapabilityGapEvidence {
   id: string;
   gap_id: string;
   signal_type: SignalType;
-  severity: "low" | "medium" | "high" | "critical";
-  source: "session" | "task" | "feed_event" | "review" | "discussion";
+  source: "task" | "review" | "feed_event" | "session" | "discussion";
   source_id: string;
   evidence_text: string;
   detected_at: string;
-}
-
-export interface AuditRun {
-  id: string;
-  run_date: string;
-  sessions_scanned: number;
-  tasks_scanned: number;
-  feed_events_scanned: number;
-  gaps_detected: number;
-  new_gaps: number;
-  critical_gaps: number;
-  resolved_gaps: number;
-  summary: string;
-  run_duration_ms: number;
-  created_at: string;
 }
 
 export interface CapabilityImprovement {

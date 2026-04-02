@@ -1,130 +1,227 @@
--- Phase 11K: Capability Governance — Nightly Skill Gap Detection
--- Run this in Supabase SQL Editor
+-- 013_capability_governance.sql
+-- Yas Claw Capability Governance
+-- Nightly audit + evidence-based skill gap recommendations
 
--- 1. Capability gaps — detected by nightly audit
-CREATE TABLE IF NOT EXISTS capability_gaps (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id UUID REFERENCES agents(id) ON DELETE SET NULL,
-  gap_category TEXT NOT NULL CHECK (gap_category IN (
-    'missing_skill', 'wrong_assignment', 'unclear_scope',
-    'dependency_blocker', 'missing_process', 'approval_delay'
+begin;
+
+-- =========================================================
+-- 1) capability_audit_runs
+-- =========================================================
+create table if not exists public.capability_audit_runs (
+  id uuid primary key default gen_random_uuid(),
+  run_date date not null,
+  run_started_at timestamptz not null default now(),
+  run_completed_at timestamptz,
+  status text not null default 'running'
+    check (status in ('running', 'completed', 'failed')),
+  total_agents_scanned integer not null default 0,
+  total_tasks_scanned integer not null default 0,
+  total_signals_detected integer not null default 0,
+  total_gaps_created integer not null default 0,
+  total_high_confidence integer not null default 0,
+  total_medium_confidence integer not null default 0,
+  total_low_confidence integer not null default 0,
+  summary text default '',
+  created_by text not null default 'Yas Claw',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(run_date)
+);
+
+create index if not exists idx_capability_audit_runs_run_date
+  on public.capability_audit_runs(run_date desc);
+
+-- =========================================================
+-- 2) capability_gaps
+-- =========================================================
+create table if not exists public.capability_gaps (
+  id uuid primary key default gen_random_uuid(),
+  audit_run_id uuid references public.capability_audit_runs(id) on delete set null,
+  agent_id uuid not null references public.agents(id) on delete cascade,
+
+  -- what gap was detected
+  missing_skill_slug text,
+  missing_skill_name text not null,
+  gap_category text not null
+    check (gap_category in (
+      'missing_skill',
+      'wrong_assignment',
+      'unclear_scope',
+      'dependency_blocker',
+      'missing_process',
+      'approval_delay'
+    )),
+
+  -- scoring / decision fields
+  confidence_level text not null
+    check (confidence_level in ('low', 'medium', 'high')),
+  urgency_level text not null
+    check (urgency_level in ('low', 'medium', 'high')),
+  composite_score numeric(4,2) not null default 0.00,
+  evidence_count integer not null default 0,
+
+  -- reasoning
+  why_flagged text not null default '',
+  recommended_action text not null default 'monitor',
+  owner_route text not null default 'yas-claw'
+    check (owner_route in ('yas-claw', 'data-analyst', 'architecture-systems', 'ceo')),
+
+  -- governance state
+  review_status text not null default 'pending'
+    check (review_status in ('pending', 'approved', 'rejected', 'monitored', 'resolved')),
+  reviewed_by text,
+  reviewed_at timestamptz,
+  resolution_notes text default '',
+
+  -- lifecycle
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_capability_gaps_agent
+  on public.capability_gaps(agent_id);
+
+create index if not exists idx_capability_gaps_review_status
+  on public.capability_gaps(review_status);
+
+create index if not exists idx_capability_gaps_confidence
+  on public.capability_gaps(confidence_level);
+
+create index if not exists idx_capability_gaps_urgency
+  on public.capability_gaps(urgency_level);
+
+create index if not exists idx_capability_gaps_last_seen
+  on public.capability_gaps(last_seen_at desc);
+
+create index if not exists idx_capability_gaps_audit_run
+  on public.capability_gaps(audit_run_id);
+
+-- de-duplication: one open gap per agent+skill+category
+create unique index if not exists uq_capability_gaps_open_gap
+  on public.capability_gaps(agent_id, coalesce(missing_skill_slug, missing_skill_name), gap_category, review_status)
+  where review_status in ('pending', 'approved', 'monitored');
+
+-- =========================================================
+-- 3) capability_gap_evidence
+-- =========================================================
+create table if not exists public.capability_gap_evidence (
+  id uuid primary key default gen_random_uuid(),
+  gap_id uuid not null references public.capability_gaps(id) on delete cascade,
+
+  signal_type text not null check (signal_type in (
+    'blocked_task', 'rejected_review', 'returned_for_rework',
+    'keyword_mention', 'manual_workaround', 'missing_installed_skill',
+    'discussion_signal', 'repeated_failure'
   )),
-  capability_area TEXT NOT NULL,
-  missing_skill_slug TEXT DEFAULT '',
-  missing_skill_name TEXT DEFAULT '',
-  confidence_level TEXT NOT NULL DEFAULT 'medium' CHECK (confidence_level IN ('low', 'medium', 'high')),
-  urgency_level TEXT NOT NULL DEFAULT 'medium' CHECK (urgency_level IN ('low', 'medium', 'high')),
-  evidence_count INTEGER NOT NULL DEFAULT 0,
-  evidence_summary TEXT DEFAULT '',
-  evidence_task_ids TEXT[] DEFAULT '{}',
-  evidence_session_ids TEXT[] DEFAULT '{}',
-  why_flagged TEXT DEFAULT '',
-  recommended_action TEXT DEFAULT '',
-  review_status TEXT NOT NULL DEFAULT 'pending' CHECK (review_status IN ('pending', 'approved', 'rejected', 'resolved', 'monitoring')),
-  reviewed_by TEXT,
-  reviewed_at TIMESTAMPTZ,
-  last_seen_at TIMESTAMPTZ DEFAULT now(),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
 
--- 2. Evidence signals — raw detection signals for each gap
-CREATE TABLE IF NOT EXISTS gap_evidence (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  gap_id UUID NOT NULL REFERENCES capability_gaps(id) ON DELETE CASCADE,
-  signal_type TEXT NOT NULL CHECK (signal_type IN (
-    'repeated_blocked_tasks', 'rejected_review', 'rework_cycle',
-    'tool_mention_no_skill', 'session_tool_failure', 'unassigned_pending',
-    'user_correction', 'fallback_chain', 'keyword_cluster'
+  source text not null check (source in (
+    'task', 'review', 'feed_event', 'session', 'discussion'
   )),
-  severity TEXT NOT NULL DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-  source TEXT NOT NULL DEFAULT 'session' CHECK (source IN ('session', 'task', 'feed_event', 'review', 'discussion')),
-  source_id TEXT DEFAULT '',
-  evidence_text TEXT DEFAULT '',
-  detected_at TIMESTAMPTZ DEFAULT now()
+  source_id text default '',
+  evidence_text text default '',
+
+  detected_at timestamptz not null default now()
 );
 
--- 3. Audit runs — nightly audit log
-CREATE TABLE IF NOT EXISTS audit_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  sessions_scanned INTEGER DEFAULT 0,
-  tasks_scanned INTEGER DEFAULT 0,
-  feed_events_scanned INTEGER DEFAULT 0,
-  gaps_detected INTEGER DEFAULT 0,
-  new_gaps INTEGER DEFAULT 0,
-  critical_gaps INTEGER DEFAULT 0,
-  resolved_gaps INTEGER DEFAULT 0,
-  summary TEXT DEFAULT '',
-  run_duration_ms INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now()
+create index if not exists idx_capability_gap_evidence_gap
+  on public.capability_gap_evidence(gap_id);
+
+create index if not exists idx_capability_gap_evidence_type
+  on public.capability_gap_evidence(signal_type);
+
+-- =========================================================
+-- 4) capability_improvements (post-install feedback loop)
+-- =========================================================
+create table if not exists public.capability_improvements (
+  id uuid primary key default gen_random_uuid(),
+  gap_id uuid not null references public.capability_gaps(id) on delete cascade,
+  skill_slug text not null,
+  agent_id uuid references public.agents(id) on delete set null,
+  measured_at timestamptz default now(),
+  days_since_install integer default 0,
+  blocker_count_before integer default 0,
+  blocker_count_after integer default 0,
+  rework_count_before integer default 0,
+  rework_count_after integer default 0,
+  review_pass_rate_before numeric(5,2) default 0,
+  review_pass_rate_after numeric(5,2) default 0,
+  improvement_score numeric(5,2) default 0,
+  notes text default ''
 );
 
--- 4. Capability improvement tracking (for post-install feedback)
-CREATE TABLE IF NOT EXISTS capability_improvements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  gap_id UUID NOT NULL REFERENCES capability_gaps(id) ON DELETE CASCADE,
-  skill_slug TEXT NOT NULL,
-  agent_id UUID REFERENCES agents(id) ON DELETE SET NULL,
-  measured_at TIMESTAMPTZ DEFAULT now(),
-  days_since_install INTEGER DEFAULT 0,
-  blocker_count_before INTEGER DEFAULT 0,
-  blocker_count_after INTEGER DEFAULT 0,
-  rework_count_before INTEGER DEFAULT 0,
-  rework_count_after INTEGER DEFAULT 0,
-  review_pass_rate_before NUMERIC(5,2) DEFAULT 0,
-  review_pass_rate_after NUMERIC(5,2) DEFAULT 0,
-  improvement_score NUMERIC(5,2) DEFAULT 0,
-  notes TEXT DEFAULT ''
-);
+create index if not exists idx_capability_improvements_gap
+  on public.capability_improvements(gap_id);
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_capability_gaps_agent ON capability_gaps(agent_id);
-CREATE INDEX IF NOT EXISTS idx_capability_gaps_status ON capability_gaps(review_status);
-CREATE INDEX IF NOT EXISTS idx_capability_gaps_confidence ON capability_gaps(confidence_level);
-CREATE INDEX IF NOT EXISTS idx_capability_gaps_urgency ON capability_gaps(urgency_level);
-CREATE INDEX IF NOT EXISTS idx_capability_gaps_last_seen ON capability_gaps(last_seen_at DESC);
-CREATE INDEX IF NOT EXISTS idx_gap_evidence_gap ON gap_evidence(gap_id);
-CREATE INDEX IF NOT EXISTS idx_gap_evidence_type ON gap_evidence(signal_type);
-CREATE INDEX IF NOT EXISTS idx_audit_runs_date ON audit_runs(run_date DESC);
+-- =========================================================
+-- 5) RLS
+-- =========================================================
+alter table public.capability_audit_runs enable row level security;
+alter table public.capability_gaps enable row level security;
+alter table public.capability_gap_evidence enable row level security;
+alter table public.capability_improvements enable row level security;
 
--- RLS
-ALTER TABLE capability_gaps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gap_evidence ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE capability_improvements ENABLE ROW LEVEL SECURITY;
+-- capability_audit_runs
+create policy "anon_select_audit_runs" on public.capability_audit_runs
+  for select to anon using (true);
+create policy "anon_insert_audit_runs" on public.capability_audit_runs
+  for insert to anon with check (true);
+create policy "anon_update_audit_runs" on public.capability_audit_runs
+  for update to anon using (true) with check (true);
 
-CREATE POLICY "anon_select_gaps" ON capability_gaps FOR SELECT TO anon USING (true);
-CREATE POLICY "anon_insert_gaps" ON capability_gaps FOR INSERT TO anon WITH CHECK (true);
-CREATE POLICY "anon_update_gaps" ON capability_gaps FOR UPDATE TO anon USING (true) WITH CHECK (true);
+-- capability_gaps
+create policy "anon_select_gaps" on public.capability_gaps
+  for select to anon using (true);
+create policy "anon_insert_gaps" on public.capability_gaps
+  for insert to anon with check (true);
+create policy "anon_update_gaps" on public.capability_gaps
+  for update to anon using (true) with check (true);
 
-CREATE POLICY "anon_select_evidence" ON gap_evidence FOR SELECT TO anon USING (true);
-CREATE POLICY "anon_insert_evidence" ON gap_evidence FOR INSERT TO anon WITH CHECK (true);
+-- capability_gap_evidence
+create policy "anon_select_evidence" on public.capability_gap_evidence
+  for select to anon using (true);
+create policy "anon_insert_evidence" on public.capability_gap_evidence
+  for insert to anon with check (true);
 
-CREATE POLICY "anon_select_audits" ON audit_runs FOR SELECT TO anon USING (true);
-CREATE POLICY "anon_insert_audits" ON audit_runs FOR INSERT TO anon WITH CHECK (true);
+-- capability_improvements
+create policy "anon_select_improvements" on public.capability_improvements
+  for select to anon using (true);
+create policy "anon_insert_improvements" on public.capability_improvements
+  for insert to anon with check (true);
 
-CREATE POLICY "anon_select_improvements" ON capability_improvements FOR SELECT TO anon USING (true);
-CREATE POLICY "anon_insert_improvements" ON capability_improvements FOR INSERT TO anon WITH CHECK (true);
+-- =========================================================
+-- 6) Updated-at trigger for capability_gaps
+-- =========================================================
+create or replace function update_capability_gap_timestamp()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
 
--- Add new feed event types
--- These will be used by the governance system:
---   capability_gap_detected
---   capability_review_requested
---   skill_recommendation_approved
---   skill_recommendation_rejected
---   capability_gap_resolved
+drop trigger if exists trigger_capability_gaps_updated on public.capability_gaps;
+create trigger trigger_capability_gaps_updated
+  before update on public.capability_gaps
+  for each row
+  execute function update_capability_gap_timestamp();
 
--- Updated at trigger for capability_gaps
-CREATE OR REPLACE FUNCTION update_capability_gap_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- =========================================================
+-- 7) Updated-at trigger for capability_audit_runs
+-- =========================================================
+create or replace function update_audit_run_timestamp()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
 
-CREATE TRIGGER trigger_capability_gaps_updated
-  BEFORE UPDATE ON capability_gaps
-  FOR EACH ROW
-  EXECUTE FUNCTION update_capability_gap_timestamp();
+drop trigger if exists trigger_capability_audit_runs_updated on public.capability_audit_runs;
+create trigger trigger_capability_audit_runs_updated
+  before update on public.capability_audit_runs
+  for each row
+  execute function update_audit_run_timestamp();
+
+commit;
