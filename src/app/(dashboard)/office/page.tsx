@@ -417,44 +417,43 @@ function FilterBar({ deptFilter, stateFilter, searchQuery, onDeptFilter, onState
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[180px] max-w-[280px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
-        <Input value={searchQuery} onChange={(e) => onSearch(e.target.value)} placeholder="Search agents…" className="pl-8 h-8 text-xs" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }} />
+    <div className="mb-4">
+      {/* Search + clear */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
+          <Input value={searchQuery} onChange={(e) => onSearch(e.target.value)} placeholder="Search agents…" className="pl-8 h-8 text-xs" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }} />
+        </div>
+        {(deptFilter.length > 0 || stateFilter.length > 0 || searchQuery) && (
+          <button onClick={() => { onDeptFilter([]); onStateFilter([]); onSearch(""); }}
+            className="text-[10px] px-2 py-1 rounded-full hover:opacity-80 shrink-0" style={{ color: "var(--text-quiet)" }}>
+            Clear
+          </button>
+        )}
       </div>
-      {/* Department chips */}
-      <div className="flex flex-wrap gap-1">
+      {/* Filter chips — horizontal scroll on mobile */}
+      <div className="flex gap-1 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
         {DEPT_SLUGS.map((slug) => (
           <button key={slug} onClick={() => toggleDept(slug)}
-            className="text-[10px] px-2 py-1 rounded-full transition-colors"
+            className="text-[10px] px-2 py-1 rounded-full transition-colors whitespace-nowrap shrink-0"
             style={{ background: deptFilter.includes(slug) ? "var(--accent)" : "var(--surface-muted)", color: deptFilter.includes(slug) ? "white" : "var(--text-quiet)", border: "1px solid var(--border)" }}>
             {getDeptLabel(slug, departments)}
           </button>
         ))}
         <button onClick={() => toggleDept("direct")}
-          className="text-[10px] px-2 py-1 rounded-full transition-colors"
+          className="text-[10px] px-2 py-1 rounded-full transition-colors whitespace-nowrap shrink-0"
           style={{ background: deptFilter.includes("direct") ? "var(--accent)" : "var(--surface-muted)", color: deptFilter.includes("direct") ? "white" : "var(--text-quiet)", border: "1px solid var(--border)" }}>
           Direct
         </button>
-      </div>
-      {/* State chips */}
-      <div className="flex flex-wrap gap-1">
+        <div className="w-px h-6 shrink-0 mx-1" style={{ background: "var(--border)" }} />
         {stateOptions.map((opt) => (
           <button key={opt.value} onClick={() => toggleState(opt.value)}
-            className="text-[10px] px-2 py-1 rounded-full transition-colors"
+            className="text-[10px] px-2 py-1 rounded-full transition-colors whitespace-nowrap shrink-0"
             style={{ background: stateFilter.includes(opt.value) ? opt.color : "var(--surface-muted)", color: stateFilter.includes(opt.value) ? "white" : "var(--text-quiet)", border: "1px solid var(--border)" }}>
             {opt.label}
           </button>
         ))}
       </div>
-      {/* Clear filters */}
-      {(deptFilter.length > 0 || stateFilter.length > 0 || searchQuery) && (
-        <button onClick={() => { onDeptFilter([]); onStateFilter([]); onSearch(""); }}
-          className="text-[10px] px-2 py-1 rounded-full hover:opacity-80" style={{ color: "var(--text-quiet)" }}>
-          Clear
-        </button>
-      )}
     </div>
   );
 }
@@ -466,20 +465,23 @@ function OrchestratorRow({ agents, departments, workingCount, coordination, gove
   coordination: CoordinationState; governance: OrchestratorGovernance;
 }) {
   return (
-    <div className="rounded-lg p-4 mb-6" style={{ border: "1px solid var(--border)" }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🦀</span>
-          <div><p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p><p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Orchestrator</p></div>
+    <div className="rounded-lg p-3 sm:p-4 mb-6" style={{ border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-xl sm:text-2xl">🦀</span>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Orchestrator</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1 sm:gap-2">
           <QuickLink href="/reviews" icon={ShieldCheck} label="Reviews" />
           <QuickLink href="/tasks" icon={ListTodo} label="Tasks" />
           <QuickLink href="/live-feed" icon={Radio} label="Feed" />
         </div>
       </div>
-      <div className="flex items-center gap-3 mt-3">
-        <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agents.length} agents · {departments.length} departments · {workingCount} working now</span>
+      <div className="flex flex-wrap items-center gap-2 mt-3">
+        <span className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agents.length} agents · {departments.length} depts · {workingCount} working</span>
         {coordination.isCoordinating && (
           <div className="flex gap-2 ml-auto">
             {coordination.recentRoutes.length > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: "rgba(59,130,246,0.1)", color: "var(--info)" }}><GitBranch className="h-2.5 w-2.5" />{coordination.recentRoutes.length} routing{coordination.recentRoutes.length > 1 ? "s" : ""}</span>}
@@ -620,15 +622,15 @@ export default function OfficePage() {
 
   return (
     <PageShell title="Office" description="Live view — agents, work states, and active operations">
-      {/* Summary strip */}
-      <div className="rounded-lg p-3 mb-4 flex flex-wrap items-center gap-4 sm:gap-6 text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>Online {availableCount + workingCount + discussionCount + reviewCount + blockedCount}</span></div>
-        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--info)" }} /><span style={{ color: "var(--text-quiet)" }}>At Work {workingCount}</span></div>
-        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} /><span style={{ color: "var(--text-quiet)" }}>Discussion {discussionCount}</span></div>
-        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--warning)" }} /><span style={{ color: "var(--text-quiet)" }}>Review {reviewCount}</span></div>
-        <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} /><span style={{ color: "var(--text-quiet)" }}>Blocked {blockedCount}</span></div>
-        {subduedCount > 0 && <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {subduedCount}</span></div>}
-        <div className="flex items-center gap-1.5 ml-auto"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
+      {/* Summary strip — horizontal scroll on mobile */}
+      <div className="rounded-lg p-3 mb-4 flex items-center gap-3 overflow-x-auto text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)", WebkitOverflowScrolling: "touch" }}>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>Online {availableCount + workingCount + discussionCount + reviewCount + blockedCount}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--info)" }} /><span style={{ color: "var(--text-quiet)" }}>At Work {workingCount}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} /><span style={{ color: "var(--text-quiet)" }}>Discussion {discussionCount}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--warning)" }} /><span style={{ color: "var(--text-quiet)" }}>Review {reviewCount}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} /><span style={{ color: "var(--text-quiet)" }}>Blocked {blockedCount}</span></div>
+        {subduedCount > 0 && <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {subduedCount}</span></div>}
+        <div className="flex items-center gap-1.5 ml-auto shrink-0"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
 
       {/* Orchestrator */}
