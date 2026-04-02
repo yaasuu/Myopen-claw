@@ -115,6 +115,29 @@ function QuickLink({ href, icon: Icon, label }: { href: string; icon: typeof Act
   );
 }
 
+// ─── Timeline event type icons/colors ───
+
+const EVENT_CONFIG: Record<string, { icon: typeof Activity; color: string; label: string }> = {
+  task_created: { icon: ListTodo, color: "var(--info)", label: "Task created" },
+  task_updated: { icon: ListTodo, color: "var(--text-quiet)", label: "Task updated" },
+  task_completed: { icon: CheckCircle2, color: "var(--success)", label: "Task completed" },
+  agent_routed: { icon: GitBranch, color: "var(--info)", label: "Routed" },
+  agent_paused: { icon: Monitor, color: "var(--text-quiet)", label: "Paused" },
+  agent_resumed: { icon: Activity, color: "var(--success)", label: "Resumed" },
+  agent_hired: { icon: Users, color: "var(--success)", label: "Hired" },
+  system_alert: { icon: AlertTriangle, color: "var(--danger)", label: "Alert" },
+  blocker_detected: { icon: AlertTriangle, color: "var(--danger)", label: "Blocker detected" },
+  blocker_resolved: { icon: CheckCircle2, color: "var(--success)", label: "Blocker resolved" },
+  governance_daily_run: { icon: Activity, color: "var(--text-quiet)", label: "Daily run" },
+  governance_weekly_run: { icon: Activity, color: "var(--text-quiet)", label: "Weekly run" },
+  autonomy_state_changed: { icon: ShieldCheck, color: "var(--accent)", label: "Autonomy changed" },
+  governance_issue_detected: { icon: AlertTriangle, color: "var(--warning)", label: "Governance issue" },
+};
+
+function getEventConfig(eventType: string) {
+  return EVENT_CONFIG[eventType] ?? { icon: Activity, color: "var(--text-quiet)", label: eventType };
+}
+
 // ─── Detail panel (side panel when agent is clicked) ───
 
 function AgentDetailPanel({
@@ -135,18 +158,32 @@ function AgentDetailPanel({
   onClose: () => void;
 }) {
   const config = getPresenceConfig(presence.state);
-  const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id && t.status !== "done");
-  const agentEvents = events.filter((e) => e.related_agent_id === agent.id).slice(0, 5);
+  const allAgentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
+  const openAgentTasks = allAgentTasks.filter((t) => t.status !== "done");
+  const agentEvents = events.filter((e) => e.related_agent_id === agent.id).slice(0, 8);
   const dept = departments.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
   const departmentLabel = dept
     ? dept.name
     : ["research-agent", "executive-finance", "qa-agent"].includes(agent.short_id) ? "Direct" : "Unassigned";
 
+  // Today summary
+  const today = new Date().toISOString().slice(0, 10);
+  const completedToday = allAgentTasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === today).length;
+  const inProgressToday = allAgentTasks.filter((t) => t.status === "in-progress").length;
+  const inReviewToday = allAgentTasks.filter((t) => t.status === "in-review").length;
+  const blockedToday = allAgentTasks.filter((t) => t.status === "blocked").length;
+  const eventsToday = agentEvents.filter((e) => e.created_at?.slice(0, 10) === today).length;
+
+  // Current work context
+  const primaryTask = openAgentTasks.find((t) => t.status === "in-progress") ?? openAgentTasks[0] ?? null;
+  const waitingTask = openAgentTasks.find((t) => t.status === "in-review");
+  const blockedTask = openAgentTasks.find((t) => t.status === "blocked");
+
   return (
     <div
       className="fixed right-0 top-0 h-full z-50 overflow-y-auto"
       style={{
-        width: "min(360px, 90vw)",
+        width: "min(380px, 92vw)",
         background: "var(--surface)",
         borderLeft: "1px solid var(--border)",
         boxShadow: "0 0 20px rgba(0,0,0,0.1)",
@@ -171,7 +208,7 @@ function AgentDetailPanel({
 
       {/* Status */}
       <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-1">
           <div className={`h-2 w-2 rounded-full ${config?.dot ?? "dot-gray"}`} />
           <span className="text-xs font-semibold" style={{ color: config?.color ?? "var(--text-quiet)" }}>
             {config?.label ?? presence.state}
@@ -182,47 +219,117 @@ function AgentDetailPanel({
         </p>
       </div>
 
-      {/* Current tasks */}
-      <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Open Tasks</p>
-        {agentTasks.length === 0 ? (
-          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No active tasks</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {agentTasks.slice(0, 5).map((task) => (
-              <Link key={task.id} href={`/tasks`} className="flex items-center gap-2 text-[11px] p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}>
-                <ListTodo className="h-3 w-3" style={{ color: "var(--text-quiet)" }} />
-                <span className="flex-1 truncate" style={{ color: "var(--text)" }}>{task.title}</span>
-                <span className="text-[10px] px-1 rounded" style={{
-                  background: task.status === "in-review" ? "rgba(245,158,11,0.15)" : task.status === "blocked" ? "rgba(239,68,68,0.15)" : "var(--surface-muted)",
-                  color: task.status === "in-review" ? "var(--warning)" : task.status === "blocked" ? "var(--danger)" : "var(--text-quiet)",
-                }}>
-                  {task.status}
-                </span>
+      {/* Today summary */}
+      <div className="p-4 grid grid-cols-3 gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="text-center">
+          <p className="text-sm font-bold" style={{ color: completedToday > 0 ? "var(--success)" : "var(--text)" }}>{completedToday}</p>
+          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Done today</p>
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{inProgressToday}</p>
+          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>In progress</p>
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-bold" style={{ color: inReviewToday > 0 ? "var(--warning)" : "var(--text)" }}>{inReviewToday}</p>
+          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>In review</p>
+        </div>
+        {blockedToday > 0 && (
+          <div className="text-center col-span-3">
+            <p className="text-sm font-bold" style={{ color: "var(--danger)" }}>{blockedToday}</p>
+            <p className="text-[10px]" style={{ color: "var(--danger)" }}>Blocked</p>
+          </div>
+        )}
+        {eventsToday > 0 && (
+          <div className="text-center col-span-3 -mt-1">
+            <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{eventsToday} event{eventsToday !== 1 ? "s" : ""} today</p>
+          </div>
+        )}
+      </div>
+
+      {/* Current work context */}
+      {(primaryTask || waitingTask || blockedTask || signal) && (
+        <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Current Context</p>
+          <div className="flex flex-col gap-2">
+            {primaryTask && (
+              <Link href="/tasks" className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ListTodo className="h-3 w-3" style={{ color: "var(--info)" }} />
+                  <span className="text-[10px] font-semibold" style={{ color: "var(--text-quiet)" }}>Working on</span>
+                </div>
+                <p className="text-[11px]" style={{ color: "var(--text)" }}>{primaryTask.title}</p>
               </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Recent events */}
-      <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Recent Activity</p>
-        {agentEvents.length === 0 ? (
-          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No recent events</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {agentEvents.map((event) => (
-              <div key={event.id} className="p-2 rounded text-[10px]" style={{ background: "var(--surface-muted)" }}>
-                <span style={{ color: "var(--text)" }}>{event.summary}</span>
-                <p className="mt-0.5" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</p>
+            )}
+            {waitingTask && (
+              <Link href="/reviews" className="p-2 rounded hover:opacity-80" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ShieldCheck className="h-3 w-3" style={{ color: "var(--warning)" }} />
+                  <span className="text-[10px] font-semibold" style={{ color: "var(--warning)" }}>Awaiting review</span>
+                </div>
+                <p className="text-[11px]" style={{ color: "var(--text)" }}>{waitingTask.title}</p>
+              </Link>
+            )}
+            {blockedTask && (
+              <div className="p-2 rounded" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle className="h-3 w-3" style={{ color: "var(--danger)" }} />
+                  <span className="text-[10px] font-semibold" style={{ color: "var(--danger)" }}>Blocked</span>
+                </div>
+                <p className="text-[11px]" style={{ color: "var(--text)" }}>{blockedTask.title}</p>
+                {blockedTask.blocker && (
+                  <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>{blockedTask.blocker}</p>
+                )}
               </div>
-            ))}
+            )}
+            {signal?.isRouted && signal.routedBy && (
+              <div className="p-2 rounded" style={{ background: "rgba(59,130,246,0.06)" }}>
+                <div className="flex items-center gap-1.5">
+                  <GitBranch className="h-3 w-3" style={{ color: "var(--info)" }} />
+                  <span className="text-[10px]" style={{ color: "var(--info)" }}>Routed by {signal.routedBy}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Timeline */}
+      <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-quiet)" }}>Recent Timeline</p>
+        {agentEvents.length === 0 ? (
+          <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No recent activity</p>
+        ) : (
+          <div className="flex flex-col gap-0">
+            {agentEvents.map((event, i) => {
+              const evConfig = getEventConfig(event.event_type);
+              const EvIcon = evConfig.icon;
+              return (
+                <div key={event.id} className="flex gap-2">
+                  {/* Timeline line */}
+                  <div className="flex flex-col items-center">
+                    <div className="mt-1 flex h-4 w-4 items-center justify-center rounded-full" style={{ background: evConfig.color + "18" }}>
+                      <EvIcon className="h-2.5 w-2.5" style={{ color: evConfig.color }} />
+                    </div>
+                    {i < agentEvents.length - 1 && (
+                      <div className="w-px flex-1" style={{ background: "var(--border)" }} />
+                    )}
+                  </div>
+                  {/* Content */}
+                  <div className="pb-3 flex-1 min-w-0">
+                    <p className="text-[10px] font-medium truncate" style={{ color: "var(--text)" }}>{event.summary}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[9px] px-1 rounded" style={{ background: evConfig.color + "12", color: evConfig.color }}>{evConfig.label}</span>
+                      <span className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Quick actions */}
+      {/* Quick links */}
       <div className="p-4">
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Quick Links</p>
         <div className="flex flex-wrap gap-2">
