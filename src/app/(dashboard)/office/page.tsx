@@ -324,44 +324,53 @@ function SVGAgentDesk({ agent, presence, x, y, signal, govSignals, focused, onCl
   const isAway = presence?.state === "paused" || presence?.state === "offline";
   const deskW = 50, deskH = 22;
 
+  // All elements rendered at (0,0) origin — group handles position via CSS transform
   return (
-    <g onClick={onClick} style={{ cursor: "pointer" }} opacity={isAway ? 0.45 : 1}>
+    <g
+      transform={`translate(${x}, ${y})`}
+      onClick={onClick}
+      style={{
+        cursor: "pointer",
+        transition: "transform 280ms ease-out, opacity 280ms ease-out",
+        opacity: isAway ? 0.45 : 1,
+      }}
+    >
       {/* Desk surface */}
-      <rect x={x - deskW / 2} y={y - deskH / 2} width={deskW} height={deskH} rx={4}
+      <rect x={-deskW / 2} y={-deskH / 2} width={deskW} height={deskH} rx={4}
         fill={focused ? "var(--accent)" : "var(--surface)"}
         stroke={focused ? "var(--accent)" : hasAlert ? "#ef4444" : "var(--border)"}
         strokeWidth={focused ? 2 : hasAlert ? 1.5 : 1}
         opacity={focused ? 0.9 : 0.8} />
 
-      {/* Agent initial/emoji */}
-      <text x={x - 14} y={y + 1} fontSize={14} textAnchor="middle" dominantBaseline="central">
+      {/* Agent emoji */}
+      <text x={-14} y={1} fontSize={14} textAnchor="middle" dominantBaseline="central">
         {agent.emoji}
       </text>
 
       {/* Agent name (truncated) */}
-      <text x={x + 4} y={y - 3} fontSize={8} fontWeight={600} fill="var(--text)" textAnchor="start" dominantBaseline="central">
+      <text x={4} y={-3} fontSize={8} fontWeight={600} fill="var(--text)" textAnchor="start" dominantBaseline="central">
         {agent.name.length > 10 ? agent.name.slice(0, 10) + "…" : agent.name}
       </text>
 
       {/* State label */}
-      <text x={x + 4} y={y + 7} fontSize={6.5} fill={config?.color ?? "var(--text-quiet)"} textAnchor="start" dominantBaseline="central">
+      <text x={4} y={7} fontSize={6.5} fill={config?.color ?? "var(--text-quiet)"} textAnchor="start" dominantBaseline="central">
         {config?.label ?? presence?.state ?? "—"}
       </text>
 
       {/* Presence dot */}
-      <circle cx={x + deskW / 2 - 5} cy={y - deskH / 2 + 5} r={3.5} fill={dotColor} />
+      <circle cx={deskW / 2 - 5} cy={-deskH / 2 + 5} r={3.5} fill={dotColor} />
 
       {/* Alert badge */}
       {hasAlert && (
         <g>
-          <circle cx={x - deskW / 2 + 5} cy={y - deskH / 2 + 5} r={4} fill="#ef4444" />
-          <text x={x - deskW / 2 + 5} y={y - deskH / 2 + 6} fontSize={6} fill="white" textAnchor="middle" dominantBaseline="central" fontWeight={700}>!</text>
+          <circle cx={-deskW / 2 + 5} cy={-deskH / 2 + 5} r={4} fill="#ef4444" />
+          <text x={-deskW / 2 + 5} y={-deskH / 2 + 6} fontSize={6} fill="white" textAnchor="middle" dominantBaseline="central" fontWeight={700}>!</text>
         </g>
       )}
 
       {/* Collaboration indicator */}
       {signal?.discussionSummary && (
-        <rect x={x - 18} y={y + deskH / 2 + 2} width={36} height={8} rx={3} fill="rgba(139,92,246,0.2)" />
+        <rect x={-18} y={deskH / 2 + 2} width={36} height={8} rx={3} fill="rgba(139,92,246,0.2)" />
       )}
     </g>
   );
