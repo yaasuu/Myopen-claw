@@ -6,7 +6,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Text, RoundedBox, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { PageShell } from "@/components/dashboard/page-shell";
-import { Loader2, X, ListTodo, ShieldCheck, GitBranch, AlertTriangle, Clock, Activity, Monitor, Coffee } from "lucide-react";
+import { Loader2, X, ListTodo, ShieldCheck, GitBranch, AlertTriangle, Clock, Activity, Monitor } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
 import { getTasks } from "@/lib/data/tasks";
@@ -19,8 +19,6 @@ import { computeOrchestratorGovernance, type GovernanceSignal, type Orchestrator
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent, Department, FeedEvent, Project } from "@/types/dashboard";
 
-// ─── Helpers ───
-
 function timeAgo(iso: string | null): string {
   if (!iso) return "away";
   const diff = Date.now() - new Date(iso).getTime();
@@ -31,42 +29,49 @@ function timeAgo(iso: string | null): string {
 }
 
 const DIRECT_SHORT_IDS = ["research-agent", "executive-finance", "qa-agent"];
-
 function getAgentDeptSlug(agent: Agent): string {
   if (DIRECT_SHORT_IDS.includes(agent.short_id)) return "direct";
   return (agent as any).department_slug ?? "";
 }
 
-// ─── Color Palette ───
-const COLORS = {
-  floor: "#3d2e1f",           // warm brown floor
-  floorGrid: "#4a3828",       // slightly lighter grid
-  wall: "#2a2018",            // dark brown walls
-  wallLight: "#352a20",       // lighter wall sections
-  desk: "#5c4a3a",            // light brown desk surface
-  deskFrame: "#3d3025",       // darker desk frame
-  deskLeg: "#2a2018",         // desk legs
-  chair: "#4a3c2e",           // chair color
-  chairBack: "#3d3025",       // chair backrest
-  chairLeg: "#2a2018",        // chair legs
-  monitor: "#1a1510",         // monitor screen
-  monitorBezel: "#121008",    // monitor bezel
-  meetingTable: "#6b5540",    // round meeting table (lighter wood)
-  meetingEdge: "#7a6248",     // meeting table edge
-  meetingPedestal: "#3d3025", // meeting pedestal
-  reviewDesk: "#5c4a3a",      // review desk (same as regular)
-  attentionDesk: "#5c3a3a",   // attention desk (reddish tint)
-  receptionDesk: "#5c4a3a",   // reception desk
-  label: "#c4a882",           // warm label color
+// ═══════════════════════════════════════
+// WARM BROWN COLOR PALETTE
+// ═══════════════════════════════════════
+// These are BRIGHT enough to be visible on dark background
+const C = {
+  floor: "#8B7355",           // WARM WOOD BROWN — very visible
+  floorDark: "#7A6548",       // slightly darker for grid
+  wall: "#5C4D3D",            // warm brown walls
+  desk: "#A08060",            // LIGHT OAK — clearly wood
+  deskFrame: "#8B7355",       // desk frame
+  deskLeg: "#6B5D50",         // desk legs
+  chair: "#5C4033",           // DARK LEATHER
+  chairBack: "#4A3328",       // chair back
+  chairLeg: "#3D2D22",        // chair legs
+  monitor: "#2A2218",         // dark screen
+  monitorFrame: "#1A1510",    // monitor frame
+  meetingTable: "#6B4226",    // DARK WOOD
+  meetingEdge: "#7A5030",     // meeting edge
+  meetingPedestal: "#4A3020", // meeting pedestal
+  reviewDesk: "#A08060",      // same as regular desk
+  attentionDesk: "#8B6050",   // reddish wood
+  receptionDesk: "#A08060",   // same as desk
+  label: "#E8D8C0",           // warm cream label
+  bg: "#1A1510",              // canvas background (dark warm)
 };
 
-// ─── 3D Layout ───
+// ═══════════════════════════════════════
+// LAYOUT
+// ═══════════════════════════════════════
+// Room: 30x22
+// Entrances at z=11 (top)
+// Back wall at z=-11
 
 const DEPT_POSITIONS: Record<string, [number, number, number]> = {
-  "export-growth": [-6, 0, 1],
-  "ops-improvement": [0, 0, 5],
-  "architecture-systems": [6, 0, 1],
-  "direct": [0, 0, -2],
+  "export-growth": [-6, 0, 2],
+  "ops-improvement": [0, 0, 4],
+  "architecture-systems": [6, 0, 2],
+  "direct": [0, 0, -3],
 };
 
 const DESK_OFFSETS: [number, number, number][] = [
@@ -74,30 +79,20 @@ const DESK_OFFSETS: [number, number, number][] = [
   [-1.3, 0, 0.7], [0, 0, 0.7], [1.3, 0, 0.7],
 ];
 
-const MEETING_POSITION: [number, number, number] = [0, 0, -5];
-const REVIEW_POSITION: [number, number, number] = [8, 0, -3];
-const ATTENTION_POSITION: [number, number, number] = [-8, 0, -3];
-const ORCHESTRATOR_POSITION: [number, number, number] = [0, 0, 0];
-const RECEPTION_POSITION: [number, number, number] = [0, 0, 9];
-const DINING_POSITION: [number, number, number] = [-9, 0, 6];
-const LOUNGE_POSITION: [number, number, number] = [9, 0, 6];
-
-// ─── Stable Slots ───
+const MEETING_POS: [number, number, number] = [0, 0, -7];   // FAR from agents
+const REVIEW_POS: [number, number, number] = [8, 0, -4];
+const ATTENTION_POS: [number, number, number] = [-8, 0, -4];
+const ORCHESTRATOR_POS: [number, number, number] = [0, 0, 0];
+const RECEPTION_POS: [number, number, number] = [0, 0, 9];
+const DINING_POS: [number, number, number] = [-8, 0, 6];
+const LOUNGE_POS: [number, number, number] = [8, 0, 6];
 
 const MEETING_SLOTS: [number, number, number][] = [
   [-1.3, 0, -0.5], [0, 0, -0.5], [1.3, 0, -0.5],
   [-1.3, 0, 0.5], [0, 0, 0.5], [1.3, 0, 0.5],
 ];
-
-const REVIEW_SLOTS: [number, number, number][] = [
-  [-0.9, 0, 0.9], [0, 0, 0.9], [0.9, 0, 0.9],
-];
-
-const ATTENTION_SLOTS: [number, number, number][] = [
-  [-0.7, 0, 0.8], [0, 0, 0.8], [0.7, 0, 0.8],
-];
-
-// ─── State → Zone Mapping ───
+const REVIEW_SLOTS: [number, number, number][] = [[-0.9, 0, 0.9], [0, 0, 0.9], [0.9, 0, 0.9]];
+const ATTENTION_SLOTS: [number, number, number][] = [[-0.7, 0, 0.8], [0, 0, 0.8], [0.7, 0, 0.8]];
 
 function getTargetZone(state: PresenceState): string {
   if (state === "in_discussion") return "meeting";
@@ -107,11 +102,10 @@ function getTargetZone(state: PresenceState): string {
 }
 
 function getSlotPosition(zone: string, slotIndex: number): [number, number, number] {
-  let slots: [number, number, number][];
-  let base: [number, number, number];
-  if (zone === "meeting") { slots = MEETING_SLOTS; base = MEETING_POSITION; }
-  else if (zone === "review") { slots = REVIEW_SLOTS; base = REVIEW_POSITION; }
-  else if (zone === "attention") { slots = ATTENTION_SLOTS; base = ATTENTION_POSITION; }
+  let slots, base;
+  if (zone === "meeting") { slots = MEETING_SLOTS; base = MEETING_POS; }
+  else if (zone === "review") { slots = REVIEW_SLOTS; base = REVIEW_POS; }
+  else if (zone === "attention") { slots = ATTENTION_SLOTS; base = ATTENTION_POS; }
   else return [0, 0, 0];
   const slot = slots[slotIndex % slots.length];
   return [base[0] + slot[0], 0, base[2] + slot[2]];
@@ -121,32 +115,30 @@ function computeHomePositions(agents: Agent[]): Map<string, [number, number, num
   const positions = new Map<string, [number, number, number]>();
   const deptCounts: Record<string, number> = {};
   for (const agent of agents) {
-    const deptSlug = getAgentDeptSlug(agent);
-    const deptPos = DEPT_POSITIONS[deptSlug] ?? DEPT_POSITIONS["direct"];
-    const idx = deptCounts[deptSlug] ?? 0;
-    deptCounts[deptSlug] = idx + 1;
-    const offset = DESK_OFFSETS[idx % DESK_OFFSETS.length];
-    positions.set(agent.id, [deptPos[0] + offset[0], 0, deptPos[2] + offset[2]]);
+    const slug = getAgentDeptSlug(agent);
+    const pos = DEPT_POSITIONS[slug] ?? DEPT_POSITIONS["direct"];
+    const idx = deptCounts[slug] ?? 0;
+    deptCounts[slug] = idx + 1;
+    const off = DESK_OFFSETS[idx % DESK_OFFSETS.length];
+    positions.set(agent.id, [pos[0] + off[0], 0, pos[2] + off[2]]);
   }
   return positions;
 }
 
 function assignSlots(agents: Agent[], presences: AgentPresence[]): Map<string, number> {
-  const zoneGroups: Record<string, string[]> = {};
-  for (const agent of agents) {
-    const presence = presences.find((p) => p.agentId === agent.id);
-    const state = presence?.state ?? "available";
-    const zone = getTargetZone(state);
+  const groups: Record<string, string[]> = {};
+  for (const a of agents) {
+    const p = presences.find((p) => p.agentId === a.id);
+    const zone = getTargetZone(p?.state ?? "available");
     if (zone === "desk") continue;
-    if (!zoneGroups[zone]) zoneGroups[zone] = [];
-    zoneGroups[zone].push(agent.id);
+    if (!groups[zone]) groups[zone] = [];
+    groups[zone].push(a.id);
   }
-  const slotMap = new Map<string, number>();
-  for (const [zone, agentIds] of Object.entries(zoneGroups)) {
-    const sorted = [...agentIds].sort();
-    sorted.forEach((id, idx) => slotMap.set(id, idx));
+  const map = new Map<string, number>();
+  for (const [, ids] of Object.entries(groups)) {
+    [...ids].sort().forEach((id, i) => map.set(id, i));
   }
-  return slotMap;
+  return map;
 }
 
 function getDotColor(state: PresenceState): string {
@@ -169,90 +161,80 @@ function getDeptColor(slug: string): string {
 // 3D COMPONENTS
 // ═══════════════════════════════════════
 
-// ─── Room ───
-
-function Room3D() {
+function Room() {
   return (
     <group>
-      {/* Floor — warm brown */}
+      {/* FLOOR — WARM BROWN, clearly visible */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
-        <planeGeometry args={[32, 24]} />
-        <meshStandardMaterial color={COLORS.floor} roughness={0.85} />
+        <planeGeometry args={[30, 22]} />
+        <meshStandardMaterial color={C.floor} roughness={0.9} />
       </mesh>
-      <gridHelper args={[32, 16, COLORS.floorGrid, COLORS.floorGrid]} position={[0, -0.04, 0]} />
+      {/* Grid lines on floor */}
+      <gridHelper args={[30, 15, C.floorDark, C.floorDark]} position={[0, -0.04, 0]} />
 
-      {/* Walls — dark brown */}
-      <mesh position={[0, 2.5, -12]} receiveShadow>
-        <boxGeometry args={[32, 5, 0.2]} />
-        <meshStandardMaterial color={COLORS.wall} />
+      {/* Walls */}
+      <mesh position={[0, 2.5, -11]} receiveShadow>
+        <boxGeometry args={[30, 5, 0.2]} />
+        <meshStandardMaterial color={C.wall} />
       </mesh>
-      <mesh position={[-16, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <boxGeometry args={[24, 5, 0.2]} />
-        <meshStandardMaterial color={COLORS.wallLight} />
+      <mesh position={[-15, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[22, 5, 0.2]} />
+        <meshStandardMaterial color={C.wall} />
       </mesh>
-      <mesh position={[16, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <boxGeometry args={[24, 5, 0.2]} />
-        <meshStandardMaterial color={COLORS.wallLight} />
+      <mesh position={[15, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[22, 5, 0.2]} />
+        <meshStandardMaterial color={C.wall} />
       </mesh>
-      {/* Entrance (partial walls) */}
-      <mesh position={[-9, 2.5, 12]} receiveShadow>
+      {/* Entrance walls */}
+      <mesh position={[-8, 2.5, 11]} receiveShadow>
         <boxGeometry args={[14, 5, 0.2]} />
-        <meshStandardMaterial color={COLORS.wallLight} />
+        <meshStandardMaterial color={C.wall} />
       </mesh>
-      <mesh position={[9, 2.5, 12]} receiveShadow>
+      <mesh position={[8, 2.5, 11]} receiveShadow>
         <boxGeometry args={[14, 5, 0.2]} />
-        <meshStandardMaterial color={COLORS.wallLight} />
-      </mesh>
-      {/* Entrance header */}
-      <mesh position={[0, 4.5, 12]}>
-        <boxGeometry args={[4, 1, 0.2]} />
-        <meshStandardMaterial color={COLORS.wall} />
+        <meshStandardMaterial color={C.wall} />
       </mesh>
 
-      {/* Department floor pads (hexagonal) */}
-      {Object.entries(DEPT_POSITIONS).map(([slug, pos]) => {
-        const color = getDeptColor(slug);
-        return (
-          <group key={slug}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos[0], 0.003, pos[2]]}>
-              <circleGeometry args={[3.2, 6]} />
-              <meshStandardMaterial color={color} transparent opacity={0.08} />
-            </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos[0], 0.006, pos[2]]}>
-              <ringGeometry args={[3, 3.2, 6]} />
-              <meshStandardMaterial color={color} transparent opacity={0.2} />
-            </mesh>
-          </group>
-        );
-      })}
-
-      {/* Meeting floor pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[MEETING_POSITION[0], 0.003, MEETING_POSITION[2]]}>
+      {/* Floor pads */}
+      {Object.entries(DEPT_POSITIONS).map(([slug, pos]) => (
+        <group key={slug}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos[0], 0.003, pos[2]]}>
+            <circleGeometry args={[3.2, 6]} />
+            <meshStandardMaterial color={getDeptColor(slug)} transparent opacity={0.1} />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos[0], 0.006, pos[2]]}>
+            <ringGeometry args={[2.9, 3.2, 6]} />
+            <meshStandardMaterial color={getDeptColor(slug)} transparent opacity={0.25} />
+          </mesh>
+        </group>
+      ))}
+      {/* Meeting pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[MEETING_POS[0], 0.003, MEETING_POS[2]]}>
         <circleGeometry args={[2.8, 6]} />
-        <meshStandardMaterial color="#8b5cf6" transparent opacity={0.06} />
+        <meshStandardMaterial color="#8b5cf6" transparent opacity={0.08} />
       </mesh>
-      {/* Review floor pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[REVIEW_POSITION[0], 0.003, REVIEW_POSITION[2]]}>
+      {/* Review pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[REVIEW_POS[0], 0.003, REVIEW_POS[2]]}>
         <circleGeometry args={[2.5, 6]} />
-        <meshStandardMaterial color="#f59e0b" transparent opacity={0.06} />
+        <meshStandardMaterial color="#f59e0b" transparent opacity={0.08} />
       </mesh>
-      {/* Attention floor pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ATTENTION_POSITION[0], 0.003, ATTENTION_POSITION[2]]}>
+      {/* Attention pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ATTENTION_POS[0], 0.003, ATTENTION_POS[2]]}>
         <circleGeometry args={[2.2, 6]} />
-        <meshStandardMaterial color="#ef4444" transparent opacity={0.05} />
+        <meshStandardMaterial color="#ef4444" transparent opacity={0.06} />
       </mesh>
-      {/* Reception floor pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[RECEPTION_POSITION[0], 0.003, RECEPTION_POSITION[2]]}>
+      {/* Reception pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[RECEPTION_POS[0], 0.003, RECEPTION_POS[2]]}>
         <circleGeometry args={[3, 6]} />
-        <meshStandardMaterial color="#7F8A9A" transparent opacity={0.04} />
+        <meshStandardMaterial color="#b8a080" transparent opacity={0.05} />
       </mesh>
-      {/* Dining floor pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[DINING_POSITION[0], 0.003, DINING_POSITION[2]]}>
+      {/* Dining pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[DINING_POS[0], 0.003, DINING_POS[2]]}>
         <circleGeometry args={[2.5, 6]} />
         <meshStandardMaterial color="#a08060" transparent opacity={0.06} />
       </mesh>
-      {/* Lounge floor pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[LOUNGE_POSITION[0], 0.003, LOUNGE_POSITION[2]]}>
+      {/* Lounge pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[LOUNGE_POS[0], 0.003, LOUNGE_POS[2]]}>
         <circleGeometry args={[2.5, 6]} />
         <meshStandardMaterial color="#6080a0" transparent opacity={0.05} />
       </mesh>
@@ -260,144 +242,128 @@ function Room3D() {
   );
 }
 
-// ─── Office Desk ───
+// ─── Desk (LIGHT OAK with DARK LEATHER chair) ───
 
-function Desk3D({ position, color, label, occupied }: {
+function Desk({ position, color, label, occupied }: {
   position: [number, number, number]; color: string; label: string; occupied: boolean;
 }) {
   return (
     <group position={position}>
-      {/* Desk surface — light brown */}
-      <RoundedBox args={[1.6, 0.05, 0.9]} radius={0.02} position={[0, 0.75, 0]} castShadow>
-        <meshStandardMaterial color={COLORS.desk} roughness={0.6} />
+      {/* Desk surface — LIGHT OAK */}
+      <RoundedBox args={[1.6, 0.06, 0.9]} radius={0.02} position={[0, 0.75, 0]} castShadow>
+        <meshStandardMaterial color={C.desk} roughness={0.55} />
       </RoundedBox>
-      {/* Desk frame */}
+      {/* Frame */}
       <mesh position={[0, 0.72, 0]}>
         <boxGeometry args={[1.65, 0.03, 0.95]} />
-        <meshStandardMaterial color={COLORS.deskFrame} />
+        <meshStandardMaterial color={C.deskFrame} />
       </mesh>
       {/* Legs */}
-      {[[-0.7, 0, -0.35], [0.7, 0, -0.35], [-0.7, 0, 0.35], [0.7, 0, 0.35]].map((pos, i) => (
-        <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
+      {[[-0.7, 0, -0.35], [0.7, 0, -0.35], [-0.7, 0, 0.35], [0.7, 0, 0.35]].map((p, i) => (
+        <mesh key={i} position={[p[0], 0.375, p[2]]}>
           <boxGeometry args={[0.04, 0.75, 0.04]} />
-          <meshStandardMaterial color={COLORS.deskLeg} metalness={0.2} roughness={0.8} />
+          <meshStandardMaterial color={C.deskLeg} metalness={0.2} />
         </mesh>
       ))}
       {/* Monitor */}
       <mesh position={[0, 1.05, -0.35]} castShadow>
         <boxGeometry args={[0.7, 0.45, 0.03]} />
-        <meshStandardMaterial color={COLORS.monitor} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.08 : 0} />
+        <meshStandardMaterial color={C.monitor} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.1 : 0} />
       </mesh>
       <mesh position={[0, 1.05, -0.36]}>
         <boxGeometry args={[0.72, 0.47, 0.01]} />
-        <meshStandardMaterial color={COLORS.monitorBezel} />
+        <meshStandardMaterial color={C.monitorFrame} />
       </mesh>
       <mesh position={[0, 0.85, -0.25]}>
         <boxGeometry args={[0.06, 0.25, 0.06]} />
-        <meshStandardMaterial color={COLORS.deskLeg} />
+        <meshStandardMaterial color={C.deskLeg} />
       </mesh>
-      <mesh position={[0, 0.78, -0.15]}>
-        <boxGeometry args={[0.25, 0.02, 0.15]} />
-        <meshStandardMaterial color={COLORS.deskLeg} />
-      </mesh>
-      {/* Chair */}
+      {/* Chair — DARK LEATHER */}
       <mesh position={[0, 0.38, 0.6]}>
         <boxGeometry args={[0.4, 0.05, 0.4]} />
-        <meshStandardMaterial color={COLORS.chair} roughness={0.8} />
+        <meshStandardMaterial color={C.chair} roughness={0.85} />
       </mesh>
       <mesh position={[0, 0.62, 0.78]}>
-        <boxGeometry args={[0.4, 0.5, 0.04]} />
-        <meshStandardMaterial color={COLORS.chairBack} roughness={0.8} />
+        <boxGeometry args={[0.4, 0.5, 0.05]} />
+        <meshStandardMaterial color={C.chairBack} roughness={0.85} />
       </mesh>
-      {[[-0.16, 0, -0.16], [0.16, 0, -0.16], [-0.16, 0, 0.16], [0.16, 0, 0.16]].map((lp, li) => (
-        <mesh key={li} position={[lp[0], 0.19, 0.6 + lp[2]]}>
+      {[[-0.16, 0, 0.44], [0.16, 0, 0.44], [-0.16, 0, 0.76], [0.16, 0, 0.76]].map((lp, li) => (
+        <mesh key={li} position={[lp[0], 0.19, lp[2]]}>
           <boxGeometry args={[0.03, 0.38, 0.03]} />
-          <meshStandardMaterial color={COLORS.chairLeg} metalness={0.3} />
+          <meshStandardMaterial color={C.chairLeg} metalness={0.3} />
         </mesh>
       ))}
       {/* Label */}
-      <Text position={[0, 0.79, 0.4]} fontSize={0.08} color={COLORS.label} anchorX="center" anchorY="middle">
+      <Text position={[0, 0.79, 0.42]} fontSize={0.08} color={C.label} anchorX="center" anchorY="middle">
         {label}
       </Text>
       {/* Status dot */}
       <mesh position={[0.7, 0.79, -0.35]}>
         <sphereGeometry args={[0.03, 8, 8]} />
-        <meshStandardMaterial color={occupied ? color : "#3a4555"} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.6 : 0} />
+        <meshStandardMaterial color={occupied ? color : "#5a5045"} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.7 : 0} />
       </mesh>
     </group>
   );
 }
 
-// ─── Department Cluster ───
-
-function DeptCluster3D({ slug, label, color, agents: clusterAgents, homePositions, presences, onSelectAgent }: {
+function DeptCluster({ slug, label, color, agents: ca, homePositions, presences, onSelect }: {
   slug: string; label: string; color: string;
   agents: Agent[]; homePositions: Map<string, [number, number, number]>;
-  presences: AgentPresence[]; onSelectAgent: (a: Agent) => void;
+  presences: AgentPresence[]; onSelect: (a: Agent) => void;
 }) {
-  const deptPos = DEPT_POSITIONS[slug] ?? [0, 0, 0];
+  const pos = DEPT_POSITIONS[slug] ?? [0, 0, 0];
   return (
-    <group position={deptPos}>
-      <Text position={[0, 0.05, 2.8]} fontSize={0.18} color={color} anchorX="center" anchorY="middle" rotation={[-Math.PI / 2, 0, 0]}>
+    <group position={pos}>
+      <Text position={[0, 0.05, 3]} fontSize={0.18} color={color} anchorX="center" anchorY="middle" rotation={[-Math.PI / 2, 0, 0]}>
         {label}
       </Text>
-      {clusterAgents.map((agent, i) => {
-        const offset = DESK_OFFSETS[i % DESK_OFFSETS.length];
-        const homePos: [number, number, number] = [offset[0], 0, offset[2]];
-        const presence = presences.find((p) => p.agentId === agent.id);
-        const isOccupied = presence ? presence.state !== "paused" && presence.state !== "offline" : false;
-        return (
-          <group key={agent.id} onClick={() => onSelectAgent(agent)}>
-            <Desk3D position={homePos} color={color} label={agent.name.split(" ")[0]} occupied={isOccupied} />
-          </group>
-        );
+      {ca.map((agent, i) => {
+        const off = DESK_OFFSETS[i % DESK_OFFSETS.length];
+        const hp: [number, number, number] = [off[0], 0, off[2]];
+        const p = presences.find((p) => p.agentId === agent.id);
+        const occ = p ? p.state !== "paused" && p.state !== "offline" : false;
+        return <group key={agent.id} onClick={() => onSelect(agent)}><Desk position={hp} color={color} label={agent.name.split(" ")[0]} occupied={occ} /></group>;
       })}
     </group>
   );
 }
 
-// ─── Round Meeting Table ───
-
-function MeetingTable3D() {
+function MeetingTable() {
   return (
-    <group position={MEETING_POSITION}>
+    <group position={MEETING_POS}>
+      {/* Round table — DARK WOOD */}
       <mesh position={[0, 0.8, 0]} castShadow>
         <cylinderGeometry args={[1.4, 1.4, 0.08, 24]} />
-        <meshStandardMaterial color={COLORS.meetingTable} roughness={0.5} />
+        <meshStandardMaterial color={C.meetingTable} roughness={0.5} />
       </mesh>
       <mesh position={[0, 0.8, 0]}>
         <torusGeometry args={[1.4, 0.03, 8, 24]} />
-        <meshStandardMaterial color={COLORS.meetingEdge} />
+        <meshStandardMaterial color={C.meetingEdge} />
       </mesh>
       <mesh position={[0, 0.4, 0]}>
         <cylinderGeometry args={[0.15, 0.2, 0.8, 12]} />
-        <meshStandardMaterial color={COLORS.meetingPedestal} />
+        <meshStandardMaterial color={C.meetingPedestal} />
       </mesh>
       <mesh position={[0, 0.02, 0]}>
         <cylinderGeometry args={[0.5, 0.5, 0.04, 12]} />
-        <meshStandardMaterial color={COLORS.meetingPedestal} />
+        <meshStandardMaterial color={C.meetingPedestal} />
       </mesh>
-      <Text position={[0, 0.92, 0]} fontSize={0.13} color="#8b5cf6" anchorX="center" anchorY="middle">
+      <Text position={[0, 0.92, 0]} fontSize={0.13} color="#c4a0ff" anchorX="center" anchorY="middle">
         Meeting
       </Text>
+      {/* Chairs — DARK LEATHER, facing center */}
       {MEETING_SLOTS.map((slot, i) => {
         const angle = Math.atan2(slot[0], slot[2]);
         return (
           <group key={i} position={slot} rotation={[0, angle + Math.PI, 0]}>
             <mesh position={[0, 0.38, 0]}>
               <boxGeometry args={[0.38, 0.05, 0.38]} />
-              <meshStandardMaterial color="#4a3c30" roughness={0.8} />
+              <meshStandardMaterial color={C.chair} roughness={0.85} />
             </mesh>
             <mesh position={[0, 0.6, 0.18]}>
-              <boxGeometry args={[0.38, 0.45, 0.04]} />
-              <meshStandardMaterial color="#3d3025" roughness={0.8} />
+              <boxGeometry args={[0.38, 0.45, 0.05]} />
+              <meshStandardMaterial color={C.chairBack} roughness={0.85} />
             </mesh>
-            {[[-0.15, 0, -0.15], [0.15, 0, -0.15], [-0.15, 0, 0.15], [0.15, 0, 0.15]].map((lp, li) => (
-              <mesh key={li} position={[lp[0], 0.19, lp[2]]}>
-                <boxGeometry args={[0.03, 0.38, 0.03]} />
-                <meshStandardMaterial color={COLORS.chairLeg} metalness={0.3} />
-              </mesh>
-            ))}
           </group>
         );
       })}
@@ -405,196 +371,117 @@ function MeetingTable3D() {
   );
 }
 
-// ─── Review Area ───
-
-function ReviewArea3D() {
+function ReviewArea() {
   return (
-    <group position={REVIEW_POSITION}>
+    <group position={REVIEW_POS}>
       <RoundedBox args={[2, 0.06, 1]} radius={0.03} position={[0, 0.75, 0]} castShadow>
-        <meshStandardMaterial color={COLORS.reviewDesk} roughness={0.6} />
+        <meshStandardMaterial color={C.reviewDesk} roughness={0.55} />
       </RoundedBox>
-      {[[-0.8, 0, -0.35], [0.8, 0, -0.35], [-0.8, 0, 0.35], [0.8, 0, 0.35]].map((pos, i) => (
-        <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
-          <boxGeometry args={[0.05, 0.75, 0.05]} />
-          <meshStandardMaterial color={COLORS.deskLeg} />
-        </mesh>
+      {[[-0.8, 0, -0.35], [0.8, 0, -0.35], [-0.8, 0, 0.35], [0.8, 0, 0.35]].map((p, i) => (
+        <mesh key={i} position={[p[0], 0.375, p[2]]}><boxGeometry args={[0.05, 0.75, 0.05]} /><meshStandardMaterial color={C.deskLeg} /></mesh>
       ))}
-      <mesh position={[0, 1.05, -0.35]} castShadow>
-        <boxGeometry args={[0.5, 0.35, 0.03]} />
-        <meshStandardMaterial color={COLORS.monitor} emissive="#f59e0b" emissiveIntensity={0.06} />
-      </mesh>
-      <Text position={[0, 0.88, 0.45]} fontSize={0.12} color="#f59e0b" anchorX="center" anchorY="middle">
-        Review
-      </Text>
-      <mesh position={[0, 0.38, 0.6]}>
-        <boxGeometry args={[0.35, 0.05, 0.35]} />
-        <meshStandardMaterial color={COLORS.chair} />
-      </mesh>
-      <mesh position={[0, 0.6, 0.75]}>
-        <boxGeometry args={[0.35, 0.45, 0.04]} />
-        <meshStandardMaterial color={COLORS.chairBack} />
-      </mesh>
+      <mesh position={[0, 1.05, -0.35]}><boxGeometry args={[0.5, 0.35, 0.03]} /><meshStandardMaterial color={C.monitor} emissive="#f59e0b" emissiveIntensity={0.08} /></mesh>
+      <Text position={[0, 0.88, 0.45]} fontSize={0.12} color="#f5c060" anchorX="center" anchorY="middle">Review</Text>
+      <mesh position={[0, 0.38, 0.6]}><boxGeometry args={[0.35, 0.05, 0.35]} /><meshStandardMaterial color={C.chair} /></mesh>
+      <mesh position={[0, 0.6, 0.75]}><boxGeometry args={[0.35, 0.45, 0.05]} /><meshStandardMaterial color={C.chairBack} /></mesh>
     </group>
   );
 }
 
-// ─── Attention Area ───
-
-function AttentionArea3D() {
+function AttentionArea() {
   return (
-    <group position={ATTENTION_POSITION}>
+    <group position={ATTENTION_POS}>
       <RoundedBox args={[1.5, 0.06, 0.8]} radius={0.03} position={[0, 0.75, 0]} castShadow>
-        <meshStandardMaterial color={COLORS.attentionDesk} roughness={0.6} />
+        <meshStandardMaterial color={C.attentionDesk} roughness={0.55} />
       </RoundedBox>
-      {[[-0.6, 0, -0.3], [0.6, 0, -0.3], [-0.6, 0, 0.3], [0.6, 0, 0.3]].map((pos, i) => (
-        <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
-          <boxGeometry args={[0.04, 0.75, 0.04]} />
-          <meshStandardMaterial color={COLORS.deskLeg} />
-        </mesh>
+      {[[-0.6, 0, -0.3], [0.6, 0, -0.3], [-0.6, 0, 0.3], [0.6, 0, 0.3]].map((p, i) => (
+        <mesh key={i} position={[p[0], 0.375, p[2]]}><boxGeometry args={[0.04, 0.75, 0.04]} /><meshStandardMaterial color={C.deskLeg} /></mesh>
       ))}
-      <mesh position={[0, 1, -0.3]} castShadow>
-        <boxGeometry args={[0.45, 0.3, 0.03]} />
-        <meshStandardMaterial color={COLORS.monitor} emissive="#ef4444" emissiveIntensity={0.06} />
-      </mesh>
-      <Text position={[0, 0.88, 0.35]} fontSize={0.12} color="#ef4444" anchorX="center" anchorY="middle">
-        Attention
-      </Text>
-      <mesh position={[0, 0.38, 0.45]}>
-        <boxGeometry args={[0.3, 0.05, 0.3]} />
-        <meshStandardMaterial color="#4a3030" />
-      </mesh>
-      <mesh position={[0, 0.58, 0.58]}>
-        <boxGeometry args={[0.3, 0.4, 0.04]} />
-        <meshStandardMaterial color="#3d2525" />
-      </mesh>
+      <mesh position={[0, 1, -0.3]}><boxGeometry args={[0.45, 0.3, 0.03]} /><meshStandardMaterial color={C.monitor} emissive="#ef4444" emissiveIntensity={0.08} /></mesh>
+      <Text position={[0, 0.88, 0.35]} fontSize={0.12} color="#ff8080" anchorX="center" anchorY="middle">Attention</Text>
+      <mesh position={[0, 0.38, 0.45]}><boxGeometry args={[0.3, 0.05, 0.3]} /><meshStandardMaterial color="#6B4540" /></mesh>
+      <mesh position={[0, 0.58, 0.58]}><boxGeometry args={[0.3, 0.4, 0.05]} /><meshStandardMaterial color="#5A3830" /></mesh>
     </group>
   );
 }
 
-// ─── Reception ───
-
-function Reception3D() {
+function Reception() {
   return (
-    <group position={RECEPTION_POSITION}>
+    <group position={RECEPTION_POS}>
       <RoundedBox args={[3.5, 0.8, 0.7]} radius={0.04} position={[0, 0.4, 0]} castShadow>
-        <meshStandardMaterial color={COLORS.receptionDesk} roughness={0.7} />
+        <meshStandardMaterial color={C.receptionDesk} roughness={0.6} />
       </RoundedBox>
       <RoundedBox args={[3.6, 0.04, 0.8]} radius={0.02} position={[0, 0.82, 0]} castShadow>
-        <meshStandardMaterial color="#6b5a48" roughness={0.5} />
+        <meshStandardMaterial color="#B89870" roughness={0.45} />
       </RoundedBox>
-      <Text position={[0, 0.95, -0.2]} fontSize={0.14} color="#b8a080" anchorX="center" anchorY="middle">
-        Reception
-      </Text>
+      <Text position={[0, 0.95, -0.2]} fontSize={0.14} color={C.label} anchorX="center" anchorY="middle">Reception</Text>
     </group>
   );
 }
 
-// ─── Dining / Break Area ───
-
-function DiningArea3D() {
+function DiningArea() {
   return (
-    <group position={DINING_POSITION}>
-      {/* Round table */}
+    <group position={DINING_POS}>
       <mesh position={[0, 0.75, 0]} castShadow>
-        <cylinderGeometry args={[0.8, 0.8, 0.06, 16]} />
-        <meshStandardMaterial color="#6b5a45" roughness={0.5} />
+        <cylinderGeometry args={[0.9, 0.9, 0.06, 16]} />
+        <meshStandardMaterial color="#8B7355" roughness={0.5} />
       </mesh>
-      {/* Pedestal */}
       <mesh position={[0, 0.38, 0]}>
         <cylinderGeometry args={[0.1, 0.15, 0.75, 8]} />
-        <meshStandardMaterial color={COLORS.deskLeg} />
+        <meshStandardMaterial color={C.deskLeg} />
       </mesh>
-      {/* 4 chairs around table */}
-      {([[-0.7, 0, 0], [0.7, 0, 0], [0, 0, -0.7], [0, 0, 0.7]] as [number, number, number][]).map((pos, i) => {
+      {([[-0.7, 0, 0], [0.7, 0, 0], [0, 0, -0.7], [0, 0, 0.7]] as [number,number,number][]).map((pos, i) => {
         const angle = Math.atan2(pos[0], pos[2]);
         return (
           <group key={i} position={pos} rotation={[0, angle + Math.PI, 0]}>
-            <mesh position={[0, 0.35, 0]}>
-              <boxGeometry args={[0.35, 0.04, 0.35]} />
-              <meshStandardMaterial color={COLORS.chair} />
-            </mesh>
-            <mesh position={[0, 0.55, 0.16]}>
-              <boxGeometry args={[0.35, 0.4, 0.04]} />
-              <meshStandardMaterial color={COLORS.chairBack} />
-            </mesh>
+            <mesh position={[0, 0.35, 0]}><boxGeometry args={[0.35, 0.04, 0.35]} /><meshStandardMaterial color={C.chair} /></mesh>
+            <mesh position={[0, 0.55, 0.16]}><boxGeometry args={[0.35, 0.4, 0.04]} /><meshStandardMaterial color={C.chairBack} /></mesh>
           </group>
         );
       })}
-      <Text position={[0, 0.88, 0]} fontSize={0.1} color="#a08060" anchorX="center" anchorY="middle">
-        ☕ Break
-      </Text>
+      <Text position={[0, 0.88, 0]} fontSize={0.1} color="#c4a060" anchorX="center" anchorY="middle">☕ Break</Text>
     </group>
   );
 }
 
-// ─── Lounge Area ───
-
-function LoungeArea3D() {
+function LoungeArea() {
   return (
-    <group position={LOUNGE_POSITION}>
-      {/* Sofa (long seat) */}
+    <group position={LOUNGE_POS}>
       <RoundedBox args={[2, 0.4, 0.7]} radius={0.08} position={[0, 0.2, 0]} castShadow>
-        <meshStandardMaterial color="#3a4555" roughness={0.9} />
+        <meshStandardMaterial color="#4A5565" roughness={0.9} />
       </RoundedBox>
-      {/* Sofa back */}
       <RoundedBox args={[2, 0.5, 0.15]} radius={0.06} position={[0, 0.55, -0.3]} castShadow>
-        <meshStandardMaterial color="#3a4555" roughness={0.9} />
+        <meshStandardMaterial color="#4A5565" roughness={0.9} />
       </RoundedBox>
-      {/* Sofa arms */}
-      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[-0.95, 0.38, 0]} castShadow>
-        <meshStandardMaterial color="#3a4555" roughness={0.9} />
-      </RoundedBox>
-      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[0.95, 0.38, 0]} castShadow>
-        <meshStandardMaterial color="#3a4555" roughness={0.9} />
-      </RoundedBox>
-      {/* Coffee table */}
+      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[-0.95, 0.38, 0]}><meshStandardMaterial color="#4A5565" roughness={0.9} /></RoundedBox>
+      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[0.95, 0.38, 0]}><meshStandardMaterial color="#4A5565" roughness={0.9} /></RoundedBox>
       <RoundedBox args={[0.8, 0.04, 0.5]} radius={0.02} position={[0, 0.45, 0.8]} castShadow>
-        <meshStandardMaterial color={COLORS.desk} roughness={0.5} />
+        <meshStandardMaterial color={C.desk} roughness={0.5} />
       </RoundedBox>
-      <mesh position={[0, 0.22, 0.8]}>
-        <boxGeometry args={[0.06, 0.45, 0.06]} />
-        <meshStandardMaterial color={COLORS.deskLeg} />
-      </mesh>
-      <Text position={[0, 0.1, 1.3]} fontSize={0.1} color="#6080a0" anchorX="center" anchorY="middle">
-        Lounge
-      </Text>
+      <Text position={[0, 0.1, 1.3]} fontSize={0.1} color="#80a0c0" anchorX="center" anchorY="middle">Lounge</Text>
     </group>
   );
 }
 
-// ─── Orchestrator ───
-
-function Orchestrator3D({ coordination }: { coordination: CoordinationState }) {
+function Orchestrator({ coordination }: { coordination: CoordinationState }) {
   return (
-    <group position={ORCHESTRATOR_POSITION}>
-      {/* Platform */}
+    <group position={ORCHESTRATOR_POS}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
         <circleGeometry args={[2.2, 6]} />
-        <meshStandardMaterial color="#22C7B8" transparent opacity={0.08} />
+        <meshStandardMaterial color="#22C7B8" transparent opacity={0.1} />
       </mesh>
-      {/* Desk */}
       <RoundedBox args={[2.2, 0.1, 1.3]} radius={0.06} position={[0, 0.8, 0]} castShadow>
-        <meshStandardMaterial color="#2a3535" roughness={0.5} />
+        <meshStandardMaterial color="#3A5050" roughness={0.5} />
       </RoundedBox>
-      {/* Accent border */}
       <RoundedBox args={[2.3, 0.12, 1.4]} radius={0.06} position={[0, 0.79, 0]}>
-        <meshStandardMaterial color="#22C7B8" transparent opacity={0.25} />
+        <meshStandardMaterial color="#22C7B8" transparent opacity={0.3} />
       </RoundedBox>
-      {/* Monitor (larger) */}
       <mesh position={[0, 1.2, -0.5]} castShadow>
         <boxGeometry args={[1, 0.6, 0.04]} />
-        <meshStandardMaterial color="#0a1520" emissive="#22C7B8" emissiveIntensity={0.06} />
+        <meshStandardMaterial color="#0a1a20" emissive="#22C7B8" emissiveIntensity={0.08} />
       </mesh>
-      <mesh position={[0, 0.88, -0.4]}>
-        <boxGeometry args={[0.08, 0.2, 0.06]} />
-        <meshStandardMaterial color="#1a2025" />
-      </mesh>
-      <Text position={[0, 1, 0.5]} fontSize={0.2} color="#22C7B8" anchorX="center" anchorY="middle" fontWeight="bold">
-        🦀 Yas Claw
-      </Text>
-      <Text position={[0, 0.95, 0.55]} fontSize={0.09} color="#22C7B8" anchorX="center" anchorY="middle">
-        ORCHESTRATOR
-      </Text>
+      <Text position={[0, 1, 0.5]} fontSize={0.2} color="#40E8D8" anchorX="center" anchorY="middle">🦀 Yas Claw</Text>
+      <Text position={[0, 0.95, 0.55]} fontSize={0.09} color="#22C7B8" anchorX="center" anchorY="middle">ORCHESTRATOR</Text>
       {coordination.isCoordinating && (
         <mesh position={[0.9, 1.1, -0.4]}>
           <sphereGeometry args={[0.07, 8, 8]} />
@@ -605,165 +492,107 @@ function Orchestrator3D({ coordination }: { coordination: CoordinationState }) {
   );
 }
 
-// ─── Connection Lines ───
-
 function ConnectionLines() {
   const lines = useMemo(() => {
-    const result: { points: [THREE.Vector3, THREE.Vector3]; color: string }[] = [];
+    const result: { points: [THREE.Vector3, THREE.Vector3] }[] = [];
     for (const pos of Object.values(DEPT_POSITIONS)) {
-      result.push({
-        points: [
-          new THREE.Vector3(ORCHESTRATOR_POSITION[0], 0.5, ORCHESTRATOR_POSITION[2]),
-          new THREE.Vector3(pos[0], 0.5, pos[2]),
-        ],
-        color: "#22C7B8",
-      });
+      result.push({ points: [new THREE.Vector3(0, 0.5, 0), new THREE.Vector3(pos[0], 0.5, pos[2])] });
     }
-    result.push({
-      points: [
-        new THREE.Vector3(ORCHESTRATOR_POSITION[0], 0.5, ORCHESTRATOR_POSITION[2]),
-        new THREE.Vector3(MEETING_POSITION[0], 0.5, MEETING_POSITION[2]),
-      ],
-      color: "#22C7B8",
-    });
+    result.push({ points: [new THREE.Vector3(0, 0.5, 0), new THREE.Vector3(MEETING_POS[0], 0.5, MEETING_POS[2])] });
     return result;
   }, []);
-
-  return (
-    <group>
-      {lines.map((line, i) => (
-        <Line key={i} points={line.points} color={line.color} lineWidth={1} opacity={0.12} transparent />
-      ))}
-    </group>
-  );
+  return <group>{lines.map((l, i) => <Line key={i} points={l.points} color="#22C7B8" lineWidth={1} opacity={0.1} transparent />)}</group>;
 }
 
-// ─── Agent (3D figure) ───
+// ─── Agent ───
 
-function Agent3D({
-  agent, presence, homePosition, slotMap, signal, govSignals, onClick,
-}: {
+function Agent3D({ agent, presence, homePosition, slotMap, govSignals, onClick }: {
   agent: Agent; presence: AgentPresence | undefined;
   homePosition: [number, number, number]; slotMap: Map<string, number>;
-  signal: CollaborationSignal | undefined; govSignals: GovernanceSignal[];
-  onClick: () => void;
+  govSignals: GovernanceSignal[]; onClick: () => void;
 }) {
-  const meshRef = useRef<THREE.Group>(null);
-  const targetRef = useRef<[number, number, number]>([...homePosition]);
-  const currentRef = useRef<[number, number, number]>([...homePosition]);
-  const facingRef = useRef<number>(0);
-  const bobRef = useRef<number>(0);
-  const sitRef = useRef<number>(0);
+  const ref = useRef<THREE.Group>(null);
+  const target = useRef<[number, number, number]>([...homePosition]);
+  const cur = useRef<[number, number, number]>([...homePosition]);
+  const face = useRef(0);
+  const bob = useRef(0);
+  const sit = useRef(0);
 
   const state = presence?.state ?? "available";
-  const dotColor = getDotColor(state);
-  const isAway = state === "paused" || state === "offline";
-  const hasAlert = govSignals.some((s) => s.severity === "critical" || s.severity === "attention");
+  const dot = getDotColor(state);
+  const away = state === "paused" || state === "offline";
+  const alert = govSignals.some((s) => s.severity === "critical" || s.severity === "attention");
   const zone = getTargetZone(state);
   const shouldSit = zone === "desk";
 
   useEffect(() => {
-    const zone = getTargetZone(state);
-    if (zone === "desk") {
-      targetRef.current = [...homePosition];
+    if (zone === "desk") target.current = [...homePosition];
+    else target.current = getSlotPosition(zone, slotMap.get(agent.id) ?? 0);
+  }, [state, homePosition, slotMap, agent.id, zone]);
+
+  useFrame((_, dt) => {
+    if (!ref.current) return;
+    const dx = target.current[0] - cur.current[0];
+    const dz = target.current[2] - cur.current[2];
+    const d = Math.sqrt(dx * dx + dz * dz);
+    if (d > 0.08) {
+      const ease = Math.min(1, d / 2);
+      const spd = 2.2 * (0.3 + 0.7 * ease);
+      const step = Math.min(spd * dt, d);
+      cur.current[0] += (dx / d) * step;
+      cur.current[2] += (dz / d) * step;
+      ref.current.position.set(cur.current[0], 0, cur.current[2]);
+      const ma = Math.atan2(dx, dz);
+      let ad = ma - face.current;
+      while (ad > Math.PI) ad -= 2 * Math.PI;
+      while (ad < -Math.PI) ad += 2 * Math.PI;
+      face.current += ad * Math.min(1, dt * 8);
+      ref.current.rotation.y = face.current;
+      bob.current += dt * 7 * (spd / 2.2);
+      ref.current.position.y = Math.abs(Math.sin(bob.current)) * 0.035;
+      sit.current = Math.max(0, sit.current - dt * 4);
     } else {
-      const slotIndex = slotMap.get(agent.id) ?? 0;
-      targetRef.current = getSlotPosition(zone, slotIndex);
-    }
-  }, [state, homePosition, slotMap, agent.id]);
-
-  useFrame((_, delta) => {
-    if (!meshRef.current) return;
-    const target = targetRef.current;
-    const current = currentRef.current;
-    const baseSpeed = 2.2;
-
-    const dx = target[0] - current[0];
-    const dz = target[2] - current[2];
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    const isMoving = dist > 0.08;
-
-    if (isMoving) {
-      const easeFactor = Math.min(1, dist / 2);
-      const speed = baseSpeed * (0.3 + 0.7 * easeFactor);
-      const step = Math.min(speed * delta, dist);
-      current[0] += (dx / dist) * step;
-      current[2] += (dz / dist) * step;
-      meshRef.current.position.set(current[0], 0, current[2]);
-
-      const moveAngle = Math.atan2(dx, dz);
-      let angleDiff = moveAngle - facingRef.current;
-      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-      facingRef.current += angleDiff * Math.min(1, delta * 8);
-      meshRef.current.rotation.y = facingRef.current;
-
-      bobRef.current += delta * 7 * (speed / baseSpeed);
-      meshRef.current.position.y = Math.abs(Math.sin(bobRef.current)) * 0.035;
-      sitRef.current = Math.max(0, sitRef.current - delta * 4);
-    } else {
-      bobRef.current = 0;
-      if (shouldSit) {
-        sitRef.current = Math.min(1, sitRef.current + delta * 2.5);
-      } else {
-        sitRef.current = Math.max(0, sitRef.current - delta * 3.5);
-      }
-      meshRef.current.position.y = -sitRef.current * 0.2;
-
-      let faceTarget: [number, number] = [0, 0];
-      if (zone === "desk") faceTarget = [homePosition[0], homePosition[2] - 0.5];
-      else if (zone === "meeting") faceTarget = [MEETING_POSITION[0], MEETING_POSITION[2]];
-      else if (zone === "review") faceTarget = [REVIEW_POSITION[0], REVIEW_POSITION[2]];
-      else if (zone === "attention") faceTarget = [ATTENTION_POSITION[0], ATTENTION_POSITION[2]];
-      const faceDx = faceTarget[0] - current[0];
-      const faceDz = faceTarget[1] - current[2];
-      const targetAngle = Math.atan2(faceDx, faceDz);
-      let angleDiff = targetAngle - facingRef.current;
-      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-      facingRef.current += angleDiff * Math.min(1, delta * 4);
-      meshRef.current.rotation.y = facingRef.current;
+      bob.current = 0;
+      sit.current = shouldSit ? Math.min(1, sit.current + dt * 2.5) : Math.max(0, sit.current - dt * 3.5);
+      ref.current.position.y = -sit.current * 0.2;
+      let ft: [number, number] = [0, 0];
+      if (zone === "desk") ft = [homePosition[0], homePosition[2] - 0.5];
+      else if (zone === "meeting") ft = [MEETING_POS[0], MEETING_POS[2]];
+      else if (zone === "review") ft = [REVIEW_POS[0], REVIEW_POS[2]];
+      else if (zone === "attention") ft = [ATTENTION_POS[0], ATTENTION_POS[2]];
+      const fdx = ft[0] - cur.current[0], fdz = ft[1] - cur.current[2];
+      const ta = Math.atan2(fdx, fdz);
+      let ad = ta - face.current;
+      while (ad > Math.PI) ad -= 2 * Math.PI;
+      while (ad < -Math.PI) ad += 2 * Math.PI;
+      face.current += ad * Math.min(1, dt * 4);
+      ref.current.rotation.y = face.current;
     }
   });
 
-  const config = presence ? getPresenceConfig(presence.state) : null;
+  const cfg = presence ? getPresenceConfig(presence.state) : null;
 
   return (
-    <group ref={meshRef} position={[homePosition[0], 0, homePosition[2]]} onClick={onClick}>
-      {/* Body */}
+    <group ref={ref} position={[homePosition[0], 0, homePosition[2]]} onClick={onClick}>
       <mesh position={[0, 0.65, 0]} castShadow>
         <capsuleGeometry args={[0.12, 0.5, 8, 16]} />
-        <meshStandardMaterial color={isAway ? "#5a5045" : "#3a3025"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
+        <meshStandardMaterial color={away ? "#5a5045" : "#4A3C2E"} transparent={away} opacity={away ? 0.4 : 1} />
       </mesh>
-      {/* Shoulders */}
       <mesh position={[0, 0.85, 0]} castShadow>
         <boxGeometry args={[0.35, 0.06, 0.18]} />
-        <meshStandardMaterial color={isAway ? "#5a5045" : "#3a3025"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
+        <meshStandardMaterial color={away ? "#5a5045" : "#4A3C2E"} transparent={away} opacity={away ? 0.4 : 1} />
       </mesh>
-      {/* Head */}
       <mesh position={[0, 1.05, 0]} castShadow>
         <sphereGeometry args={[0.13, 16, 16]} />
-        <meshStandardMaterial color={isAway ? "#6b6055" : "#e2d8c8"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
+        <meshStandardMaterial color={away ? "#6b6055" : "#E8D8C0"} transparent={away} opacity={away ? 0.4 : 1} />
       </mesh>
-      {/* Presence dot */}
       <mesh position={[0.15, 0.9, -0.08]}>
         <sphereGeometry args={[0.035, 8, 8]} />
-        <meshStandardMaterial color={dotColor} emissive={dotColor} emissiveIntensity={state === "working" || state === "in_discussion" ? 0.8 : 0.3} />
+        <meshStandardMaterial color={dot} emissive={dot} emissiveIntensity={0.6} />
       </mesh>
-      {/* Alert */}
-      {hasAlert && (
-        <mesh position={[-0.15, 0.9, -0.08]}>
-          <sphereGeometry args={[0.035, 8, 8]} />
-          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1} />
-        </mesh>
-      )}
-      {/* Labels */}
-      <Text position={[0, 1.35, 0]} fontSize={0.1} color="#F5F0E8" anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#000000">
-        {agent.emoji} {agent.name.split(" ")[0]}
-      </Text>
-      <Text position={[0, 1.22, 0]} fontSize={0.065} color={dotColor} anchorX="center" anchorY="middle" outlineWidth={0.005} outlineColor="#000000">
-        {config?.label ?? state}
-      </Text>
+      {alert && <mesh position={[-0.15, 0.9, -0.08]}><sphereGeometry args={[0.035, 8, 8]} /><meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1} /></mesh>}
+      <Text position={[0, 1.35, 0]} fontSize={0.1} color="#F5F0E8" anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#000">{agent.emoji} {agent.name.split(" ")[0]}</Text>
+      <Text position={[0, 1.22, 0]} fontSize={0.065} color={dot} anchorX="center" anchorY="middle" outlineWidth={0.005} outlineColor="#000">{cfg?.label ?? state}</Text>
     </group>
   );
 }
@@ -772,73 +601,71 @@ function Agent3D({
 // DETAIL PANEL
 // ═══════════════════════════════════════
 
-const EVENT_CONFIG: Record<string, { color: string; label: string }> = {
+const EVT: Record<string, { color: string; label: string }> = {
   task_created: { color: "var(--info)", label: "Created" },
   task_updated: { color: "var(--text-quiet)", label: "Updated" },
   task_completed: { color: "var(--success)", label: "Completed" },
   agent_routed: { color: "var(--info)", label: "Routed" },
   blocker_detected: { color: "var(--danger)", label: "Blocker" },
-  blocker_resolved: { color: "var(--success)", label: "Resolved" },
 };
 
-function AgentDetailPanel({ agent, presence, signal, tasks, events, departments, projects, onClose }: {
+function DetailPanel({ agent, presence, signal, tasks, events, departments, projects, onClose }: {
   agent: Agent; presence: AgentPresence; signal: CollaborationSignal | undefined;
   tasks: TaskWithAgent[]; events: FeedEvent[]; departments: Department[]; projects: Project[];
   onClose: () => void;
 }) {
-  const config = getPresenceConfig(presence.state);
-  const allAgentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
-  const openAgentTasks = allAgentTasks.filter((t) => t.status !== "done");
-  const agentEvents = events.filter((e) => e.related_agent_id === agent.id).slice(0, 8);
-  const dept = departments.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
-  const departmentLabel = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
+  const cfg = getPresenceConfig(presence.state);
+  const all = tasks.filter((t) => t.assigned_agent_id === agent.id);
+  const open = all.filter((t) => t.status !== "done");
+  const evts = events.filter((e) => e.related_agent_id === agent.id).slice(0, 8);
+  const dept = departments.find((d) => d.slug === (agent as any).department_slug);
+  const dl = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
   const today = new Date().toISOString().slice(0, 10);
-  const completedToday = allAgentTasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === today).length;
-  const inProgressToday = allAgentTasks.filter((t) => t.status === "in-progress").length;
-  const inReviewToday = allAgentTasks.filter((t) => t.status === "in-review").length;
-  const blockedToday = allAgentTasks.filter((t) => t.status === "blocked").length;
-  const primaryTask = openAgentTasks.find((t) => t.status === "in-progress") ?? openAgentTasks[0] ?? null;
-  const waitingTask = openAgentTasks.find((t) => t.status === "in-review");
-  const blockedTask = openAgentTasks.find((t) => t.status === "blocked");
-  const linkedProject = primaryTask?.project_id ? projects.find((p) => p.id === primaryTask.project_id) : null;
+  const done = all.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === today).length;
+  const prog = all.filter((t) => t.status === "in-progress").length;
+  const rev = all.filter((t) => t.status === "in-review").length;
+  const blk = all.filter((t) => t.status === "blocked").length;
+  const pt = open.find((t) => t.status === "in-progress") ?? open[0] ?? null;
+  const wt = open.find((t) => t.status === "in-review");
+  const bt = open.find((t) => t.status === "blocked");
+  const proj = pt?.project_id ? projects.find((p) => p.id === pt.project_id) : null;
 
   return (
     <div className="fixed right-0 top-0 h-full z-50 overflow-y-auto" style={{ width: "min(380px, 92vw)", background: "var(--surface)", borderLeft: "1px solid var(--border)", boxShadow: "0 0 20px rgba(0,0,0,0.1)" }}>
       <div className="p-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-3">
-          <div className="relative"><span className="text-2xl">{agent.emoji}</span><div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 ${config?.dot ?? "dot-gray"}`} style={{ borderColor: "var(--surface)" }} /></div>
-          <div><p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{agent.name}</p><p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{departmentLabel}</p></div>
+          <div className="relative"><span className="text-2xl">{agent.emoji}</span><div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 ${cfg?.dot ?? "dot-gray"}`} style={{ borderColor: "var(--surface)" }} /></div>
+          <div><p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{agent.name}</p><p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{dl}</p></div>
         </div>
         <button onClick={onClose} className="p-1 rounded hover:opacity-70" style={{ color: "var(--text-quiet)" }}><X className="h-4 w-4" /></button>
       </div>
       <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="flex items-center gap-2 mb-1"><div className={`h-2 w-2 rounded-full ${config?.dot ?? "dot-gray"}`} /><span className="text-xs font-semibold" style={{ color: config?.color ?? "var(--text-quiet)" }}>{config?.label ?? presence.state}</span></div>
-        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Last activity: {presence.lastActivity ? timeAgo(presence.lastActivity) : "None"}</p>
+        <div className="flex items-center gap-2 mb-1"><div className={`h-2 w-2 rounded-full ${cfg?.dot ?? "dot-gray"}`} /><span className="text-xs font-semibold" style={{ color: cfg?.color ?? "var(--text-quiet)" }}>{cfg?.label ?? presence.state}</span></div>
+        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Last: {presence.lastActivity ? timeAgo(presence.lastActivity) : "None"}</p>
       </div>
       <div className="p-4 grid grid-cols-3 gap-3" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="text-center"><p className="text-sm font-bold" style={{ color: completedToday > 0 ? "var(--success)" : "var(--text)" }}>{completedToday}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Done</p></div>
-        <div className="text-center"><p className="text-sm font-bold" style={{ color: "var(--text)" }}>{inProgressToday}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Active</p></div>
-        <div className="text-center"><p className="text-sm font-bold" style={{ color: inReviewToday > 0 ? "var(--warning)" : "var(--text)" }}>{inReviewToday}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Review</p></div>
-        {blockedToday > 0 && <div className="text-center col-span-3"><p className="text-sm font-bold" style={{ color: "var(--danger)" }}>{blockedToday}</p><p className="text-[10px]" style={{ color: "var(--danger)" }}>Blocked</p></div>}
+        <div className="text-center"><p className="text-sm font-bold" style={{ color: done > 0 ? "var(--success)" : "var(--text)" }}>{done}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Done</p></div>
+        <div className="text-center"><p className="text-sm font-bold" style={{ color: "var(--text)" }}>{prog}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Active</p></div>
+        <div className="text-center"><p className="text-sm font-bold" style={{ color: rev > 0 ? "var(--warning)" : "var(--text)" }}>{rev}</p><p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Review</p></div>
       </div>
-      {(primaryTask || waitingTask || blockedTask) && (
+      {(pt || wt || bt) && (
         <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
           <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Current Context</p>
           <div className="flex flex-col gap-2">
-            {primaryTask && <Link href="/tasks" className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--text-quiet)" }}>Working on</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{primaryTask.title}</p></Link>}
-            {waitingTask && <Link href="/reviews" className="p-2 rounded hover:opacity-80" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--warning)" }}>Awaiting review</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{waitingTask.title}</p></Link>}
-            {blockedTask && <div className="p-2 rounded" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--danger)" }}>Blocked</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{blockedTask.title}</p>{blockedTask.blocker && <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>{blockedTask.blocker}</p>}</div>}
-            {linkedProject && <Link href={`/projects/${linkedProject.id}`} className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--text-quiet)" }}>Project</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{linkedProject.title}</p><span className="text-[9px] px-1 rounded" style={{ background: "var(--accent)", color: "white" }}>{linkedProject.project_code}</span></Link>}
+            {pt && <Link href="/tasks" className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--text-quiet)" }}>Working on</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{pt.title}</p></Link>}
+            {wt && <Link href="/reviews" className="p-2 rounded hover:opacity-80" style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--warning)" }}>Awaiting review</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{wt.title}</p></Link>}
+            {bt && <div className="p-2 rounded" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--danger)" }}>Blocked</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{bt.title}</p>{bt.blocker && <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>{bt.blocker}</p>}</div>}
+            {proj && <Link href={`/projects/${proj.id}`} className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}><p className="text-[10px] font-semibold mb-1" style={{ color: "var(--text-quiet)" }}>Project</p><p className="text-[11px]" style={{ color: "var(--text)" }}>{proj.title}</p></Link>}
           </div>
         </div>
       )}
       <div className="p-4" style={{ borderBottom: "1px solid var(--border)" }}>
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-3" style={{ color: "var(--text-quiet)" }}>Timeline</p>
-        {agentEvents.length === 0 ? <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No recent activity</p> : (
-          <div className="flex flex-col gap-0">{agentEvents.map((event, i) => { const evConfig = EVENT_CONFIG[event.event_type] ?? { color: "var(--text-quiet)", label: event.event_type }; return (
-            <div key={event.id} className="flex gap-2">
-              <div className="flex flex-col items-center"><div className="mt-1 h-3 w-3 rounded-full" style={{ background: evConfig.color + "30", border: `1px solid ${evConfig.color}` }} />{i < agentEvents.length - 1 && <div className="w-px flex-1" style={{ background: "var(--border)" }} />}</div>
-              <div className="pb-2 flex-1 min-w-0"><p className="text-[10px] truncate" style={{ color: "var(--text)" }}>{event.summary}</p><p className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</p></div>
+        {evts.length === 0 ? <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>No activity</p> : (
+          <div className="flex flex-col gap-0">{evts.map((e, i) => { const c = EVT[e.event_type] ?? { color: "var(--text-quiet)", label: e.event_type }; return (
+            <div key={e.id} className="flex gap-2">
+              <div className="flex flex-col items-center"><div className="mt-1 h-3 w-3 rounded-full" style={{ background: c.color + "30", border: `1px solid ${c.color}` }} />{i < evts.length - 1 && <div className="w-px flex-1" style={{ background: "var(--border)" }} />}</div>
+              <div className="pb-2 flex-1 min-w-0"><p className="text-[10px] truncate" style={{ color: "var(--text)" }}>{e.summary}</p><p className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(e.created_at)}</p></div>
             </div>
           ); })}</div>
         )}
@@ -877,117 +704,94 @@ export default function OfficePage() {
     try {
       const [a, d, t, e, p] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50), getProjects()]);
       setAgents(a.data); setDepartments(d.data); setTasks(t.data); setEvents(e.data); setProjects(p.data);
-      const presenceList = a.data.map((agent) => deriveAgentPresence(agent, t.data, e.data));
-      setPresences(presenceList);
-      const agentIds = a.data.map((agent) => agent.id);
-      const collabSignals = computeCollaborationSignals(e.data, agentIds);
-      setSignals(collabSignals); setCoordination(computeCoordinationState(e.data, agentIds));
+      const pl = a.data.map((ag) => deriveAgentPresence(ag, t.data, e.data));
+      setPresences(pl);
+      const ids = a.data.map((ag) => ag.id);
+      const cs = computeCollaborationSignals(e.data, ids);
+      setSignals(cs); setCoordination(computeCoordinationState(e.data, ids));
       const { getAllTaskReviews } = await import("@/lib/data/reviews");
-      const [reviewsResult, gapsResult] = await Promise.all([getAllTaskReviews(100), getCapabilityGaps({ limit: 50 })]);
-      const reviewOutcomes = reviewsResult.data.map((r) => ({ task_id: r.task_id, outcome: r.outcome }));
-      const gapsFlat = gapsResult.data.map((g) => ({ agent_id: (g as any).agent_id ?? null, urgency_level: (g as any).urgency_level ?? "low", composite_score: (g as any).composite_score ?? 0 }));
-      setGovernance(computeOrchestratorGovernance(a.data, t.data, e.data, reviewOutcomes, gapsFlat));
+      const [rr, gr] = await Promise.all([getAllTaskReviews(100), getCapabilityGaps({ limit: 50 })]);
+      const ro = rr.data.map((r) => ({ task_id: r.task_id, outcome: r.outcome }));
+      const gf = gr.data.map((g) => ({ agent_id: (g as any).agent_id ?? null, urgency_level: (g as any).urgency_level ?? "low", composite_score: (g as any).composite_score ?? 0 }));
+      setGovernance(computeOrchestratorGovernance(a.data, t.data, e.data, ro, gf));
     } catch (err) { console.error("Office load error:", err); } finally { setLoading(false); }
   }
 
   const loadRef = useCallback(() => load(), []);
   useRealtimeMulti(["agents", "tasks", "feed_events"], loadRef);
-  useEffect(() => { const interval = setInterval(() => load(), 10000); return () => clearInterval(interval); }, []);
+  useEffect(() => { const i = setInterval(() => load(), 10000); return () => clearInterval(i); }, []);
   useEffect(() => { load(); }, []);
 
-  const homePositions = useMemo(() => computeHomePositions(agents), [agents]);
-  const slotMap = useMemo(() => assignSlots(agents, presences), [agents, presences]);
-
-  const workingCount = presences.filter((p) => p.state === "working").length;
-  const discussionCount = presences.filter((p) => p.state === "in_discussion").length;
-  const reviewCount = presences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input").length;
-  const blockedCount = presences.filter((p) => p.state === "blocked").length;
-  const awayCount = presences.filter((p) => p.state === "paused" || p.state === "offline").length;
+  const hp = useMemo(() => computeHomePositions(agents), [agents]);
+  const sm = useMemo(() => assignSlots(agents, presences), [agents, presences]);
+  const wc = presences.filter((p) => p.state === "working").length;
+  const dc = presences.filter((p) => p.state === "in_discussion").length;
+  const rc = presences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input").length;
+  const bc = presences.filter((p) => p.state === "blocked").length;
+  const ac = presences.filter((p) => p.state === "paused" || p.state === "offline").length;
 
   if (loading) return <PageShell title="Office" description="Loading..."><div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading office...</div></PageShell>;
 
-  const selectedPresence = selectedAgent ? presences.find((p) => p.agentId === selectedAgent.id) : null;
+  const sp = selectedAgent ? presences.find((p) => p.agentId === selectedAgent.id) : null;
 
   return (
     <PageShell title="Office" description="3D living office">
       {/* Executive strip */}
       <div className="rounded-lg p-3 mb-4 flex items-center gap-3 overflow-x-auto text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)", WebkitOverflowScrolling: "touch" }}>
         <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>Online {presences.filter((p) => p.state !== "paused" && p.state !== "offline").length}</span></div>
-        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--info)" }} /><span style={{ color: "var(--text-quiet)" }}>Work {workingCount}</span></div>
-        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} /><span style={{ color: "var(--text-quiet)" }}>Talk {discussionCount}</span></div>
-        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--warning)" }} /><span style={{ color: "var(--text-quiet)" }}>Review {reviewCount}</span></div>
-        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} /><span style={{ color: "var(--text-quiet)" }}>Blocked {blockedCount}</span></div>
-        {awayCount > 0 && <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {awayCount}</span></div>}
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--info)" }} /><span style={{ color: "var(--text-quiet)" }}>Work {wc}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} /><span style={{ color: "var(--text-quiet)" }}>Talk {dc}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--warning)" }} /><span style={{ color: "var(--text-quiet)" }}>Review {rc}</span></div>
+        <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} /><span style={{ color: "var(--text-quiet)" }}>Blocked {bc}</span></div>
+        {ac > 0 && <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {ac}</span></div>}
         <div className="flex gap-1.5 ml-auto shrink-0">
           <Link href="/reviews" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Reviews</Link>
           <Link href="/tasks" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Tasks</Link>
-          <Link href="/live-feed" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Feed</Link>
         </div>
         <div className="flex items-center gap-1.5 shrink-0"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
 
-      {/* Priority queue */}
-      {governance.needsAttention > 0 && (
-        <div className="rounded-lg p-2.5 mb-4 flex flex-wrap gap-2" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-          {governance.pendingReviews > 0 && <Link href="/reviews" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}><Clock className="h-2.5 w-2.5" />{governance.pendingReviews} review{governance.pendingReviews > 1 ? "s" : ""}</Link>}
-          {governance.blockedAgents > 0 && <Link href="/tasks" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}><AlertTriangle className="h-2.5 w-2.5" />{governance.blockedAgents} blocked</Link>}
-          {governance.overloadedAgents > 0 && <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.08)", color: "var(--warning)" }}><Activity className="h-2.5 w-2.5" />{governance.overloadedAgents} overloaded</span>}
-          {governance.capabilityAlerts > 0 && <Link href="/skills" className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.1)", color: "var(--accent)" }}><ShieldCheck className="h-2.5 w-2.5" />{governance.capabilityAlerts} skill gap{governance.capabilityAlerts > 1 ? "s" : ""}</Link>}
-        </div>
-      )}
+      {/* 3D Canvas — BROWN BACKGROUND */}
+      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "68vh", background: C.bg }}>
+        <Canvas shadows camera={{ position: [8, 8, 18], fov: 50 }} style={{ background: C.bg }}>
+          <ambientLight intensity={0.25} />
+          <directionalLight position={[8, 12, 8]} intensity={0.5} castShadow shadow-mapSize={[1024, 1024]} />
+          <directionalLight position={[-6, 8, -4]} intensity={0.15} color="#d4c4a0" />
+          <pointLight position={[0, 4, 0]} intensity={0.35} color="#22C7B8" distance={15} />
+          <pointLight position={[MEETING_POS[0], 3, MEETING_POS[2]]} intensity={0.15} color="#a080ff" distance={8} />
+          <pointLight position={[DINING_POS[0], 2.5, DINING_POS[2]]} intensity={0.1} color="#c4a060" distance={6} />
 
-      {/* 3D Canvas */}
-      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "68vh", background: "#1a1510" }}>
-        <Canvas shadows camera={{ position: [10, 9, 16], fov: 48 }} style={{ background: "#1a1510" }}>
-          {/* Lighting */}
-          <ambientLight intensity={0.2} />
-          <directionalLight position={[8, 12, 8]} intensity={0.45} castShadow shadow-mapSize={[1024, 1024]} />
-          <directionalLight position={[-6, 8, -4]} intensity={0.15} color="#c4a882" />
-          <pointLight position={[0, 4, 0]} intensity={0.3} color="#22C7B8" distance={15} />
-          <pointLight position={[MEETING_POSITION[0], 3, MEETING_POSITION[2]]} intensity={0.15} color="#8b5cf6" distance={8} />
-          <pointLight position={[RECEPTION_POSITION[0], 3, RECEPTION_POSITION[2]]} intensity={0.1} color="#b8a080" distance={8} />
-          <pointLight position={[DINING_POSITION[0], 2.5, DINING_POSITION[2]]} intensity={0.1} color="#a08060" distance={6} />
-          <pointLight position={[LOUNGE_POSITION[0], 2.5, LOUNGE_POSITION[2]]} intensity={0.08} color="#6080a0" distance={6} />
-
-          {/* Environment */}
-          <Room3D />
-          <Orchestrator3D coordination={coordination} />
+          <Room />
+          <Orchestrator coordination={coordination} />
           <ConnectionLines />
-          <MeetingTable3D />
-          <ReviewArea3D />
-          <AttentionArea3D />
-          <Reception3D />
-          <DiningArea3D />
-          <LoungeArea3D />
+          <MeetingTable />
+          <ReviewArea />
+          <AttentionArea />
+          <Reception />
+          <DiningArea />
+          <LoungeArea />
 
-          {/* Department clusters */}
           {[
             { slug: "export-growth", label: "Export-Growth", color: "#3b82f6" },
             { slug: "ops-improvement", label: "Ops-Improvement", color: "#f59e0b" },
             { slug: "architecture-systems", label: "Architecture", color: "#8b5cf6" },
             { slug: "direct", label: "Direct", color: "#22c55e" },
-          ].map((dept) => (
-            <DeptCluster3D key={dept.slug} slug={dept.slug} label={dept.label} color={dept.color} agents={agents.filter((a) => getAgentDeptSlug(a) === dept.slug)} homePositions={homePositions} presences={presences} onSelectAgent={setSelectedAgent} />
+          ].map((d) => (
+            <DeptCluster key={d.slug} slug={d.slug} label={d.label} color={d.color} agents={agents.filter((a) => getAgentDeptSlug(a) === d.slug)} homePositions={hp} presences={presences} onSelect={setSelectedAgent} />
           ))}
 
-          {/* Agents */}
-          {agents.map((agent) => {
-            const homePos = homePositions.get(agent.id) ?? [0, 0, 0];
-            const presence = presences.find((p) => p.agentId === agent.id);
-            return (
-              <Agent3D key={agent.id} agent={agent} presence={presence} homePosition={homePos} slotMap={slotMap} signal={signals.get(agent.id)} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} onClick={() => setSelectedAgent(agent)} />
-            );
-          })}
+          {agents.map((a) => (
+            <Agent3D key={a.id} agent={a} presence={presences.find((p) => p.agentId === a.id)} homePosition={hp.get(a.id) ?? [0, 0, 0]} slotMap={sm} govSignals={governance.signals.filter((gs) => gs.agentId === a.id)} onClick={() => setSelectedAgent(a)} />
+          ))}
 
           <OrbitControls enablePan enableZoom enableRotate maxPolarAngle={Math.PI / 2.2} minDistance={5} maxDistance={35} target={[0, 0, 0]} />
         </Canvas>
       </div>
 
-      {/* Detail panel */}
-      {selectedAgent && selectedPresence && (
+      {selectedAgent && sp && (
         <>
           <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.15)" }} onClick={() => setSelectedAgent(null)} />
-          <AgentDetailPanel agent={selectedAgent} presence={selectedPresence} signal={signals.get(selectedAgent.id)} tasks={tasks} events={events} departments={departments} projects={projects} onClose={() => setSelectedAgent(null)} />
+          <DetailPanel agent={selectedAgent} presence={sp} signal={signals.get(selectedAgent.id)} tasks={tasks} events={events} departments={departments} projects={projects} onClose={() => setSelectedAgent(null)} />
         </>
       )}
     </PageShell>
