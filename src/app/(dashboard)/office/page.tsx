@@ -516,6 +516,137 @@ function AgentDetailPanel({ agent, presence, signal, tasks, events, departments,
   );
 }
 
+// ─── CEO Command Center ───
+
+function CEOCommandCenter({ agents, presences, governance, tasks, departments }: {
+  agents: Agent[]; presences: AgentPresence[]; governance: OrchestratorGovernance;
+  tasks: TaskWithAgent[]; departments: Department[];
+}) {
+  // Compute executive summary
+  const blockedAgents = presences.filter((p) => p.state === "blocked");
+  const reviewAgents = presences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input");
+  const discussionAgents = presences.filter((p) => p.state === "in_discussion");
+  const workingAgents = presences.filter((p) => p.state === "working");
+
+  // Department pressure
+  const deptPressure: { name: string; blocked: number; review: number }[] = [];
+  for (const dept of departments) {
+    const deptAgents = agents.filter((a) => (a as any).department_slug === dept.slug);
+    const deptPresences = presences.filter((p) => deptAgents.some((a) => a.id === p.agentId));
+    const blocked = deptPresences.filter((p) => p.state === "blocked").length;
+    const review = deptPresences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input").length;
+    if (blocked > 0 || review > 0) {
+      deptPressure.push({ name: dept.name, blocked, review });
+    }
+  }
+
+  // Priority items
+  const priorityItems: { label: string; detail: string; href: string; color: string }[] = [];
+
+  if (governance.pendingReviews > 0) {
+    priorityItems.push({
+      label: `${governance.pendingReviews} review${governance.pendingReviews > 1 ? "s" : ""} awaiting`,
+      detail: "CEO approval needed",
+      href: "/reviews",
+      color: "var(--warning)",
+    });
+  }
+
+  if (governance.blockedAgents > 0) {
+    const blockedNames = blockedAgents.map((p) => {
+      const agent = agents.find((a) => a.id === p.agentId);
+      return agent?.name ?? "Unknown";
+    });
+    priorityItems.push({
+      label: `${governance.blockedAgents} blocked agent${governance.blockedAgents > 1 ? "s" : ""}`,
+      detail: blockedNames.join(", "),
+      href: "/tasks",
+      color: "var(--danger)",
+    });
+  }
+
+  if (governance.capabilityAlerts > 0) {
+    priorityItems.push({
+      label: `${governance.capabilityAlerts} skill gap${governance.capabilityAlerts > 1 ? "s" : ""}`,
+      detail: "Capability recommendation pending",
+      href: "/skills",
+      color: "var(--accent)",
+    });
+  }
+
+  if (governance.overloadedAgents > 0) {
+    priorityItems.push({
+      label: `${governance.overloadedAgents} overloaded agent${governance.overloadedAgents > 1 ? "s" : ""}`,
+      detail: "Workload rebalancing may help",
+      href: "/workforce",
+      color: "var(--warning)",
+    });
+  }
+
+  // Executive summary sentence
+  let summary = "Office running smoothly";
+  if (blockedAgents.length > 0 && reviewAgents.length > 0) {
+    summary = "Review pressure elevated, blockers present";
+  } else if (blockedAgents.length > 0) {
+    summary = `Blocker pressure on ${blockedAgents.length} agent${blockedAgents.length > 1 ? "s" : ""}`;
+  } else if (reviewAgents.length > 0) {
+    summary = `Review backlog — ${reviewAgents.length} awaiting approval`;
+  } else if (discussionAgents.length > 0) {
+    summary = `Active discussions — ${discussionAgents.length} in meeting`;
+  } else if (workingAgents.length > 0) {
+    summary = `${workingAgents.length} agent${workingAgents.length > 1 ? "s" : ""} working — office active`;
+  }
+
+  // Don't render if no attention items
+  if (priorityItems.length === 0 && deptPressure.length === 0) {
+    return (
+      <div className="rounded-lg p-3 mb-4 flex items-center gap-2" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+        <span className="text-[10px]" style={{ color: "var(--success)" }}>●</span>
+        <span className="text-xs" style={{ color: "var(--text-quiet)" }}>{summary}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg p-3 mb-4" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+      {/* Executive summary */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[10px]" style={{ color: priorityItems.some((i) => i.color === "var(--danger)") ? "var(--danger)" : "var(--warning)" }}>●</span>
+        <span className="text-xs font-medium" style={{ color: "var(--text)" }}>{summary}</span>
+      </div>
+
+      {/* Priority queue */}
+      {priorityItems.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {priorityItems.slice(0, 4).map((item, i) => (
+            <Link key={i} href={item.href} className="flex items-center justify-between p-2 rounded hover:opacity-80" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full" style={{ background: item.color }} />
+                <div>
+                  <span className="text-[11px] font-medium" style={{ color: "var(--text)" }}>{item.label}</span>
+                  <span className="text-[10px] ml-2" style={{ color: "var(--text-quiet)" }}>{item.detail}</span>
+                </div>
+              </div>
+              <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>→</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Department pressure */}
+      {deptPressure.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+          {deptPressure.map((dept, i) => (
+            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: dept.blocked > 0 ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)", color: dept.blocked > 0 ? "var(--danger)" : "var(--warning)" }}>
+              {dept.name}: {dept.blocked > 0 ? `${dept.blocked} blocked` : ""}{dept.blocked > 0 && dept.review > 0 ? ", " : ""}{dept.review > 0 ? `${dept.review} review` : ""}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ───
 
 export default function OfficePage() {
@@ -600,6 +731,15 @@ export default function OfficePage() {
         {awayCount > 0 && <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {awayCount}</span></div>}
         <div className="flex items-center gap-1.5 ml-auto shrink-0"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
+
+      {/* CEO Command Center */}
+      <CEOCommandCenter
+        agents={agents}
+        presences={presences}
+        governance={governance}
+        tasks={tasks}
+        departments={departments}
+      />
 
       {/* Isometric Office Scene */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
