@@ -84,7 +84,7 @@ export default function OrgChartPage() {
   }
 
   return (
-    <PageShell title="Org Chart" description="Organization hierarchy and department structure">
+    <PageShell title="Team Structure" description="Organization hierarchy — CEO, orchestrator, departments, agents, and specialists">
       {error && (
         <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>
           {error}

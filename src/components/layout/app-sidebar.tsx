@@ -77,7 +77,7 @@ const sections = [
     items: [
       { title: "Alerts", href: "/alerts", icon: Bell },
       { title: "Notes", href: "/notes", icon: BookOpen },
-      { title: "Org Chart", href: "/org-chart", icon: Network },
+      { title: "Team", href: "/org-chart", icon: Network },
       { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
