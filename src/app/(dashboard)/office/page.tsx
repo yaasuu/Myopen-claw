@@ -38,12 +38,19 @@ export default function OfficePage() {
   const [loading, setLoading] = useState(true);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
+  const [presences, setPresences] = useState<AgentPresence[]>([]);
 
   async function load() {
     setLoading(true);
-    const [a, t] = await Promise.all([getAgents(), getTasks()]);
+    const [a, t, e] = await Promise.all([getAgents(), getTasks(), getFeedEvents(50)]);
     setAgents(a.data);
     setTasks(t.data);
+
+    // Derive presence for each agent
+    const presenceList = a.data.map((agent) =>
+      deriveAgentPresence(agent, t.data, e.data)
+    );
+    setPresences(presenceList);
     setLoading(false);
   }
 
@@ -61,38 +68,37 @@ export default function OfficePage() {
     );
   }
 
-  const activeAgents = agents.filter((a) => a.status === "active");
-  const pausedAgents = agents.filter((a) => a.status === "paused");
 
   return (
     <PageShell title="Digital Office" description="View each agent working — status, work areas, and real-time activity">
       {/* Stats */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
         <div className="surface-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>At Work</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "var(--success)" }}>{activeAgents.length}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Working</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: "var(--info)" }}>{presences.filter((p) => p.state === "working").length}</p>
         </div>
         <div className="surface-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Away</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: pausedAgents.length > 0 ? "var(--warning)" : "var(--text-quiet)" }}>{pausedAgents.length}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>In Review</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: "var(--warning)" }}>{presences.filter((p) => p.state === "in_review").length}</p>
         </div>
         <div className="surface-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Total Staff</p>
-          <p className="text-2xl font-bold mt-1">{agents.length}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Blocked</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: presences.filter((p) => p.state === "blocked").length > 0 ? "var(--danger)" : "var(--text-quiet)" }}>{presences.filter((p) => p.state === "blocked").length}</p>
         </div>
         <div className="surface-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Active Tasks</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "var(--accent)" }}>{tasks.filter((t) => t.status !== "done").length}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Available</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: "var(--success)" }}>{presences.filter((p) => p.state === "available").length}</p>
         </div>
       </div>
 
       {/* Office grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {agents.map((agent) => {
-          const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
-          const openTasks = agentTasks.filter((t) => t.status !== "done");
-          const blockedTasks = agentTasks.filter((t) => t.status === "blocked");
-          const isWorking = agent.status === "active" && agent.last_activity;
+          const presence = presences.find((p) => p.agentId === agent.id);
+          const openTasks = tasks.filter((t) => t.assigned_agent_id === agent.id && t.status !== "done");
+          const blockedTasks = tasks.filter((t) => t.assigned_agent_id === agent.id && t.status === "blocked");
+          const inReviewTasks = tasks.filter((t) => t.assigned_agent_id === agent.id && t.status === "in-review");
+          const config = presence ? getPresenceConfig(presence.state) : null;
 
           return (
             <Link key={agent.id} href={`/agents/${agent.id}`}>
@@ -104,7 +110,7 @@ export default function OfficePage() {
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl text-2xl" style={{ background: "var(--surface-muted)" }}>
                         {agent.emoji}
                       </div>
-                      <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 ${isWorking ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                      <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 ${config?.dot ?? "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
                     </div>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{agent.name}</p>
@@ -124,23 +130,23 @@ export default function OfficePage() {
                         <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Open</p>
                       </div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: blockedTasks.length > 0 ? "var(--danger)" : "var(--text)" }}>{blockedTasks.length}</p>
-                        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Blocked</p>
+                        <p className="text-sm font-bold" style={{ color: inReviewTasks.length > 0 ? "var(--warning)" : "var(--text)" }}>{inReviewTasks.length}</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Review</p>
                       </div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: "var(--success)" }}>{agentTasks.filter((t) => t.status === "done").length}</p>
-                        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Done</p>
+                        <p className="text-sm font-bold" style={{ color: blockedTasks.length > 0 ? "var(--danger)" : "var(--text)" }}>{blockedTasks.length}</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Blocked</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Status */}
                   <div className="flex items-center justify-between text-xs">
-                    <span style={{ color: isWorking ? "var(--success)" : "var(--text-quiet)" }}>
-                      {isWorking ? "● Working" : agent.status === "paused" ? "⏸ Paused" : "○ Idle"}
+                    <span style={{ color: config?.color ?? "var(--text-quiet)" }}>
+                      {config?.label ?? "Unknown"}
                     </span>
                     <span style={{ color: "var(--text-quiet)" }}>
-                      {timeAgo(agent.last_activity)}
+                      {presence?.lastActivity ? timeAgo(presence.lastActivity) : "No activity"}
                     </span>
                   </div>
                 </CardContent>
