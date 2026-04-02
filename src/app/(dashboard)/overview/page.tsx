@@ -49,6 +49,125 @@ function StatusIcon({ children, color }: { children: React.ReactNode; color: str
   );
 }
 
+// ─── CEO Morning Briefing ───
+
+function MorningBriefing({ agents, tasks, blocked, pausedAgents, criticalEvents, events, taskStats }: {
+  agents: { id: string; name: string; emoji: string; short_id: string; status: string }[];
+  tasks: { id: string; title: string; status: string; priority: string; assigned_agent_id: string | null; blocker: string | null; updated_at: string; assigned_agent_name: string | null; assigned_agent_emoji: string | null }[];
+  blocked: typeof tasks;
+  pausedAgents: { id: string; name: string; emoji: string }[];
+  criticalEvents: { id: string; event_type: string; summary: string; created_at: string }[];
+  events: { id: string; event_type: string; summary: string; created_at: string; related_agent_id: string | null }[];
+  taskStats: { total: number; pending: number; inProgress: number; blocked: number; done: number };
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  // Overnight summary (completed since yesterday)
+  const completedYesterday = tasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) >= yesterday).length;
+
+  // In-review count (from tasks directly, since taskStats doesn't include it)
+  const inReviewCount = tasks.filter((t) => t.status === "in-review").length;
+
+  // Time helpers
+  function ageLabel(iso: string): string {
+    const ms = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(ms / 60000);
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    return `${Math.floor(hours / 24)}d`;
+  }
+
+  // Top priorities for today
+  const priorities: { text: string; href: string; color: string }[] = [];
+
+  if (inReviewCount > 0) {
+    priorities.push({ text: `Approve ${inReviewCount} review item${inReviewCount > 1 ? "s" : ""}`, href: "/reviews", color: "var(--warning)" });
+  }
+  if (blocked.length > 0) {
+    const oldest = blocked.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())[0];
+    priorities.push({ text: `Resolve ${blocked.length} blocker${blocked.length > 1 ? "s" : ""} (oldest ${ageLabel(oldest.updated_at)})`, href: "/tasks", color: "var(--danger)" });
+  }
+  if (pausedAgents.length > 0) {
+    priorities.push({ text: `Check ${pausedAgents.length} paused agent${pausedAgents.length > 1 ? "s" : ""}`, href: "/workforce", color: "var(--warning)" });
+  }
+  if (taskStats.inProgress > 0) {
+    priorities.push({ text: `${taskStats.inProgress} task${taskStats.inProgress > 1 ? "s" : ""} in progress`, href: "/tasks", color: "var(--info)" });
+  }
+
+  // Waiting for CEO
+  const waitingForCEO: { text: string; href: string; age: string }[] = [];
+  const reviewTasks = tasks.filter((t) => t.status === "in-review");
+  for (const task of reviewTasks.slice(0, 3)) {
+    waitingForCEO.push({ text: task.title, href: "/reviews", age: ageLabel(task.updated_at) });
+  }
+  for (const task of blocked.filter((t) => t.priority === "high").slice(0, 2)) {
+    waitingForCEO.push({ text: `${task.title} (blocked)`, href: "/tasks", age: ageLabel(task.updated_at) });
+  }
+
+  // Executive greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  return (
+    <div className="rounded-lg p-4 mb-6" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
+      {/* Greeting + overnight */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{greeting}, Yas</p>
+          <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
+            {completedYesterday > 0 ? `${completedYesterday} task${completedYesterday > 1 ? "s" : ""} completed since yesterday` : "No completed tasks since yesterday"}
+            {blocked.length > 0 ? ` · ${blocked.length} blocked` : ""}
+            {inReviewCount > 0 ? ` · ${inReviewCount} awaiting review` : ""}
+          </p>
+        </div>
+        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>
+          {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+        </span>
+      </div>
+
+      {/* Top priorities */}
+      {priorities.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-quiet)" }}>Top Priorities</p>
+          <div className="flex flex-col gap-1">
+            {priorities.map((p, i) => (
+              <Link key={i} href={p.href} className="flex items-center gap-2 text-[11px] p-1.5 rounded hover:opacity-80" style={{ background: "var(--surface)" }}>
+                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
+                <span style={{ color: "var(--text)" }}>{p.text}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Waiting for CEO */}
+      {waitingForCEO.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-quiet)" }}>Waiting for You</p>
+          <div className="flex flex-col gap-1">
+            {waitingForCEO.map((item, i) => (
+              <Link key={i} href={item.href} className="flex items-center justify-between text-[11px] p-1.5 rounded hover:opacity-80" style={{ background: "var(--surface)" }}>
+                <span className="truncate" style={{ color: "var(--text)" }}>{item.text}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ml-2" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>{item.age}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick links */}
+      <div className="flex gap-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+        <Link href="/office" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Office</Link>
+        <Link href="/reviews" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Reviews</Link>
+        <Link href="/tasks" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Tasks</Link>
+        <Link href="/live-feed" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Feed</Link>
+      </div>
+    </div>
+  );
+}
+
 export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +307,17 @@ export default function OverviewPage() {
           Some data may be stale: {error}
         </div>
       )}
+
+      {/* CEO Morning Briefing */}
+      <MorningBriefing
+        agents={allAgents}
+        tasks={tasks}
+        blocked={blocked}
+        pausedAgents={pausedAgents}
+        criticalEvents={criticalEvents}
+        events={events}
+        taskStats={taskStats}
+      />
 
       {/* Summary cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

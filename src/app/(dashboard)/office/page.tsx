@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, Text, RoundedBox, Line } from "@react-three/drei";
+import * as THREE from "three";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Loader2, X, ListTodo, ShieldCheck, GitBranch, AlertTriangle, Clock, Activity, Monitor } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
@@ -34,387 +37,460 @@ function getAgentDeptSlug(agent: Agent): string {
   return (agent as any).department_slug ?? "";
 }
 
-function getDeptLabel(slug: string, departments: Department[]): string {
-  if (slug === "direct") return "Direct";
-  const dept = departments.find((d) => d.slug === slug);
-  return dept?.name ?? slug;
-}
+// ─── 3D Layout Configuration ───
 
-// ─── Isometric Office Layout ───
-// SVG viewBox: 900x600
-// Yas Claw at center (450, 200) — prominent orchestrator
-// Departments positioned around Yas Claw:
-//   - Export-Growth: left (200, 320)
-//   - Ops-Improvement: center-left (400, 380)
-//   - Architecture-Systems: right (650, 320)
-//   - Direct agents: near Yas Claw (350-550, 280)
-// Within each department, agents placed by state:
-//   - working → at desks
-//   - discussion → near meeting area
-//   - review → near review area
-//   - blocked → attention area
-//   - available → standby desks
+const DEPT_POSITIONS: Record<string, [number, number, number]> = {
+  "export-growth": [-6, 0, 2],
+  "ops-improvement": [0, 0, 5],
+  "architecture-systems": [6, 0, 2],
+  "direct": [0, 0, -2],
+};
 
-// ─── Department Desk Clusters ───
-// Each department has a grid of desk positions
-// Agents are seated at desks within their department cluster
-// State changes shift agents from their desk but keep them near the cluster
-
-const SVG_W = 1000;
-const SVG_H = 650;
-
-interface DeskCluster {
-  slug: string;
-  label: string;
-  color: string;
-  // Cluster center
-  cx: number;
-  cy: number;
-  // Desk positions (relative to cluster center)
-  desks: { dx: number; dy: number }[];
-  // State offsets from desk (relative to desk position)
-  stateShifts: Record<string, { dx: number; dy: number }>;
-}
-
-const CLUSTERS: DeskCluster[] = [
-  {
-    slug: "export-growth",
-    label: "Export-Growth",
-    color: "#3b82f6",
-    cx: 160, cy: 380,
-    desks: [
-      { dx: -50, dy: -18 }, { dx: 0, dy: -18 }, { dx: 50, dy: -18 },
-      { dx: -50, dy: 18 }, { dx: 0, dy: 18 }, { dx: 50, dy: 18 },
-    ],
-    stateShifts: {
-      working: { dx: 0, dy: 0 },
-      in_discussion: { dx: 120, dy: -80 },
-      in_review: { dx: 140, dy: 20 },
-      waiting_for_input: { dx: 140, dy: 20 },
-      blocked: { dx: 0, dy: 60 },
-      available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 40 },
-      offline: { dx: 0, dy: 40 },
-    },
-  },
-  {
-    slug: "ops-improvement",
-    label: "Ops-Improvement",
-    color: "#f59e0b",
-    cx: 420, cy: 460,
-    desks: [
-      { dx: -50, dy: -18 }, { dx: 0, dy: -18 }, { dx: 50, dy: -18 },
-      { dx: -50, dy: 18 }, { dx: 0, dy: 18 }, { dx: 50, dy: 18 },
-    ],
-    stateShifts: {
-      working: { dx: 0, dy: 0 },
-      in_discussion: { dx: -80, dy: -90 },
-      in_review: { dx: 100, dy: -30 },
-      waiting_for_input: { dx: 100, dy: -30 },
-      blocked: { dx: 0, dy: 60 },
-      available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 40 },
-      offline: { dx: 0, dy: 40 },
-    },
-  },
-  {
-    slug: "architecture-systems",
-    label: "Architecture",
-    color: "#8b5cf6",
-    cx: 720, cy: 380,
-    desks: [
-      { dx: -50, dy: -18 }, { dx: 0, dy: -18 }, { dx: 50, dy: -18 },
-      { dx: -50, dy: 18 }, { dx: 0, dy: 18 }, { dx: 50, dy: 18 },
-    ],
-    stateShifts: {
-      working: { dx: 0, dy: 0 },
-      in_discussion: { dx: -120, dy: -80 },
-      in_review: { dx: -140, dy: 20 },
-      waiting_for_input: { dx: -140, dy: 20 },
-      blocked: { dx: 0, dy: 60 },
-      available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 40 },
-      offline: { dx: 0, dy: 40 },
-    },
-  },
-  {
-    slug: "direct",
-    label: "Direct",
-    color: "#22c55e",
-    cx: 500, cy: 300,
-    desks: [
-      { dx: -45, dy: -14 }, { dx: 0, dy: -14 }, { dx: 45, dy: -14 },
-    ],
-    stateShifts: {
-      working: { dx: 0, dy: 0 },
-      in_discussion: { dx: 60, dy: -50 },
-      in_review: { dx: 80, dy: 15 },
-      waiting_for_input: { dx: 80, dy: 15 },
-      blocked: { dx: 0, dy: 50 },
-      available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 30 },
-      offline: { dx: 0, dy: 30 },
-    },
-  },
+const DESK_OFFSETS: [number, number, number][] = [
+  [-1.2, 0, -0.6], [0, 0, -0.6], [1.2, 0, -0.6],
+  [-1.2, 0, 0.6], [0, 0, 0.6], [1.2, 0, 0.6],
 ];
 
-// ─── Agent position computation (cluster-based) ───
+const MEETING_POSITION: [number, number, number] = [0, 0, -5];
+const REVIEW_POSITION: [number, number, number] = [8, 0, -3];
+const ATTENTION_POSITION: [number, number, number] = [-8, 0, -3];
+const ORCHESTRATOR_POSITION: [number, number, number] = [0, 0, 0];
 
-function computeAgentPositions(
-  agents: Agent[],
-  presences: AgentPresence[]
-): Map<string, { x: number; y: number; dept: string; state: string }> {
-  const positions = new Map<string, { x: number; y: number; dept: string; state: string }>();
+// State → zone mapping
+function getTargetZone(state: PresenceState): string {
+  if (state === "in_discussion") return "meeting";
+  if (state === "in_review" || state === "waiting_for_input") return "review";
+  if (state === "blocked") return "attention";
+  return "desk"; // working, available, paused, offline
+}
 
-  // Group agents by department
-  const deptAgents: Record<string, Agent[]> = {};
+function getZonePosition(zone: string): [number, number, number] {
+  if (zone === "meeting") return MEETING_POSITION;
+  if (zone === "review") return REVIEW_POSITION;
+  if (zone === "attention") return ATTENTION_POSITION;
+  return ORCHESTRATOR_POSITION; // fallback
+}
+
+// Compute home desk position for each agent
+function computeHomePositions(agents: Agent[]): Map<string, [number, number, number]> {
+  const positions = new Map<string, [number, number, number]>();
+  const deptCounts: Record<string, number> = {};
+
   for (const agent of agents) {
     const deptSlug = getAgentDeptSlug(agent);
-    if (!deptAgents[deptSlug]) deptAgents[deptSlug] = [];
-    deptAgents[deptSlug].push(agent);
-  }
+    const deptPos = DEPT_POSITIONS[deptSlug] ?? DEPT_POSITIONS["direct"];
+    const idx = deptCounts[deptSlug] ?? 0;
+    deptCounts[deptSlug] = idx + 1;
 
-  // Assign each agent to a desk within their cluster
-  for (const [deptSlug, deptAgentList] of Object.entries(deptAgents)) {
-    const cluster = CLUSTERS.find((c) => c.slug === deptSlug) ?? CLUSTERS[3]; // default to direct
-
-    for (let i = 0; i < deptAgentList.length; i++) {
-      const agent = deptAgentList[i];
-      const presence = presences.find((p) => p.agentId === agent.id);
-      const state = presence?.state ?? "available";
-
-      // Get desk position
-      const desk = cluster.desks[i % cluster.desks.length];
-      const deskX = cluster.cx + desk.dx;
-      const deskY = cluster.cy + desk.dy;
-
-      // Apply state shift
-      const shift = cluster.stateShifts[state] ?? cluster.stateShifts["available"];
-      const x = deskX + shift.dx;
-      const y = deskY + shift.dy;
-
-      positions.set(agent.id, {
-        x: Math.max(60, Math.min(840, x)),
-        y: Math.max(80, Math.min(560, y)),
-        dept: deptSlug,
-        state,
-      });
-    }
+    const offset = DESK_OFFSETS[idx % DESK_OFFSETS.length];
+    positions.set(agent.id, [
+      deptPos[0] + offset[0],
+      0,
+      deptPos[2] + offset[2],
+    ]);
   }
 
   return positions;
 }
 
-// ─── SVG Components ───
+// Compute target position based on state
+function computeTargetPosition(
+  agentId: string,
+  state: PresenceState,
+  homePosition: [number, number, number],
+  agentsInZone: number
+): [number, number, number] {
+  const zone = getTargetZone(state);
 
-function SVGRoom() {
+  if (zone === "desk") {
+    return homePosition;
+  }
+
+  const zonePos = getZonePosition(zone);
+  // Spread agents in the zone
+  const angle = (agentsInZone * 1.2) - Math.PI / 4;
+  const radius = 1.5;
+  return [
+    zonePos[0] + Math.cos(angle) * radius,
+    0,
+    zonePos[2] + Math.sin(angle) * radius,
+  ];
+}
+
+// ─── Presence dot color ───
+
+function getDotColor(state: PresenceState): string {
+  if (state === "working") return "#3b82f6";
+  if (state === "in_discussion") return "#8b5cf6";
+  if (state === "in_review" || state === "waiting_for_input") return "#f59e0b";
+  if (state === "blocked") return "#ef4444";
+  if (state === "available") return "#22c55e";
+  return "#6b7280"; // paused, offline
+}
+
+// ─── Department color ───
+
+function getDeptColor(slug: string): string {
+  if (slug === "export-growth") return "#3b82f6";
+  if (slug === "ops-improvement") return "#f59e0b";
+  if (slug === "architecture-systems") return "#8b5cf6";
+  return "#22c55e"; // direct
+}
+
+// ═══════════════════════════════════════
+// 3D Components
+// ═══════════════════════════════════════
+
+// ─── Room ───
+
+function Room3D() {
   return (
-    <g>
+    <group>
       {/* Floor */}
-      <polygon className="office-floor" points="80,500 500,600 920,500 500,400" strokeWidth={1.5} />
-
-      {/* Floor shadow */}
-      <polygon className="office-shadow" points="100,495 500,590 900,495 500,395" opacity={0.1} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+        <planeGeometry args={[24, 16]} />
+        <meshStandardMaterial color="#1a1f2e" />
+      </mesh>
+      {/* Floor grid */}
+      <gridHelper args={[24, 24, "#2a3040", "#222838"]} position={[0, -0.04, 0]} />
 
       {/* Back wall */}
-      <polygon className="office-wall" points="80,120 500,30 920,120 920,400 500,500 80,400" strokeWidth={1.5} opacity={0.5} />
-
-      {/* Wall-floor boundary */}
-      <line className="office-boundary" x1={80} y1={400} x2={500} y2={500} strokeWidth={1} opacity={0.5} />
-      <line className="office-boundary" x1={500} y1={500} x2={920} y2={400} strokeWidth={1} opacity={0.5} />
-
-      {/* Floor grid */}
-      <line className="office-grid" x1={200} y1={430} x2={800} y2={430} strokeWidth={0.4} opacity={0.25} />
-      <line className="office-grid" x1={250} y1={450} x2={750} y2={450} strokeWidth={0.4} opacity={0.25} />
-      <line className="office-grid" x1={300} y1={470} x2={700} y2={470} strokeWidth={0.4} opacity={0.25} />
-
-      {/* ── Meeting Table ── */}
-      <g>
-        <polygon className="office-shadow" points="500,273 552,298 500,323 448,298" opacity={0.08} />
-        <polygon className="zone-meeting" points="500,270 550,295 500,320 450,295" strokeWidth={1.5} />
-        <polygon fill="rgba(139,92,246,0.05)" points="500,275 542,295 500,315 458,295" />
-        <circle className="zone-meeting-seat" cx={455} cy={278} r={9} strokeWidth={1} strokeDasharray="3,3" />
-        <circle className="zone-meeting-seat" cx={545} cy={278} r={9} strokeWidth={1} strokeDasharray="3,3" />
-        <circle className="zone-meeting-seat" cx={455} cy={312} r={9} strokeWidth={1} strokeDasharray="3,3" />
-        <circle className="zone-meeting-seat" cx={545} cy={312} r={9} strokeWidth={1} strokeDasharray="3,3" />
-        <text className="label-zone" x={500} y={336} fontSize={10} textAnchor="middle">
-          Meeting Table
-        </text>
-      </g>
-
-      {/* ── Review Corner ── */}
-      <g>
-        <rect className="office-shadow" x={792} y={363} width={75} height={35} rx={5} opacity={0.08} />
-        <rect className="zone-review" x={790} y={360} width={75} height={35} rx={5} strokeWidth={1.5} />
-        <rect fill="rgba(245,158,11,0.04)" x={795} y={365} width={65} height={25} rx={4} />
-        <circle className="zone-review-seat" cx={828} cy={408} r={10} strokeWidth={1} strokeDasharray="3,3" />
-        <text x={828} y={382} fontSize={13} textAnchor="middle" opacity={0.2}>📋</text>
-        <text className="label-zone" x={828} y={426} fontSize={10} textAnchor="middle">
-          Review Corner
-        </text>
-      </g>
-
-      {/* ── Attention Area ── */}
-      <g>
-        <polygon className="office-shadow" points="500,523 552,548 500,573 448,548" opacity={0.06} />
-        <polygon className="zone-attention" points="500,520 550,545 500,570 450,545" strokeWidth={1.5} />
-        <rect className="zone-attention" x={476} y={532} width={48} height={22} rx={4} strokeWidth={1} />
-        <text x={500} y={547} fontSize={11} textAnchor="middle" opacity={0.25}>⚠</text>
-        <text className="label-zone" x={500} y={584} fontSize={10} textAnchor="middle">
-          Attention
-        </text>
-      </g>
-
-      {/* ── Department Desk Clusters ── */}
-      {CLUSTERS.map((cluster) => (
-        <g key={cluster.slug}>
-          <ellipse className="cluster-pad" cx={cluster.cx} cy={cluster.cy} rx={85} ry={42}
-            fill={cluster.color} fillOpacity={0.08} stroke={cluster.color} strokeWidth={0.8} />
-          {cluster.desks.map((desk, i) => (
-            <rect key={i} className="cluster-desk"
-              x={cluster.cx + desk.dx - 28} y={cluster.cy + desk.dy - 12}
-              width={56} height={24} rx={4}
-              fill={cluster.color} stroke={cluster.color} strokeWidth={0.7}
-              strokeDasharray="3,3" />
-          ))}
-          <text className="label-dept" x={cluster.cx} y={cluster.cy + 60} fontSize={11} textAnchor="middle">
-            {cluster.label}
-          </text>
-        </g>
-      ))}
-    </g>
+      <mesh position={[0, 2.5, -8]} receiveShadow>
+        <boxGeometry args={[24, 5, 0.2]} />
+        <meshStandardMaterial color="#161b28" />
+      </mesh>
+      {/* Left wall */}
+      <mesh position={[-12, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[16, 5, 0.2]} />
+        <meshStandardMaterial color="#181d2a" />
+      </mesh>
+      {/* Right wall */}
+      <mesh position={[12, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[16, 5, 0.2]} />
+        <meshStandardMaterial color="#181d2a" />
+      </mesh>
+    </group>
   );
 }
 
-function SVGOrchestrator({ coordination }: { coordination: CoordinationState }) {
-  const cx = 500, cy = 210;
+// ─── Desk ───
+
+function Desk3D({ position, color, label, occupied }: {
+  position: [number, number, number]; color: string; label: string; occupied: boolean;
+}) {
+  return (
+    <group position={position}>
+      {/* Desk surface */}
+      <RoundedBox args={[1.4, 0.08, 0.8]} radius={0.03} position={[0, 0.75, 0]} castShadow>
+        <meshStandardMaterial color={occupied ? "#2a3040" : "#222838"} opacity={occupied ? 1 : 0.5} transparent={!occupied} />
+      </RoundedBox>
+      {/* Desk legs */}
+      {[[-0.6, 0, -0.3], [0.6, 0, -0.3], [-0.6, 0, 0.3], [0.6, 0, 0.3]].map((pos, i) => (
+        <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
+          <boxGeometry args={[0.06, 0.75, 0.06]} />
+          <meshStandardMaterial color="#1a1f2e" />
+        </mesh>
+      ))}
+      {/* Label on desk */}
+      <Text position={[0, 0.82, 0]} fontSize={0.12} color="#7F8A9A" anchorX="center" anchorY="middle">
+        {label}
+      </Text>
+      {/* Status indicator */}
+      <mesh position={[0.6, 0.82, -0.3]}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshStandardMaterial color={occupied ? color : "#4a5568"} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.5 : 0} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Department Cluster ───
+
+function DeptCluster3D({ slug, label, color, agents: clusterAgents, homePositions, presences, onSelectAgent }: {
+  slug: string; label: string; color: string;
+  agents: Agent[]; homePositions: Map<string, [number, number, number]>;
+  presences: AgentPresence[]; onSelectAgent: (a: Agent) => void;
+}) {
+  const deptPos = DEPT_POSITIONS[slug] ?? [0, 0, 0];
 
   return (
-    <g>
-      {/* Platform shadow */}
-      <ellipse cx={cx + 2} cy={cy + 38} rx={75} ry={30} fill="var(--border)" opacity={0.06} />
-      {/* Platform */}
-      <ellipse cx={cx} cy={cy + 35} rx={75} ry={30} fill="var(--accent)" opacity={0.1} />
+    <group position={deptPos}>
+      {/* Floor pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[2.5, 32]} />
+        <meshStandardMaterial color={color} transparent opacity={0.05} />
+      </mesh>
 
-      {/* Connection lines */}
-      {CLUSTERS.map((cluster, i) => (
-        <line key={i} x1={cx} y1={cy + 15} x2={cluster.cx} y2={cluster.cy}
-          stroke="var(--accent)" strokeWidth={1.5} opacity={0.18} strokeDasharray="5,5" />
+      {/* Department label */}
+      <Text position={[0, 0.05, 2.2]} fontSize={0.2} color={color} anchorX="center" anchorY="middle" rotation={[-Math.PI / 2, 0, 0]}>
+        {label}
+      </Text>
+
+      {/* Desks */}
+      {clusterAgents.map((agent, i) => {
+        const offset = DESK_OFFSETS[i % DESK_OFFSETS.length];
+        const homePos: [number, number, number] = [offset[0], 0, offset[2]];
+        const presence = presences.find((p) => p.agentId === agent.id);
+        const isOccupied = presence ? presence.state !== "paused" && presence.state !== "offline" : false;
+
+        return (
+          <group key={agent.id} onClick={() => onSelectAgent(agent)}>
+            <Desk3D position={homePos} color={color} label={agent.name.split(" ")[0]} occupied={isOccupied} />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ─── Meeting Table ───
+
+function MeetingTable3D() {
+  return (
+    <group position={MEETING_POSITION}>
+      {/* Table surface */}
+      <RoundedBox args={[2.5, 0.1, 1.5]} radius={0.05} position={[0, 0.8, 0]} castShadow>
+        <meshStandardMaterial color="#2d1f5e" />
+      </RoundedBox>
+      {/* Table legs */}
+      {[[-1, 0, -0.5], [1, 0, -0.5], [-1, 0, 0.5], [1, 0, 0.5]].map((pos, i) => (
+        <mesh key={i} position={[pos[0], 0.4, pos[2]]}>
+          <boxGeometry args={[0.08, 0.8, 0.08]} />
+          <meshStandardMaterial color="#1a1530" />
+        </mesh>
       ))}
+      {/* Label */}
+      <Text position={[0, 0.95, 0]} fontSize={0.15} color="#8b5cf6" anchorX="center" anchorY="middle">
+        Meeting Table
+      </Text>
+      {/* Seating positions */}
+      {[-1, -0.33, 0.33, 1].map((x, i) => (
+        <mesh key={i} position={[x * 1.2, 0.02, 0]}>
+          <cylinderGeometry args={[0.2, 0.2, 0.04, 16]} />
+          <meshStandardMaterial color="#8b5cf6" transparent opacity={0.08} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 
-      {/* Desk shadow */}
-      <rect x={cx - 53} y={cy - 21} width={110} height={48} rx={10}
-        className="office-shadow" opacity={0.1} />
-      {/* Central desk */}
-      <rect x={cx - 55} y={cy - 24} width={110} height={48} rx={10}
-        fill="var(--surface)" stroke="var(--accent)" strokeWidth={3} />
+// ─── Review Area ───
 
-      {/* Yas Claw emoji */}
-      <text x={cx - 22} y={cy + 5} fontSize={28} textAnchor="middle" dominantBaseline="central">🦀</text>
+function ReviewArea3D() {
+  return (
+    <group position={REVIEW_POSITION}>
+      {/* Review desk */}
+      <RoundedBox args={[2, 0.08, 1]} radius={0.04} position={[0, 0.75, 0]} castShadow>
+        <meshStandardMaterial color="#3d2e0f" />
+      </RoundedBox>
+      {/* Label */}
+      <Text position={[0, 0.9, 0]} fontSize={0.15} color="#f59e0b" anchorX="center" anchorY="middle">
+        Review Corner
+      </Text>
+      {/* Review pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[1.8, 32]} />
+        <meshStandardMaterial color="#f59e0b" transparent opacity={0.04} />
+      </mesh>
+    </group>
+  );
+}
 
-      {/* Labels */}
-      <text x={cx + 18} y={cy - 6} fontSize={14} fontWeight={700} fill="var(--text)" textAnchor="start" dominantBaseline="central">
-        Yas Claw
-      </text>
-      <text x={cx + 18} y={cy + 12} fontSize={9} fontWeight={600} fill="var(--accent)" textAnchor="start" dominantBaseline="central">
+// ─── Attention Area ───
+
+function AttentionArea3D() {
+  return (
+    <group position={ATTENTION_POSITION}>
+      {/* Attention desk */}
+      <RoundedBox args={[1.5, 0.08, 0.8]} radius={0.04} position={[0, 0.75, 0]} castShadow>
+        <meshStandardMaterial color="#3d1515" />
+      </RoundedBox>
+      {/* Label */}
+      <Text position={[0, 0.9, 0]} fontSize={0.15} color="#ef4444" anchorX="center" anchorY="middle">
+        Attention
+      </Text>
+      {/* Attention pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[1.5, 32]} />
+        <meshStandardMaterial color="#ef4444" transparent opacity={0.04} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Orchestrator (Yas Claw) ───
+
+function Orchestrator3D({ coordination }: { coordination: CoordinationState }) {
+  return (
+    <group position={ORCHESTRATOR_POSITION}>
+      {/* Platform */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <circleGeometry args={[2, 32]} />
+        <meshStandardMaterial color="#22C7B8" transparent opacity={0.08} />
+      </mesh>
+      {/* Desk */}
+      <RoundedBox args={[2, 0.1, 1.2]} radius={0.06} position={[0, 0.8, 0]} castShadow>
+        <meshStandardMaterial color="#1a3030" />
+      </RoundedBox>
+      {/* Accent border */}
+      <RoundedBox args={[2.1, 0.12, 1.3]} radius={0.06} position={[0, 0.79, 0]}>
+        <meshStandardMaterial color="#22C7B8" transparent opacity={0.3} />
+      </RoundedBox>
+      {/* Label */}
+      <Text position={[0, 1, 0]} fontSize={0.2} color="#22C7B8" anchorX="center" anchorY="middle" fontWeight="bold">
+        🦀 Yas Claw
+      </Text>
+      <Text position={[0, 0.95, 0.5]} fontSize={0.1} color="#22C7B8" anchorX="center" anchorY="middle">
         ORCHESTRATOR
-      </text>
-
+      </Text>
       {/* Coordination indicator */}
       {coordination.isCoordinating && (
-        <g>
-          <circle cx={cx + 48} cy={cy - 18} r={7} fill="#3b82f6" />
-          <text x={cx + 48} y={cy - 17} fontSize={8} fill="white" textAnchor="middle" dominantBaseline="central" fontWeight={700}>
-            {coordination.recentRoutes.length + coordination.pendingReviews.length}
-          </text>
-        </g>
+        <mesh position={[0.8, 1.05, -0.4]}>
+          <sphereGeometry args={[0.08, 8, 8]} />
+          <meshStandardMaterial color="#3b82f6" emissive="#3b82f6" emissiveIntensity={1} />
+        </mesh>
       )}
-
-      {/* Status line */}
-      <text x={cx} y={cy + 58} fontSize={9} fill="var(--text-quiet)" textAnchor="middle">
-        All agents coordinate through this node
-      </text>
-    </g>
+    </group>
   );
 }
 
-function SVGAgentDesk({ agent, presence, x, y, signal, govSignals, focused, onClick }: {
-  agent: Agent; presence: AgentPresence | undefined;
-  x: number; y: number;
-  signal: CollaborationSignal | undefined; govSignals: GovernanceSignal[];
-  focused: boolean; onClick: () => void;
-}) {
-  const config = presence ? getPresenceConfig(presence.state) : null;
-  const dotColor = config?.dot === "dot-green" ? "#22c55e" :
-    config?.dot === "dot-blue" ? "#3b82f6" :
-    config?.dot === "dot-amber" ? "#f59e0b" :
-    config?.dot === "dot-red" ? "#ef4444" :
-    config?.dot === "bg-violet-500" ? "#8b5cf6" : "#6b7280";
+// ─── Connection Lines ───
 
-  const hasAlert = govSignals.some((s) => s.severity === "critical" || s.severity === "attention");
-  const isAway = presence?.state === "paused" || presence?.state === "offline";
-  const deskW = 56, deskH = 24;
+function ConnectionLines() {
+  const lines = useMemo(() => {
+    const result: { points: [THREE.Vector3, THREE.Vector3]; color: string }[] = [];
+    for (const pos of Object.values(DEPT_POSITIONS)) {
+      result.push({
+        points: [
+          new THREE.Vector3(ORCHESTRATOR_POSITION[0], 0.5, ORCHESTRATOR_POSITION[2]),
+          new THREE.Vector3(pos[0], 0.5, pos[2]),
+        ],
+        color: "#22C7B8",
+      });
+    }
+    result.push({
+      points: [
+        new THREE.Vector3(ORCHESTRATOR_POSITION[0], 0.5, ORCHESTRATOR_POSITION[2]),
+        new THREE.Vector3(MEETING_POSITION[0], 0.5, MEETING_POSITION[2]),
+      ],
+      color: "#22C7B8",
+    });
+    return result;
+  }, []);
 
-  // All elements rendered at (0,0) origin — group handles position via CSS transform
   return (
-    <g
-      transform={`translate(${x}, ${y})`}
-      onClick={onClick}
-      style={{
-        cursor: "pointer",
-        transition: "transform 280ms ease-out, opacity 280ms ease-out",
-        opacity: isAway ? 0.45 : 1,
-      }}
-    >
-      {/* Desk surface */}
-      <rect x={-deskW / 2} y={-deskH / 2} width={deskW} height={deskH} rx={5}
-        fill={focused ? "var(--accent)" : "var(--surface)"}
-        stroke={focused ? "var(--accent)" : hasAlert ? "#ef4444" : "var(--border-strong)"}
-        strokeWidth={focused ? 2.5 : hasAlert ? 2 : 1.5}
-        opacity={focused ? 0.95 : 0.9} />
-
-      {/* Agent emoji */}
-      <text x={-14} y={1} fontSize={14} textAnchor="middle" dominantBaseline="central">
-        {agent.emoji}
-      </text>
-
-      {/* Agent name (truncated) */}
-      <text x={4} y={-3} fontSize={8} fontWeight={600} fill="var(--text)" textAnchor="start" dominantBaseline="central">
-        {agent.name.length > 10 ? agent.name.slice(0, 10) + "…" : agent.name}
-      </text>
-
-      {/* State label */}
-      <text x={4} y={7} fontSize={6.5} fill={config?.color ?? "var(--text-quiet)"} textAnchor="start" dominantBaseline="central">
-        {config?.label ?? presence?.state ?? "—"}
-      </text>
-
-      {/* Presence dot */}
-      <circle
-        cx={deskW / 2 - 5} cy={-deskH / 2 + 5} r={3.5} fill={dotColor}
-        style={
-          presence && ["working", "in_discussion", "in_review", "waiting_for_input"].includes(presence.state)
-            ? { animation: "presence-pulse 3s ease-in-out infinite" }
-            : undefined
-        }
-      />
-
-      {/* Alert badge */}
-      {hasAlert && (
-        <g>
-          <circle cx={-deskW / 2 + 5} cy={-deskH / 2 + 5} r={4} fill="#ef4444" />
-          <text x={-deskW / 2 + 5} y={-deskH / 2 + 6} fontSize={6} fill="white" textAnchor="middle" dominantBaseline="central" fontWeight={700}>!</text>
-        </g>
-      )}
-
-      {/* Collaboration indicator */}
-      {signal?.discussionSummary && (
-        <rect x={-18} y={deskH / 2 + 2} width={36} height={8} rx={3} fill="rgba(139,92,246,0.2)" />
-      )}
-    </g>
+    <group>
+      {lines.map((line, i) => (
+        <Line key={i} points={line.points} color={line.color} lineWidth={1} opacity={0.15} transparent />
+      ))}
+    </group>
   );
 }
 
-// ─── Detail panel ───
+// ─── Agent (3D figure) ───
+
+function Agent3D({
+  agent,
+  presence,
+  homePosition,
+  allPresences,
+  agents,
+  signal,
+  govSignals,
+  onClick,
+}: {
+  agent: Agent;
+  presence: AgentPresence | undefined;
+  homePosition: [number, number, number];
+  allPresences: AgentPresence[];
+  agents: Agent[];
+  signal: CollaborationSignal | undefined;
+  govSignals: GovernanceSignal[];
+  onClick: () => void;
+}) {
+  const meshRef = useRef<THREE.Group>(null);
+  const targetRef = useRef<[number, number, number]>([...homePosition]);
+  const currentRef = useRef<[number, number, number]>([...homePosition]);
+
+  const state = presence?.state ?? "available";
+  const dotColor = getDotColor(state);
+  const isAway = state === "paused" || state === "offline";
+  const hasAlert = govSignals.some((s) => s.severity === "critical" || s.severity === "attention");
+
+  // Compute target position based on state
+  useEffect(() => {
+    const zone = getTargetZone(state);
+    if (zone === "desk") {
+      targetRef.current = [...homePosition];
+    } else {
+      const agentsInSameZone = allPresences.filter((p) => {
+        const pZone = getTargetZone(p.state);
+        return pZone === zone && p.agentId !== agent.id;
+      }).length;
+      targetRef.current = computeTargetPosition(agent.id, state, homePosition, agentsInSameZone);
+    }
+  }, [state, homePosition, allPresences, agent.id]);
+
+  // Smooth movement animation
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+    const target = targetRef.current;
+    const current = currentRef.current;
+    const speed = 2; // units per second
+
+    const dx = target[0] - current[0];
+    const dz = target[2] - current[2];
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist > 0.05) {
+      const step = Math.min(speed * delta, dist);
+      current[0] += (dx / dist) * step;
+      current[2] += (dz / dist) * step;
+      meshRef.current.position.set(current[0], 0, current[2]);
+    }
+  });
+
+  const config = presence ? getPresenceConfig(presence.state) : null;
+
+  return (
+    <group ref={meshRef} position={[homePosition[0], 0, homePosition[2]]} onClick={onClick}>
+      {/* Body (capsule-like) */}
+      <mesh position={[0, 0.6, 0]} castShadow>
+        <capsuleGeometry args={[0.15, 0.4, 8, 16]} />
+        <meshStandardMaterial color={isAway ? "#4a5568" : "#2a3040"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
+      </mesh>
+      {/* Head */}
+      <mesh position={[0, 1, 0]} castShadow>
+        <sphereGeometry args={[0.15, 16, 16]} />
+        <meshStandardMaterial color={isAway ? "#6b7280" : "#e2e8f0"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
+      </mesh>
+      {/* Presence dot */}
+      <mesh position={[0.12, 1.1, -0.1]}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshStandardMaterial color={dotColor} emissive={dotColor} emissiveIntensity={state === "working" || state === "in_discussion" ? 0.8 : 0.3} />
+      </mesh>
+      {/* Alert indicator */}
+      {hasAlert && (
+        <mesh position={[-0.12, 1.1, -0.1]}>
+          <sphereGeometry args={[0.04, 8, 8]} />
+          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1} />
+        </mesh>
+      )}
+      {/* Name label */}
+      <Text position={[0, 1.3, 0]} fontSize={0.1} color="#F5F7FA" anchorX="center" anchorY="middle">
+        {agent.emoji} {agent.name.split(" ")[0]}
+      </Text>
+      {/* State label */}
+      <Text position={[0, 1.18, 0]} fontSize={0.07} color={config?.color === "var(--info)" ? "#3b82f6" : config?.color === "var(--warning)" ? "#f59e0b" : config?.color === "var(--danger)" ? "#ef4444" : config?.color === "var(--success)" ? "#22c55e" : "#7F8A9A"} anchorX="center" anchorY="middle">
+        {config?.label ?? state}
+      </Text>
+    </group>
+  );
+}
+
+// ═══════════════════════════════════════
+// Detail Panel (preserved from previous phases)
+// ═══════════════════════════════════════
 
 const EVENT_CONFIG: Record<string, { color: string; label: string }> = {
   task_created: { color: "var(--info)", label: "Created" },
@@ -516,232 +592,9 @@ function AgentDetailPanel({ agent, presence, signal, tasks, events, departments,
   );
 }
 
-// ─── Time Pressure Helpers ───
-
-function getAgeMs(iso: string): number {
-  return Date.now() - new Date(iso).getTime();
-}
-
-function ageLabel(iso: string): string {
-  const ms = getAgeMs(iso);
-  const mins = Math.floor(ms / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
-}
-
-function agePressure(iso: string): "fresh" | "aging" | "attention" | "stale" {
-  const ms = getAgeMs(iso);
-  if (ms < 30 * 60000) return "fresh";         // < 30 min
-  if (ms < 2 * 3600000) return "aging";         // < 2 hours
-  if (ms < 8 * 3600000) return "attention";     // < 8 hours
-  return "stale";                                // > 8 hours
-}
-
-function pressureColor(p: "fresh" | "aging" | "attention" | "stale"): string {
-  if (p === "fresh") return "var(--text-quiet)";
-  if (p === "aging") return "var(--warning)";
-  if (p === "attention") return "#f97316"; // orange
-  return "var(--danger)";
-}
-
-function pressureChipBg(p: "fresh" | "aging" | "attention" | "stale"): string {
-  if (p === "fresh") return "var(--surface)";
-  if (p === "aging") return "rgba(245,158,11,0.08)";
-  if (p === "attention") return "rgba(249,115,22,0.08)";
-  return "rgba(239,68,68,0.08)";
-}
-
-// ─── CEO Command Center ───
-
-function CEOCommandCenter({ agents, presences, governance, tasks, departments }: {
-  agents: Agent[]; presences: AgentPresence[]; governance: OrchestratorGovernance;
-  tasks: TaskWithAgent[]; departments: Department[];
-}) {
-  const blockedAgents = presences.filter((p) => p.state === "blocked");
-  const reviewAgents = presences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input");
-  const discussionAgents = presences.filter((p) => p.state === "in_discussion");
-  const workingAgents = presences.filter((p) => p.state === "working");
-
-  // Compute aged items
-  const blockedWithAge = blockedAgents.map((p) => {
-    const agent = agents.find((a) => a.id === p.agentId);
-    const blockedTask = tasks.find((t) => t.assigned_agent_id === p.agentId && t.status === "blocked");
-    const age = blockedTask ? ageLabel(blockedTask.updated_at) : "unknown";
-    const pressure = blockedTask ? agePressure(blockedTask.updated_at) : "fresh";
-    return { presence: p, agent, age, pressure, ageMs: blockedTask ? getAgeMs(blockedTask.updated_at) : 0 };
-  }).sort((a, b) => b.ageMs - a.ageMs); // oldest first
-
-  const reviewWithAge = reviewAgents.map((p) => {
-    const agent = agents.find((a) => a.id === p.agentId);
-    const reviewTask = tasks.find((t) => t.assigned_agent_id === p.agentId && t.status === "in-review");
-    const age = reviewTask ? ageLabel(reviewTask.updated_at) : "unknown";
-    const pressure = reviewTask ? agePressure(reviewTask.updated_at) : "fresh";
-    return { presence: p, agent, age, pressure, ageMs: reviewTask ? getAgeMs(reviewTask.updated_at) : 0 };
-  }).sort((a, b) => b.ageMs - a.ageMs); // oldest first
-
-  // Department pressure with aging
-  const deptPressure: { name: string; blocked: number; review: number; oldestAge: string; oldestPressure: string }[] = [];
-  for (const dept of departments) {
-    const deptAgents = agents.filter((a) => (a as any).department_slug === dept.slug);
-    const deptTasks = tasks.filter((t) => deptAgents.some((a) => a.id === t.assigned_agent_id));
-    const blocked = deptTasks.filter((t) => t.status === "blocked");
-    const review = deptTasks.filter((t) => t.status === "in-review");
-    if (blocked.length > 0 || review.length > 0) {
-      const allAged = [...blocked, ...review].map((t) => ({ ageMs: getAgeMs(t.updated_at), updated: t.updated_at }));
-      const oldest = allAged.sort((a, b) => b.ageMs - a.ageMs)[0];
-      deptPressure.push({
-        name: dept.name,
-        blocked: blocked.length,
-        review: review.length,
-        oldestAge: oldest ? ageLabel(oldest.updated) : "",
-        oldestPressure: oldest ? agePressure(oldest.updated) : "fresh",
-      });
-    }
-  }
-
-  // Priority items with age
-  const priorityItems: { label: string; detail: string; href: string; color: string; age: string; pressure: "fresh" | "aging" | "attention" | "stale"; ageMs: number }[] = [];
-
-  if (reviewWithAge.length > 0) {
-    const oldest = reviewWithAge[0];
-    priorityItems.push({
-      label: `${governance.pendingReviews} review${governance.pendingReviews > 1 ? "s" : ""} awaiting`,
-      detail: `pending ${oldest.age} · CEO approval needed`,
-      href: "/reviews",
-      color: "var(--warning)",
-      age: oldest.age,
-      pressure: oldest.pressure,
-      ageMs: oldest.ageMs,
-    });
-  }
-
-  if (blockedWithAge.length > 0) {
-    const oldest = blockedWithAge[0];
-    const names = blockedWithAge.map((b) => b.agent?.name ?? "Unknown").join(", ");
-    priorityItems.push({
-      label: `${governance.blockedAgents} blocked agent${governance.blockedAgents > 1 ? "s" : ""}`,
-      detail: `blocked ${oldest.age} · ${names}`,
-      href: "/tasks",
-      color: "var(--danger)",
-      age: oldest.age,
-      pressure: oldest.pressure,
-      ageMs: oldest.ageMs,
-    });
-  }
-
-  if (governance.capabilityAlerts > 0) {
-    priorityItems.push({
-      label: `${governance.capabilityAlerts} skill gap${governance.capabilityAlerts > 1 ? "s" : ""}`,
-      detail: "Capability recommendation pending",
-      href: "/skills",
-      color: "var(--accent)",
-      age: "",
-      pressure: "fresh",
-      ageMs: 0,
-    });
-  }
-
-  if (governance.overloadedAgents > 0) {
-    priorityItems.push({
-      label: `${governance.overloadedAgents} overloaded agent${governance.overloadedAgents > 1 ? "s" : ""}`,
-      detail: "Workload rebalancing may help",
-      href: "/workforce",
-      color: "var(--warning)",
-      age: "",
-      pressure: "fresh",
-      ageMs: 0,
-    });
-  }
-
-  // Sort by age (oldest first) then by type priority
-  priorityItems.sort((a, b) => {
-    if (a.ageMs > 0 && b.ageMs > 0) return b.ageMs - a.ageMs;
-    if (a.ageMs > 0) return -1;
-    if (b.ageMs > 0) return 1;
-    return 0;
-  });
-
-  // Executive summary
-  const worstBlocked = blockedWithAge.length > 0 ? blockedWithAge[0].pressure : "fresh";
-  const worstReview = reviewWithAge.length > 0 ? reviewWithAge[0].pressure : "fresh";
-  const worstPressure = worstBlocked === "stale" || worstReview === "stale" ? "stale"
-    : worstBlocked === "attention" || worstReview === "attention" ? "attention"
-    : worstBlocked === "aging" || worstReview === "aging" ? "aging" : "fresh";
-
-  let summary = "Office running smoothly";
-  if (blockedAgents.length > 0 && reviewAgents.length > 0) {
-    const oldest = blockedWithAge[0]?.age ?? reviewWithAge[0]?.age ?? "";
-    summary = `Review + blockers pressure — oldest ${oldest}`;
-  } else if (blockedAgents.length > 0) {
-    summary = `Blocker pressure on ${blockedAgents.length} agent${blockedAgents.length > 1 ? "s" : ""} — oldest ${blockedWithAge[0]?.age}`;
-  } else if (reviewAgents.length > 0) {
-    summary = `Review backlog — ${reviewAgents.length} awaiting, oldest ${reviewWithAge[0]?.age}`;
-  } else if (discussionAgents.length > 0) {
-    summary = `Active discussions — ${discussionAgents.length} in meeting`;
-  } else if (workingAgents.length > 0) {
-    summary = `${workingAgents.length} agent${workingAgents.length > 1 ? "s" : ""} working — office active`;
-  }
-
-  // Collapsed state
-  if (priorityItems.length === 0 && deptPressure.length === 0) {
-    return (
-      <div className="rounded-lg p-3 mb-4 flex items-center gap-2" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-        <span className="text-[10px]" style={{ color: "var(--success)" }}>●</span>
-        <span className="text-xs" style={{ color: "var(--text-quiet)" }}>{summary}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg p-3 mb-4" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-      {/* Executive summary */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-[10px]" style={{ color: pressureColor(worstPressure) }}>●</span>
-        <span className="text-xs font-medium" style={{ color: "var(--text)" }}>{summary}</span>
-      </div>
-
-      {/* Priority queue */}
-      {priorityItems.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {priorityItems.slice(0, 4).map((item, i) => (
-            <Link key={i} href={item.href} className="flex items-center justify-between p-2 rounded hover:opacity-80" style={{ background: pressureChipBg(item.pressure), border: "1px solid var(--border)" }}>
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: pressureColor(item.pressure) }} />
-                <div className="min-w-0">
-                  <span className="text-[11px] font-medium" style={{ color: "var(--text)" }}>{item.label}</span>
-                  <span className="text-[10px] ml-1.5 truncate" style={{ color: "var(--text-quiet)" }}>{item.detail}</span>
-                </div>
-              </div>
-              {item.age && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ml-2" style={{ background: pressureChipBg(item.pressure), color: pressureColor(item.pressure) }}>
-                  {item.age}
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Department pressure with aging */}
-      {deptPressure.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-          {deptPressure.map((dept, i) => (
-            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: pressureChipBg(dept.oldestPressure as any), color: pressureColor(dept.oldestPressure as any) }}>
-              {dept.name}: {dept.blocked > 0 ? `${dept.blocked} blocked` : ""}{dept.blocked > 0 && dept.review > 0 ? ", " : ""}{dept.review > 0 ? `${dept.review} review` : ""}
-              {dept.oldestAge && <span className="opacity-70">({dept.oldestAge})</span>}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Page ───
+// ═══════════════════════════════════════
+// Page
+// ═══════════════════════════════════════
 
 export default function OfficePage() {
   const [loading, setLoading] = useState(true);
@@ -755,7 +608,6 @@ export default function OfficePage() {
   const [coordination, setCoordination] = useState<CoordinationState>({ isCoordinating: false, recentRoutes: [], pendingReviews: [], activeDiscussions: [] });
   const [governance, setGovernance] = useState<OrchestratorGovernance>({ pendingReviews: 0, blockedAgents: 0, overloadedAgents: 0, capabilityAlerts: 0, needsAttention: 0, signals: [] });
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [focusedAgentId, setFocusedAgentId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -783,24 +635,8 @@ export default function OfficePage() {
   useEffect(() => { const interval = setInterval(() => load(), 10000); return () => clearInterval(interval); }, []);
   useEffect(() => { load(); }, []);
 
-  // Keyboard navigation
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      const currentIdx = agents.findIndex((a) => a.id === focusedAgentId);
-      switch (e.key) {
-        case "ArrowDown": { e.preventDefault(); const next = (currentIdx + 1) % agents.length; setFocusedAgentId(agents[next].id); break; }
-        case "ArrowUp": { e.preventDefault(); const prev = currentIdx <= 0 ? agents.length - 1 : currentIdx - 1; setFocusedAgentId(agents[prev].id); break; }
-        case "Enter": if (focusedAgentId) { e.preventDefault(); const a = agents.find((a) => a.id === focusedAgentId); if (a) setSelectedAgent(a); } break;
-        case "Escape": if (selectedAgent) { e.preventDefault(); setSelectedAgent(null); } else if (focusedAgentId) { e.preventDefault(); setFocusedAgentId(null); } break;
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [agents, focusedAgentId, selectedAgent]);
-
-  // Compute positions
-  const agentPositions = useMemo(() => computeAgentPositions(agents, presences), [agents, presences]);
+  // Compute home positions
+  const homePositions = useMemo(() => computeHomePositions(agents), [agents]);
 
   // Summary counts
   const workingCount = presences.filter((p) => p.state === "working").length;
@@ -809,12 +645,12 @@ export default function OfficePage() {
   const blockedCount = presences.filter((p) => p.state === "blocked").length;
   const awayCount = presences.filter((p) => p.state === "paused" || p.state === "offline").length;
 
-  if (loading) return <PageShell title="Office" description="Loading..."><div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading office...</div></PageShell>;
+  if (loading) return <PageShell title="Office" description="Loading..."><div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading 3D office...</div></PageShell>;
 
   const selectedPresence = selectedAgent ? presences.find((p) => p.agentId === selectedAgent.id) : null;
 
   return (
-    <PageShell title="Office" description="Live isometric office — agents, work states, and operations">
+    <PageShell title="Office" description="3D living office — agents, movement, and real-time operations">
       {/* Summary strip */}
       <div className="rounded-lg p-3 mb-4 flex items-center gap-3 overflow-x-auto text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)", WebkitOverflowScrolling: "touch" }}>
         <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>Online {presences.filter((p) => p.state !== "paused" && p.state !== "offline").length}</span></div>
@@ -826,67 +662,80 @@ export default function OfficePage() {
         <div className="flex items-center gap-1.5 ml-auto shrink-0"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
 
-      {/* CEO Command Center */}
-      <CEOCommandCenter
-        agents={agents}
-        presences={presences}
-        governance={governance}
-        tasks={tasks}
-        departments={departments}
-      />
+      {/* 3D Canvas */}
+      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "70vh", background: "#0E1116" }}>
+        <Canvas shadows camera={{ position: [12, 10, 12], fov: 45 }} style={{ background: "#0E1116" }}>
+          {/* Lights */}
+          <ambientLight intensity={0.3} />
+          <directionalLight position={[10, 15, 10]} intensity={0.6} castShadow />
+          <pointLight position={[0, 5, 0]} intensity={0.4} color="#22C7B8" />
 
-      {/* Isometric Office Scene */}
-      <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
-        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto" style={{ maxHeight: "80vh" }}>
-          {/* Presence dot pulse + theme-aware office colors */}
-          <style>{`
-            @keyframes presence-pulse {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.5; }
-            }
-            .office-floor { fill: var(--surface-muted); stroke: var(--border-strong); }
-            .office-wall { fill: var(--surface); stroke: var(--border); }
-            .office-shadow { fill: var(--border-strong); }
-            .office-grid { stroke: var(--border); }
-            .office-boundary { stroke: var(--border-strong); }
-            .desk-fill { fill: var(--surface); stroke: var(--border-strong); }
-            .desk-outline { fill: var(--surface-muted); stroke: var(--border); }
-            .zone-meeting { fill: rgba(139,92,246,0.1); stroke: rgba(139,92,246,0.3); }
-            .zone-meeting-seat { fill: rgba(139,92,246,0.08); stroke: rgba(139,92,246,0.25); }
-            .zone-review { fill: rgba(245,158,11,0.1); stroke: rgba(245,158,11,0.3); }
-            .zone-review-seat { fill: rgba(245,158,11,0.08); stroke: rgba(245,158,11,0.2); }
-            .zone-attention { fill: rgba(239,68,68,0.08); stroke: rgba(239,68,68,0.2); }
-            .cluster-pad { stroke-opacity: 0.3; }
-            .cluster-desk { stroke-opacity: 0.3; fill-opacity: 0.06; }
-            .label-zone { fill: var(--text-muted); font-weight: 600; }
-            .label-dept { fill: var(--text-muted); font-weight: 600; }
-          `}</style>
           {/* Room */}
-          <SVGRoom />
+          <Room3D />
 
-          {/* Orchestrator (Yas Claw) */}
-          <SVGOrchestrator coordination={coordination} />
+          {/* Orchestrator */}
+          <Orchestrator3D coordination={coordination} />
 
-          {/* Agents */}
+          {/* Connection lines */}
+          <ConnectionLines />
+
+          {/* Meeting table */}
+          <MeetingTable3D />
+
+          {/* Review area */}
+          <ReviewArea3D />
+
+          {/* Attention area */}
+          <AttentionArea3D />
+
+          {/* Department clusters */}
+          {[
+            { slug: "export-growth", label: "Export-Growth", color: "#3b82f6" },
+            { slug: "ops-improvement", label: "Ops-Improvement", color: "#f59e0b" },
+            { slug: "architecture-systems", label: "Architecture", color: "#8b5cf6" },
+            { slug: "direct", label: "Direct", color: "#22c55e" },
+          ].map((dept) => (
+            <DeptCluster3D
+              key={dept.slug}
+              slug={dept.slug}
+              label={dept.label}
+              color={dept.color}
+              agents={agents.filter((a) => getAgentDeptSlug(a) === dept.slug)}
+              homePositions={homePositions}
+              presences={presences}
+              onSelectAgent={setSelectedAgent}
+            />
+          ))}
+
+          {/* Agents (3D figures) */}
           {agents.map((agent) => {
-            const pos = agentPositions.get(agent.id);
-            if (!pos) return null;
+            const homePos = homePositions.get(agent.id) ?? [0, 0, 0];
             const presence = presences.find((p) => p.agentId === agent.id);
             return (
-              <SVGAgentDesk
+              <Agent3D
                 key={agent.id}
                 agent={agent}
                 presence={presence}
-                x={pos.x}
-                y={pos.y}
+                homePosition={homePos}
+                allPresences={presences}
+                agents={agents}
                 signal={signals.get(agent.id)}
                 govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)}
-                focused={agent.id === focusedAgentId}
                 onClick={() => setSelectedAgent(agent)}
               />
             );
           })}
-        </svg>
+
+          {/* Camera controls */}
+          <OrbitControls
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            maxPolarAngle={Math.PI / 2.2}
+            minDistance={5}
+            maxDistance={30}
+          />
+        </Canvas>
       </div>
 
       {/* Governance row */}
