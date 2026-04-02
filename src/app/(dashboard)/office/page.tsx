@@ -528,20 +528,24 @@ export default function OfficePage() {
   const [focusedAgentId, setFocusedAgentId] = useState<string | null>(null);
 
   async function load() {
-    setLoading(true);
-    const [a, d, t, e, p] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50), getProjects()]);
-    setAgents(a.data); setDepartments(d.data); setTasks(t.data); setEvents(e.data); setProjects(p.data);
-    const presenceList = a.data.map((agent) => deriveAgentPresence(agent, t.data, e.data));
-    setPresences(presenceList);
-    const agentIds = a.data.map((agent) => agent.id);
-    const collabSignals = computeCollaborationSignals(e.data, agentIds);
-    setSignals(collabSignals); setCoordination(computeCoordinationState(e.data, agentIds));
-    const { getAllTaskReviews } = await import("@/lib/data/reviews");
-    const [reviewsResult, gapsResult] = await Promise.all([getAllTaskReviews(100), getCapabilityGaps({ limit: 50 })]);
-    const reviewOutcomes = reviewsResult.data.map((r) => ({ task_id: r.task_id, outcome: r.outcome }));
-    const gapsFlat = gapsResult.data.map((g) => ({ agent_id: (g as any).agent_id ?? null, urgency_level: (g as any).urgency_level ?? "low", composite_score: (g as any).composite_score ?? 0 }));
-    setGovernance(computeOrchestratorGovernance(a.data, t.data, e.data, reviewOutcomes, gapsFlat));
-    setLoading(false);
+    try {
+      const [a, d, t, e, p] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50), getProjects()]);
+      setAgents(a.data); setDepartments(d.data); setTasks(t.data); setEvents(e.data); setProjects(p.data);
+      const presenceList = a.data.map((agent) => deriveAgentPresence(agent, t.data, e.data));
+      setPresences(presenceList);
+      const agentIds = a.data.map((agent) => agent.id);
+      const collabSignals = computeCollaborationSignals(e.data, agentIds);
+      setSignals(collabSignals); setCoordination(computeCoordinationState(e.data, agentIds));
+      const { getAllTaskReviews } = await import("@/lib/data/reviews");
+      const [reviewsResult, gapsResult] = await Promise.all([getAllTaskReviews(100), getCapabilityGaps({ limit: 50 })]);
+      const reviewOutcomes = reviewsResult.data.map((r) => ({ task_id: r.task_id, outcome: r.outcome }));
+      const gapsFlat = gapsResult.data.map((g) => ({ agent_id: (g as any).agent_id ?? null, urgency_level: (g as any).urgency_level ?? "low", composite_score: (g as any).composite_score ?? 0 }));
+      setGovernance(computeOrchestratorGovernance(a.data, t.data, e.data, reviewOutcomes, gapsFlat));
+    } catch (err) {
+      console.error("Office load error:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const loadRef = useCallback(() => load(), []);
