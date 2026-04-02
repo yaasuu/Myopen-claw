@@ -358,7 +358,14 @@ function SVGAgentDesk({ agent, presence, x, y, signal, govSignals, focused, onCl
       </text>
 
       {/* Presence dot */}
-      <circle cx={deskW / 2 - 5} cy={-deskH / 2 + 5} r={3.5} fill={dotColor} />
+      <circle
+        cx={deskW / 2 - 5} cy={-deskH / 2 + 5} r={3.5} fill={dotColor}
+        style={
+          presence && ["working", "in_discussion", "in_review", "waiting_for_input"].includes(presence.state)
+            ? { animation: "presence-pulse 3s ease-in-out infinite" }
+            : undefined
+        }
+      />
 
       {/* Alert badge */}
       {hasAlert && (
@@ -566,6 +573,13 @@ export default function OfficePage() {
       {/* Isometric Office Scene */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
         <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto" style={{ maxHeight: "75vh" }}>
+          {/* Presence dot pulse animation */}
+          <style>{`
+            @keyframes presence-pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.5; }
+            }
+          `}</style>
           {/* Room */}
           <SVGRoom />
 
