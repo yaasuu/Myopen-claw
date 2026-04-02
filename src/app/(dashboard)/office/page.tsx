@@ -221,7 +221,68 @@ function SVGRoom() {
       <line x1={200} y1={400} x2={700} y2={400} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
       <line x1={250} y1={420} x2={650} y2={420} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
 
-      {/* Department desk clusters */}
+      {/* ── Meeting Table ── */}
+      <g>
+        {/* Table surface (isometric diamond) */}
+        <polygon points="450,248 490,268 450,288 410,268"
+          fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1} />
+        {/* Table top highlight */}
+        <polygon points="450,252 482,268 450,284 418,268"
+          fill="rgba(139,92,246,0.03)" />
+
+        {/* Seating positions around table (4 chairs) */}
+        <circle cx={420} cy={255} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <circle cx={480} cy={255} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <circle cx={420} cy={282} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <circle cx={480} cy={282} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+
+        {/* Label */}
+        <text x={450} y={298} fontSize={7} fontWeight={600} fill="rgba(139,92,246,0.5)" textAnchor="middle">
+          Meeting Table
+        </text>
+      </g>
+
+      {/* ── Review Corner ── */}
+      <g>
+        {/* Review desk surface */}
+        <rect x={728} y={320} width={60} height={28} rx={4}
+          fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.12)" strokeWidth={1} />
+        {/* Review desk top highlight */}
+        <rect x={732} y={324} width={52} height={20} rx={3}
+          fill="rgba(245,158,11,0.02)" />
+
+        {/* Review chair */}
+        <circle cx={758} cy={360} r={7} fill="none" stroke="rgba(245,158,11,0.1)" strokeWidth={0.8} strokeDasharray="2,2" />
+
+        {/* "Review" stamp icon */}
+        <text x={758} y={338} fontSize={10} textAnchor="middle" opacity={0.15}>📋</text>
+
+        {/* Label */}
+        <text x={758} y={372} fontSize={7} fontWeight={600} fill="rgba(245,158,11,0.5)" textAnchor="middle">
+          Review Corner
+        </text>
+      </g>
+
+      {/* ── Attention Area ── */}
+      <g>
+        {/* Attention platform (subtle isometric diamond) */}
+        <polygon points="450,478 490,498 450,518 410,498"
+          fill="rgba(239,68,68,0.03)" stroke="rgba(239,68,68,0.08)" strokeWidth={1} />
+
+        {/* Attention desk */}
+        <rect x={432} y={488} width={36} height={16} rx={3}
+          fill="rgba(239,68,68,0.04)" stroke="rgba(239,68,68,0.1)" strokeWidth={0.8} />
+
+        {/* Warning icon */}
+        <text x={450} y={499} fontSize={8} textAnchor="middle" opacity={0.2}>⚠</text>
+
+        {/* Label */}
+        <text x={450} y={528} fontSize={7} fontWeight={600} fill="rgba(239,68,68,0.5)" textAnchor="middle">
+          Attention
+        </text>
+      </g>
+
+      {/* ── Department Desk Clusters ── */}
       {CLUSTERS.map((cluster) => (
         <g key={cluster.slug}>
           {/* Cluster floor pad (subtle) */}
@@ -244,18 +305,6 @@ function SVGRoom() {
           </text>
         </g>
       ))}
-
-      {/* Meeting area (center, near Yas Claw) */}
-      <ellipse cx={450} cy={260} rx={30} ry={15} fill="rgba(139,92,246,0.04)" stroke="rgba(139,92,246,0.1)" strokeWidth={0.5} />
-      <text x={450} y={263} fontSize={6} fill="var(--text-quiet)" textAnchor="middle" opacity={0.4}>meeting</text>
-
-      {/* Review area (right side) */}
-      <ellipse cx={750} cy={340} rx={25} ry={12} fill="rgba(245,158,11,0.04)" stroke="rgba(245,158,11,0.1)" strokeWidth={0.5} />
-      <text x={750} y={343} fontSize={6} fill="var(--text-quiet)" textAnchor="middle" opacity={0.4}>review</text>
-
-      {/* Attention area (bottom) */}
-      <ellipse cx={450} cy={490} rx={40} ry={15} fill="rgba(239,68,68,0.03)" stroke="rgba(239,68,68,0.08)" strokeWidth={0.5} />
-      <text x={450} y={493} fontSize={6} fill="var(--text-quiet)" textAnchor="middle" opacity={0.4}>attention</text>
     </g>
   );
 }
