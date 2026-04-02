@@ -336,7 +336,13 @@ export default function OfficePage() {
   }
 
   const loadRef = useCallback(() => load(), []);
-  useRealtimeMulti(["agents", "tasks"], loadRef);
+  useRealtimeMulti(["agents", "tasks", "feed_events"], loadRef);
+
+  // Polling fallback: refresh every 10s as lightweight backup
+  useEffect(() => {
+    const interval = setInterval(() => load(), 10000);
+    return () => clearInterval(interval);
+  }, []);
   useEffect(() => { load(); }, []);
 
   if (loading) {
@@ -360,7 +366,7 @@ export default function OfficePage() {
   return (
     <PageShell title="Office" description="Live view — agents, work states, and active operations">
       {/* Summary strip */}
-      <div className="rounded-lg p-3 mb-6 flex flex-wrap gap-4 sm:gap-6 text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+      <div className="rounded-lg p-3 mb-6 flex flex-wrap items-center gap-4 sm:gap-6 text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} />
           <span style={{ color: "var(--text-quiet)" }}>Online {availableCount + workingCount + discussionCount + reviewCount + blockedCount}</span>
@@ -387,6 +393,11 @@ export default function OfficePage() {
             <span style={{ color: "var(--text-quiet)" }}>Away {subduedCount}</span>
           </div>
         )}
+        {/* Live indicator */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} />
+          <span style={{ color: "var(--text-quiet)" }}>live</span>
+        </div>
       </div>
 
       {/* Orchestrator */}
