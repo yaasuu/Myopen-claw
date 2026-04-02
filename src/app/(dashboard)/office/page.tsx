@@ -56,6 +56,22 @@ const REVIEW_POSITION: [number, number, number] = [8, 0, -3];
 const ATTENTION_POSITION: [number, number, number] = [-8, 0, -3];
 const ORCHESTRATOR_POSITION: [number, number, number] = [0, 0, 0];
 
+// ─── Stable Slot Positions ───
+// Each zone has predefined slots so agents always return to the same position
+
+const MEETING_SLOTS: [number, number, number][] = [
+  [-1.2, 0, -0.5], [0, 0, -0.5], [1.2, 0, -0.5],   // front side
+  [-1.2, 0, 0.5], [0, 0, 0.5], [1.2, 0, 0.5],       // back side
+];
+
+const REVIEW_SLOTS: [number, number, number][] = [
+  [-1, 0, 0.8], [0, 0, 0.8], [1, 0, 0.8],           // in front of review desk
+];
+
+const ATTENTION_SLOTS: [number, number, number][] = [
+  [-0.8, 0, 0.7], [0, 0, 0.7], [0.8, 0, 0.7],       // in front of attention desk
+];
+
 // State → zone mapping
 function getTargetZone(state: PresenceState): string {
   if (state === "in_discussion") return "meeting";
@@ -64,14 +80,70 @@ function getTargetZone(state: PresenceState): string {
   return "desk"; // working, available, paused, offline
 }
 
-function getZonePosition(zone: string): [number, number, number] {
-  if (zone === "meeting") return MEETING_POSITION;
-  if (zone === "review") return REVIEW_POSITION;
-  if (zone === "attention") return ATTENTION_POSITION;
-  return ORCHESTRATOR_POSITION; // fallback
+// Get slot position for an agent in a zone
+function getSlotPosition(zone: string, slotIndex: number): [number, number, number] {
+  let slots: [number, number, number][];
+  let base: [number, number, number];
+
+  if (zone === "meeting") {
+    slots = MEETING_SLOTS;
+    base = MEETING_POSITION;
+  } else if (zone === "review") {
+    slots = REVIEW_SLOTS;
+    base = REVIEW_POSITION;
+  } else if (zone === "attention") {
+    slots = ATTENTION_SLOTS;
+    base = ATTENTION_POSITION;
+  } else {
+    return [0, 0, 0]; // desk uses home position
+  }
+
+  const slot = slots[slotIndex % slots.length];
+  return [base[0] + slot[0], 0, base[2] + slot[2]];
 }
 
-// Compute home desk position for each agent
+// Compute target position using stable slots
+function computeTargetPosition(
+  agentId: string,
+  state: PresenceState,
+  homePosition: [number, number, number],
+  agentSlotMap: Map<string, number> // agentId → slot index in current zone
+): [number, number, number] {
+  const zone = getTargetZone(state);
+
+  if (zone === "desk") {
+    return homePosition;
+  }
+
+  const slotIndex = agentSlotMap.get(agentId) ?? 0;
+  return getSlotPosition(zone, slotIndex);
+}
+
+// Assign stable slots to agents in the same zone
+// Slot assignment is deterministic: agents sorted by ID, first agent gets slot 0
+function assignSlots(agents: Agent[], presences: AgentPresence[]): Map<string, number> {
+  const zoneGroups: Record<string, string[]> = {};
+
+  for (const agent of agents) {
+    const presence = presences.find((p) => p.agentId === agent.id);
+    const state = presence?.state ?? "available";
+    const zone = getTargetZone(state);
+    if (zone === "desk") continue; // desk agents use home position
+    if (!zoneGroups[zone]) zoneGroups[zone] = [];
+    zoneGroups[zone].push(agent.id);
+  }
+
+  const slotMap = new Map<string, number>();
+  for (const [zone, agentIds] of Object.entries(zoneGroups)) {
+    // Sort by agent ID for deterministic slot assignment
+    const sorted = [...agentIds].sort();
+    sorted.forEach((id, idx) => {
+      slotMap.set(id, idx);
+    });
+  }
+
+  return slotMap;
+}
 function computeHomePositions(agents: Agent[]): Map<string, [number, number, number]> {
   const positions = new Map<string, [number, number, number]>();
   const deptCounts: Record<string, number> = {};
@@ -91,30 +163,6 @@ function computeHomePositions(agents: Agent[]): Map<string, [number, number, num
   }
 
   return positions;
-}
-
-// Compute target position based on state
-function computeTargetPosition(
-  agentId: string,
-  state: PresenceState,
-  homePosition: [number, number, number],
-  agentsInZone: number
-): [number, number, number] {
-  const zone = getTargetZone(state);
-
-  if (zone === "desk") {
-    return homePosition;
-  }
-
-  const zonePos = getZonePosition(zone);
-  // Spread agents in the zone
-  const angle = (agentsInZone * 1.2) - Math.PI / 4;
-  const radius = 1.5;
-  return [
-    zonePos[0] + Math.cos(angle) * radius,
-    0,
-    zonePos[2] + Math.sin(angle) * radius,
-  ];
 }
 
 // ─── Presence dot color ───
@@ -422,8 +470,7 @@ function Agent3D({
   agent,
   presence,
   homePosition,
-  allPresences,
-  agents,
+  slotMap,
   signal,
   govSignals,
   onClick,
@@ -431,8 +478,7 @@ function Agent3D({
   agent: Agent;
   presence: AgentPresence | undefined;
   homePosition: [number, number, number];
-  allPresences: AgentPresence[];
-  agents: Agent[];
+  slotMap: Map<string, number>;
   signal: CollaborationSignal | undefined;
   govSignals: GovernanceSignal[];
   onClick: () => void;
@@ -454,13 +500,10 @@ function Agent3D({
     if (zone === "desk") {
       targetRef.current = [...homePosition];
     } else {
-      const agentsInSameZone = allPresences.filter((p) => {
-        const pZone = getTargetZone(p.state);
-        return pZone === zone && p.agentId !== agent.id;
-      }).length;
-      targetRef.current = computeTargetPosition(agent.id, state, homePosition, agentsInSameZone);
+      const slotIndex = slotMap.get(agent.id) ?? 0;
+      targetRef.current = getSlotPosition(zone, slotIndex);
     }
-  }, [state, homePosition, allPresences, agent.id]);
+  }, [state, homePosition, slotMap, agent.id]);
 
   // Smooth movement + facing + walking bob
   useFrame((_, delta) => {
@@ -713,6 +756,9 @@ export default function OfficePage() {
   // Compute home positions
   const homePositions = useMemo(() => computeHomePositions(agents), [agents]);
 
+  // Compute stable slots for agents in special zones
+  const slotMap = useMemo(() => assignSlots(agents, presences), [agents, presences]);
+
   // Summary counts
   const workingCount = presences.filter((p) => p.state === "working").length;
   const discussionCount = presences.filter((p) => p.state === "in_discussion").length;
@@ -792,8 +838,7 @@ export default function OfficePage() {
                 agent={agent}
                 presence={presence}
                 homePosition={homePos}
-                allPresences={presences}
-                agents={agents}
+                slotMap={slotMap}
                 signal={signals.get(agent.id)}
                 govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)}
                 onClick={() => setSelectedAgent(agent)}
