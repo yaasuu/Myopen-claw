@@ -221,6 +221,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
+  // Log feed event directly
+  if (body.action === "log_feed_event") {
+    const { data, error } = await supabase
+      .from("feed_events")
+      .insert({
+        event_type: body.event_type,
+        source: body.source ?? "Yas Claw",
+        summary: body.summary,
+        related_task_id: body.related_task_id ?? null,
+        related_agent_id: body.related_agent_id ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
   // Generate daily summary
   if (body.action === "generate_summary") {
     const targetDate = body.date ?? new Date().toISOString().split("T")[0];
