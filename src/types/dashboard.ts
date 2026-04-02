@@ -271,14 +271,31 @@ export interface CapabilityGap {
   updated_at: string;
 }
 
+export type EvidenceType =
+  | "task_keyword"
+  | "blocked_task"
+  | "rejected_review"
+  | "returned_for_rework"
+  | "discussion_signal"
+  | "proposal_signal"
+  | "approval_signal"
+  | "tool_mention"
+  | "manual_workaround"
+  | "repeat_assignment"
+  | "live_feed_event";
+
 export interface CapabilityGapEvidence {
   id: string;
   gap_id: string;
-  signal_type: SignalType;
-  source: "task" | "review" | "feed_event" | "session" | "discussion";
-  source_id: string;
-  evidence_text: string;
+  agent_id: string;
+  evidence_type: EvidenceType;
+  source_table: string | null;
+  source_id: string | null;
+  source_label: string;
+  source_excerpt: string;
+  weight: number;
   detected_at: string;
+  created_at: string;
 }
 
 export interface CapabilityImprovement {

@@ -109,50 +109,66 @@ create unique index if not exists uq_capability_gaps_open_gap
 create table if not exists public.capability_gap_evidence (
   id uuid primary key default gen_random_uuid(),
   gap_id uuid not null references public.capability_gaps(id) on delete cascade,
+  agent_id uuid not null references public.agents(id) on delete cascade,
 
-  signal_type text not null check (signal_type in (
-    'blocked_task', 'rejected_review', 'returned_for_rework',
-    'keyword_mention', 'manual_workaround', 'missing_installed_skill',
-    'discussion_signal', 'repeated_failure'
-  )),
+  evidence_type text not null
+    check (evidence_type in (
+      'task_keyword',
+      'blocked_task',
+      'rejected_review',
+      'returned_for_rework',
+      'discussion_signal',
+      'proposal_signal',
+      'approval_signal',
+      'tool_mention',
+      'manual_workaround',
+      'repeat_assignment',
+      'live_feed_event'
+    )),
 
-  source text not null check (source in (
-    'task', 'review', 'feed_event', 'session', 'discussion'
-  )),
-  source_id text default '',
-  evidence_text text default '',
+  source_table text,
+  source_id text,
+  source_label text default '',
+  source_excerpt text default '',
 
-  detected_at timestamptz not null default now()
+  weight numeric(4,2) not null default 1.00,
+  detected_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 
 create index if not exists idx_capability_gap_evidence_gap
   on public.capability_gap_evidence(gap_id);
 
+create index if not exists idx_capability_gap_evidence_agent
+  on public.capability_gap_evidence(agent_id);
+
 create index if not exists idx_capability_gap_evidence_type
-  on public.capability_gap_evidence(signal_type);
+  on public.capability_gap_evidence(evidence_type);
 
 -- =========================================================
--- 4) capability_improvements (post-install feedback loop)
+-- 4) updated_at triggers
 -- =========================================================
-create table if not exists public.capability_improvements (
-  id uuid primary key default gen_random_uuid(),
-  gap_id uuid not null references public.capability_gaps(id) on delete cascade,
-  skill_slug text not null,
-  agent_id uuid references public.agents(id) on delete set null,
-  measured_at timestamptz default now(),
-  days_since_install integer default 0,
-  blocker_count_before integer default 0,
-  blocker_count_after integer default 0,
-  rework_count_before integer default 0,
-  rework_count_after integer default 0,
-  review_pass_rate_before numeric(5,2) default 0,
-  review_pass_rate_after numeric(5,2) default 0,
-  improvement_score numeric(5,2) default 0,
-  notes text default ''
-);
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
-create index if not exists idx_capability_improvements_gap
-  on public.capability_improvements(gap_id);
+drop trigger if exists trg_capability_audit_runs_updated_at on public.capability_audit_runs;
+create trigger trg_capability_audit_runs_updated_at
+  before update on public.capability_audit_runs
+  for each row
+  execute function public.set_updated_at();
+
+drop trigger if exists trg_capability_gaps_updated_at on public.capability_gaps;
+create trigger trg_capability_gaps_updated_at
+  before update on public.capability_gaps
+  for each row
+  execute function public.set_updated_at();
 
 -- =========================================================
 -- 5) RLS
@@ -160,68 +176,79 @@ create index if not exists idx_capability_improvements_gap
 alter table public.capability_audit_runs enable row level security;
 alter table public.capability_gaps enable row level security;
 alter table public.capability_gap_evidence enable row level security;
-alter table public.capability_improvements enable row level security;
 
--- capability_audit_runs
-create policy "anon_select_audit_runs" on public.capability_audit_runs
-  for select to anon using (true);
-create policy "anon_insert_audit_runs" on public.capability_audit_runs
-  for insert to anon with check (true);
-create policy "anon_update_audit_runs" on public.capability_audit_runs
-  for update to anon using (true) with check (true);
+-- drop old policies if rerun
+drop policy if exists "anon_select_capability_audit_runs" on public.capability_audit_runs;
+drop policy if exists "anon_insert_capability_audit_runs" on public.capability_audit_runs;
+drop policy if exists "anon_update_capability_audit_runs" on public.capability_audit_runs;
 
--- capability_gaps
-create policy "anon_select_gaps" on public.capability_gaps
-  for select to anon using (true);
-create policy "anon_insert_gaps" on public.capability_gaps
-  for insert to anon with check (true);
-create policy "anon_update_gaps" on public.capability_gaps
-  for update to anon using (true) with check (true);
+drop policy if exists "anon_select_capability_gaps" on public.capability_gaps;
+drop policy if exists "anon_insert_capability_gaps" on public.capability_gaps;
+drop policy if exists "anon_update_capability_gaps" on public.capability_gaps;
 
--- capability_gap_evidence
-create policy "anon_select_evidence" on public.capability_gap_evidence
-  for select to anon using (true);
-create policy "anon_insert_evidence" on public.capability_gap_evidence
-  for insert to anon with check (true);
+drop policy if exists "anon_select_capability_gap_evidence" on public.capability_gap_evidence;
+drop policy if exists "anon_insert_capability_gap_evidence" on public.capability_gap_evidence;
+drop policy if exists "anon_update_capability_gap_evidence" on public.capability_gap_evidence;
 
--- capability_improvements
-create policy "anon_select_improvements" on public.capability_improvements
-  for select to anon using (true);
-create policy "anon_insert_improvements" on public.capability_improvements
-  for insert to anon with check (true);
+create policy "anon_select_capability_audit_runs"
+  on public.capability_audit_runs for select to anon using (true);
+create policy "anon_insert_capability_audit_runs"
+  on public.capability_audit_runs for insert to anon with check (true);
+create policy "anon_update_capability_audit_runs"
+  on public.capability_audit_runs for update to anon using (true) with check (true);
+
+create policy "anon_select_capability_gaps"
+  on public.capability_gaps for select to anon using (true);
+create policy "anon_insert_capability_gaps"
+  on public.capability_gaps for insert to anon with check (true);
+create policy "anon_update_capability_gaps"
+  on public.capability_gaps for update to anon using (true) with check (true);
+
+create policy "anon_select_capability_gap_evidence"
+  on public.capability_gap_evidence for select to anon using (true);
+create policy "anon_insert_capability_gap_evidence"
+  on public.capability_gap_evidence for insert to anon with check (true);
+create policy "anon_update_capability_gap_evidence"
+  on public.capability_gap_evidence for update to anon using (true) with check (true);
+
+grant select, insert, update on public.capability_audit_runs to anon;
+grant select, insert, update on public.capability_gaps to anon;
+grant select, insert, update on public.capability_gap_evidence to anon;
 
 -- =========================================================
--- 6) Updated-at trigger for capability_gaps
+-- 6) feed_events support for capability governance events
 -- =========================================================
-create or replace function update_capability_gap_timestamp()
-returns trigger as $$
+do $$
 begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+  if exists (
+    select 1
+    from information_schema.tables
+    where table_schema = 'public'
+    and table_name = 'feed_events'
+  ) then
+    begin
+      alter table public.feed_events drop constraint if exists feed_events_event_type_check;
+    exception when others then
+      null;
+    end;
 
-drop trigger if exists trigger_capability_gaps_updated on public.capability_gaps;
-create trigger trigger_capability_gaps_updated
-  before update on public.capability_gaps
-  for each row
-  execute function update_capability_gap_timestamp();
-
--- =========================================================
--- 7) Updated-at trigger for capability_audit_runs
--- =========================================================
-create or replace function update_audit_run_timestamp()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
-
-drop trigger if exists trigger_capability_audit_runs_updated on public.capability_audit_runs;
-create trigger trigger_capability_audit_runs_updated
-  before update on public.capability_audit_runs
-  for each row
-  execute function update_audit_run_timestamp();
+    alter table public.feed_events
+      add constraint feed_events_event_type_check
+      check (event_type in (
+        'task_created','task_updated','task_completed','agent_routed','agent_paused','agent_resumed','agent_hired',
+        'system_alert','blocker_detected','blocker_resolved','governance_daily_run','governance_weekly_run',
+        'governance_monthly_run','governance_quarterly_run','autonomy_state_changed','governance_issue_detected',
+        'department_created','department_updated','department_paused','department_resumed','specialist_spawned',
+        'specialist_completed','specialist_terminated','specialist_promoted_recommended','portfolio_review_run',
+        'portfolio_risk_detected','portfolio_rebalance_triggered','skill_requested','skill_approved','skill_rejected',
+        'skill_installed','skill_scan_clean','skill_scan_flagged','agent_decision','agent_discussion','agent_routing',
+        'plan_created','plan_updated',
+        'discussion_started','discussion_summary_logged','finding_logged','proposal_created',
+        'approval_requested','approval_granted','approval_rejected','task_returned_for_rework',
+        'capability_gap_detected','capability_review_requested','skill_recommendation_approved',
+        'skill_recommendation_rejected','capability_gap_resolved'
+      ));
+  end if;
+end $$;
 
 commit;

@@ -9,7 +9,7 @@ import type {
   UrgencyLevel,
   GapReviewStatus,
   OwnerRoute,
-  SignalType,
+  EvidenceType,
   Agent,
   TaskWithAgent,
 } from "@/types/dashboard";
@@ -17,17 +17,18 @@ import type {
 // ── Classification Logic ─────────────────────────────
 
 export function classifyGap(params: {
-  signalType: SignalType;
+  evidenceType: EvidenceType;
   blockerText?: string;
   reviewNotes?: string;
   agentId?: string;
   taskAgentId?: string;
 }): { category: GapCategory; confidence: ConfidenceLevel; ownerRoute: OwnerRoute } {
-  const { signalType, blockerText, reviewNotes, agentId, taskAgentId } = params;
+  const { evidenceType, blockerText, reviewNotes, agentId, taskAgentId } = params;
   const bt = (blockerText ?? "").toLowerCase();
   const rn = (reviewNotes ?? "").toLowerCase();
 
-  switch (signalType) {
+  switch (evidenceType) {
+    case "blocked_task":
     case "blocked_task":
       if (bt.includes("don't know") || bt.includes("no tool") || bt.includes("not available"))
         return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
@@ -52,16 +53,19 @@ export function classifyGap(params: {
       return { category: "wrong_assignment", confidence: "medium", ownerRoute: "yas-claw" };
 
     case "manual_workaround":
-    case "missing_installed_skill":
+    case "tool_mention":
       return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
 
-    case "keyword_mention":
+    case "task_keyword":
       return { category: "missing_skill", confidence: "low", ownerRoute: "data-analyst" };
 
     case "discussion_signal":
+    case "proposal_signal":
+    case "approval_signal":
       return { category: "missing_skill", confidence: "medium", ownerRoute: "data-analyst" };
 
-    case "repeated_failure":
+    case "repeat_assignment":
+    case "live_feed_event":
       return { category: "missing_skill", confidence: "high", ownerRoute: "architecture-systems" };
 
     default:
@@ -316,20 +320,26 @@ export async function getGapEvidence(gapId: string): Promise<{ data: CapabilityG
 
 export async function addGapEvidence(input: {
   gapId: string;
-  signalType: SignalType;
-  source: CapabilityGapEvidence["source"];
+  agentId: string;
+  evidenceType: EvidenceType;
+  sourceTable?: string;
   sourceId?: string;
-  evidenceText?: string;
+  sourceLabel?: string;
+  sourceExcerpt?: string;
+  weight?: number;
 }): Promise<{ error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { error: "Supabase not connected" };
 
   const { error } = await supabase.from("capability_gap_evidence").insert({
     gap_id: input.gapId,
-    signal_type: input.signalType,
-    source: input.source,
-    source_id: input.sourceId ?? "",
-    evidence_text: input.evidenceText ?? "",
+    agent_id: input.agentId,
+    evidence_type: input.evidenceType,
+    source_table: input.sourceTable,
+    source_id: input.sourceId,
+    source_label: input.sourceLabel ?? "",
+    source_excerpt: input.sourceExcerpt ?? "",
+    weight: input.weight ?? 1.0,
   });
 
   return { error: error?.message ?? null };
