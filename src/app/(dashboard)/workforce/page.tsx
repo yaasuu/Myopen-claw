@@ -128,6 +128,7 @@ export default function WorkforcePage() {
     "architecture-systems": "architecture-systems",
     "ui-ux-designer": "architecture-systems",
     "data-analyst": "ops-improvement",
+    "qa-agent": "ops-improvement",
   };
 
   function getAgentDeptId(agentShortId: string): string | undefined {
