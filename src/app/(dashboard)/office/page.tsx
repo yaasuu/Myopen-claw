@@ -289,16 +289,16 @@ function AgentDetailPanel({
 
 // ─── Agent card ───
 
-function AgentCard({ presence, agent, department, signal, tasks, isBlocked, govSignals, onClick }: {
+function AgentCard({ presence, agent, department, signal, tasks, isBlocked, govSignals, focused, onClick }: {
   presence: AgentPresence; agent: Agent; department: string;
   signal: CollaborationSignal | undefined; tasks: TaskWithAgent[];
-  isBlocked: boolean; govSignals: GovernanceSignal[]; onClick: () => void;
+  isBlocked: boolean; govSignals: GovernanceSignal[]; focused: boolean; onClick: () => void;
 }) {
   const config = getPresenceConfig(presence.state);
   const openTasks = presence.openTasks ?? 0;
   return (
     <div className="rounded-md p-3 cursor-pointer transition-all hover:scale-[1.01]" onClick={onClick}
-      style={{ background: isBlocked ? "rgba(239,68,68,0.04)" : "var(--surface)", border: isBlocked ? "1px solid rgba(239,68,68,0.2)" : "1px solid var(--border)", opacity: SUBDUED_STATES.includes(presence.state) ? 0.55 : 1 }}>
+      style={{ background: isBlocked ? "rgba(239,68,68,0.04)" : "var(--surface)", border: focused ? "1px solid var(--accent)" : isBlocked ? "1px solid rgba(239,68,68,0.2)" : "1px solid var(--border)", opacity: SUBDUED_STATES.includes(presence.state) ? 0.55 : 1, boxShadow: focused ? "0 0 0 2px var(--accent)" : "none" }}>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">{agent.emoji}</span>
         <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{agent.name}</p><p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{department}</p></div>
@@ -317,10 +317,10 @@ function AgentCard({ presence, agent, department, signal, tasks, isBlocked, govS
 
 // ─── Zone panel ───
 
-function ZonePanel({ zone, zonePresences, agents, allDepts, signals, tasks, governance, onSelectAgent }: {
+function ZonePanel({ zone, zonePresences, agents, allDepts, signals, tasks, governance, focusedAgentId, onSelectAgent }: {
   zone: OfficeZone; zonePresences: AgentPresence[]; agents: Agent[]; allDepts: Department[];
   signals: Map<string, CollaborationSignal>; tasks: TaskWithAgent[]; governance: OrchestratorGovernance;
-  onSelectAgent: (agent: Agent) => void;
+  focusedAgentId: string | null; onSelectAgent: (agent: Agent) => void;
 }) {
   const Icon = zone.icon;
   const count = zonePresences.length;
@@ -354,7 +354,7 @@ function ZonePanel({ zone, zonePresences, agents, allDepts, signals, tasks, gove
           const agent = agents.find((a) => a.id === presence.agentId)!;
           const dept = allDepts.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
           const departmentLabel = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
-          return <AgentCard key={presence.agentId} presence={presence} agent={agent} department={departmentLabel} signal={signals.get(agent.id)} tasks={tasks} isBlocked={isBlockedZone} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} onClick={() => onSelectAgent(agent)} />;
+          return <AgentCard key={presence.agentId} presence={presence} agent={agent} department={departmentLabel} signal={signals.get(agent.id)} tasks={tasks} isBlocked={isBlockedZone} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} focused={agent.id === focusedAgentId} onClick={() => onSelectAgent(agent)} />;
         })}
       </div>
     </div>
@@ -363,10 +363,10 @@ function ZonePanel({ zone, zonePresences, agents, allDepts, signals, tasks, gove
 
 // ─── Department section (collapsible) ───
 
-function DepartmentSection({ slug, label, agents: deptAgents, presences, signals, tasks, governance, onSelectAgent, allDepts }: {
+function DepartmentSection({ slug, label, agents: deptAgents, presences, signals, tasks, governance, focusedAgentId, onSelectAgent, allDepts }: {
   slug: string; label: string; agents: Agent[]; presences: AgentPresence[];
   signals: Map<string, CollaborationSignal>; tasks: TaskWithAgent[]; governance: OrchestratorGovernance;
-  onSelectAgent: (agent: Agent) => void; allDepts: Department[];
+  focusedAgentId: string | null; onSelectAgent: (agent: Agent) => void; allDepts: Department[];
 }) {
   const [expanded, setExpanded] = useState(true);
   if (deptAgents.length === 0) return null;
@@ -385,7 +385,7 @@ function DepartmentSection({ slug, label, agents: deptAgents, presences, signals
             if (!presence) return null;
             const dept = allDepts.find((d) => d.slug === (agent as any).department_slug || d.id === (agent as any).department_id);
             const departmentLabel = dept ? dept.name : DIRECT_SHORT_IDS.includes(agent.short_id) ? "Direct" : "Unassigned";
-            return <AgentCard key={agent.id} presence={presence} agent={agent} department={departmentLabel} signal={signals.get(agent.id)} tasks={tasks} isBlocked={presence.state === "blocked"} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} onClick={() => onSelectAgent(agent)} />;
+            return <AgentCard key={agent.id} presence={presence} agent={agent} department={departmentLabel} signal={signals.get(agent.id)} tasks={tasks} isBlocked={presence.state === "blocked"} govSignals={governance.signals.filter((gs) => gs.agentId === agent.id)} focused={agent.id === focusedAgentId} onClick={() => onSelectAgent(agent)} />;
           })}
         </div>
       )}
@@ -522,6 +522,9 @@ export default function OfficePage() {
   const [stateFilter, setStateFilter] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Keyboard navigation
+  const [focusedAgentId, setFocusedAgentId] = useState<string | null>(null);
+
   async function load() {
     setLoading(true);
     const [a, d, t, e, p] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50), getProjects()]);
@@ -543,6 +546,63 @@ export default function OfficePage() {
   useRealtimeMulti(["agents", "tasks", "feed_events"], loadRef);
   useEffect(() => { const interval = setInterval(() => load(), 10000); return () => clearInterval(interval); }, []);
   useEffect(() => { load(); }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const filtered = filterAgents(agents, presences, deptFilter, stateFilter, searchQuery);
+      if (filtered.length === 0) return;
+
+      const currentIdx = filtered.findIndex((a) => a.id === focusedAgentId);
+
+      switch (e.key) {
+        case "ArrowDown": {
+          e.preventDefault();
+          const nextIdx = (currentIdx + 1) % filtered.length;
+          setFocusedAgentId(filtered[nextIdx].id);
+          break;
+        }
+        case "ArrowUp": {
+          e.preventDefault();
+          const prevIdx = currentIdx <= 0 ? filtered.length - 1 : currentIdx - 1;
+          setFocusedAgentId(filtered[prevIdx].id);
+          break;
+        }
+        case "Enter":
+          if (focusedAgentId) {
+            e.preventDefault();
+            const agent = filtered.find((a) => a.id === focusedAgentId);
+            if (agent) setSelectedAgent(agent);
+          }
+          break;
+        case "Escape":
+          if (selectedAgent) {
+            e.preventDefault();
+            setSelectedAgent(null);
+          } else if (focusedAgentId) {
+            e.preventDefault();
+            setFocusedAgentId(null);
+          }
+          break;
+        case "ArrowLeft":
+          if (!selectedAgent) {
+            e.preventDefault();
+            setActiveTab("zones");
+          }
+          break;
+        case "ArrowRight":
+          if (!selectedAgent) {
+            e.preventDefault();
+            setActiveTab("departments");
+          }
+          break;
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [agents, presences, deptFilter, stateFilter, searchQuery, focusedAgentId, selectedAgent]);
 
   if (loading) return <PageShell title="Office" description="Loading..."><div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading office...</div></PageShell>;
 
@@ -586,14 +646,18 @@ export default function OfficePage() {
           </span>
         </div>
 
-        <FilterBar deptFilter={deptFilter} stateFilter={stateFilter} searchQuery={searchQuery} onDeptFilter={setDeptFilter} onStateFilter={setStateFilter} onSearch={setSearchQuery} departments={departments} />
+        <FilterBar deptFilter={deptFilter} stateFilter={stateFilter} searchQuery={searchQuery}
+          onDeptFilter={(v) => { setDeptFilter(v); setFocusedAgentId(null); }}
+          onStateFilter={(v) => { setStateFilter(v); setFocusedAgentId(null); }}
+          onSearch={(v) => { setSearchQuery(v); setFocusedAgentId(null); }}
+          departments={departments} />
 
         {/* Zones tab */}
         <TabsContent value="zones">
           <div className="flex flex-col gap-4">
             {ZONES.map((zone) => {
               const zonePresences = filteredPresences.filter((p) => zone.presenceStates.includes(p.state));
-              return <ZonePanel key={zone.id} zone={zone} zonePresences={zonePresences} agents={filteredAgents} allDepts={departments} signals={signals} tasks={tasks} governance={governance} onSelectAgent={setSelectedAgent} />;
+              return <ZonePanel key={zone.id} zone={zone} zonePresences={zonePresences} agents={filteredAgents} allDepts={departments} signals={signals} tasks={tasks} governance={governance} focusedAgentId={focusedAgentId} onSelectAgent={setSelectedAgent} />;
             })}
           </div>
         </TabsContent>
@@ -603,11 +667,11 @@ export default function OfficePage() {
           <div className="flex flex-col gap-3">
             {DEPT_SLUGS.map((slug) => {
               const deptAgents = filteredAgents.filter((a) => getAgentDeptSlug(a) === slug);
-              return <DepartmentSection key={slug} slug={slug} label={getDeptLabel(slug, departments)} agents={deptAgents} presences={presences} signals={signals} tasks={tasks} governance={governance} onSelectAgent={setSelectedAgent} allDepts={departments} />;
+              return <DepartmentSection key={slug} slug={slug} label={getDeptLabel(slug, departments)} agents={deptAgents} presences={presences} signals={signals} tasks={tasks} governance={governance} focusedAgentId={focusedAgentId} onSelectAgent={setSelectedAgent} allDepts={departments} />;
             })}
             {(() => {
               const directAgents = filteredAgents.filter((a) => getAgentDeptSlug(a) === "direct");
-              return <DepartmentSection key="direct" slug="direct" label="Direct" agents={directAgents} presences={presences} signals={signals} tasks={tasks} governance={governance} onSelectAgent={setSelectedAgent} allDepts={departments} />;
+              return <DepartmentSection key="direct" slug="direct" label="Direct" agents={directAgents} presences={presences} signals={signals} tasks={tasks} governance={governance} focusedAgentId={focusedAgentId} onSelectAgent={setSelectedAgent} allDepts={departments} />;
             })()}
           </div>
         </TabsContent>
