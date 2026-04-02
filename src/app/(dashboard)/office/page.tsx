@@ -60,8 +60,8 @@ function getDeptLabel(slug: string, departments: Department[]): string {
 // Agents are seated at desks within their department cluster
 // State changes shift agents from their desk but keep them near the cluster
 
-const SVG_W = 900;
-const SVG_H = 600;
+const SVG_W = 1000;
+const SVG_H = 650;
 
 interface DeskCluster {
   slug: string;
@@ -81,79 +81,79 @@ const CLUSTERS: DeskCluster[] = [
     slug: "export-growth",
     label: "Export-Growth",
     color: "#3b82f6",
-    cx: 180, cy: 340,
+    cx: 160, cy: 380,
     desks: [
-      { dx: -40, dy: -15 }, { dx: 0, dy: -15 }, { dx: 40, dy: -15 },
-      { dx: -40, dy: 15 }, { dx: 0, dy: 15 }, { dx: 40, dy: 15 },
+      { dx: -50, dy: -18 }, { dx: 0, dy: -18 }, { dx: 50, dy: -18 },
+      { dx: -50, dy: 18 }, { dx: 0, dy: 18 }, { dx: 50, dy: 18 },
     ],
     stateShifts: {
       working: { dx: 0, dy: 0 },
-      in_discussion: { dx: 80, dy: -40 },
-      in_review: { dx: 100, dy: 10 },
-      waiting_for_input: { dx: 100, dy: 10 },
-      blocked: { dx: 0, dy: 50 },
+      in_discussion: { dx: 120, dy: -80 },
+      in_review: { dx: 140, dy: 20 },
+      waiting_for_input: { dx: 140, dy: 20 },
+      blocked: { dx: 0, dy: 60 },
       available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 35 },
-      offline: { dx: 0, dy: 35 },
+      paused: { dx: 0, dy: 40 },
+      offline: { dx: 0, dy: 40 },
     },
   },
   {
     slug: "ops-improvement",
     label: "Ops-Improvement",
     color: "#f59e0b",
-    cx: 400, cy: 400,
+    cx: 420, cy: 460,
     desks: [
-      { dx: -40, dy: -15 }, { dx: 0, dy: -15 }, { dx: 40, dy: -15 },
-      { dx: -40, dy: 15 }, { dx: 0, dy: 15 }, { dx: 40, dy: 15 },
+      { dx: -50, dy: -18 }, { dx: 0, dy: -18 }, { dx: 50, dy: -18 },
+      { dx: -50, dy: 18 }, { dx: 0, dy: 18 }, { dx: 50, dy: 18 },
     ],
     stateShifts: {
       working: { dx: 0, dy: 0 },
-      in_discussion: { dx: -60, dy: -50 },
-      in_review: { dx: 80, dy: -20 },
-      waiting_for_input: { dx: 80, dy: -20 },
-      blocked: { dx: 0, dy: 50 },
+      in_discussion: { dx: -80, dy: -90 },
+      in_review: { dx: 100, dy: -30 },
+      waiting_for_input: { dx: 100, dy: -30 },
+      blocked: { dx: 0, dy: 60 },
       available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 35 },
-      offline: { dx: 0, dy: 35 },
+      paused: { dx: 0, dy: 40 },
+      offline: { dx: 0, dy: 40 },
     },
   },
   {
     slug: "architecture-systems",
     label: "Architecture",
     color: "#8b5cf6",
-    cx: 650, cy: 340,
+    cx: 720, cy: 380,
     desks: [
-      { dx: -40, dy: -15 }, { dx: 0, dy: -15 }, { dx: 40, dy: -15 },
-      { dx: -40, dy: 15 }, { dx: 0, dy: 15 }, { dx: 40, dy: 15 },
+      { dx: -50, dy: -18 }, { dx: 0, dy: -18 }, { dx: 50, dy: -18 },
+      { dx: -50, dy: 18 }, { dx: 0, dy: 18 }, { dx: 50, dy: 18 },
     ],
     stateShifts: {
       working: { dx: 0, dy: 0 },
-      in_discussion: { dx: -80, dy: -40 },
-      in_review: { dx: -100, dy: 10 },
-      waiting_for_input: { dx: -100, dy: 10 },
-      blocked: { dx: 0, dy: 50 },
+      in_discussion: { dx: -120, dy: -80 },
+      in_review: { dx: -140, dy: 20 },
+      waiting_for_input: { dx: -140, dy: 20 },
+      blocked: { dx: 0, dy: 60 },
       available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 35 },
-      offline: { dx: 0, dy: 35 },
+      paused: { dx: 0, dy: 40 },
+      offline: { dx: 0, dy: 40 },
     },
   },
   {
     slug: "direct",
     label: "Direct",
     color: "#22c55e",
-    cx: 450, cy: 290,
+    cx: 500, cy: 300,
     desks: [
-      { dx: -35, dy: -12 }, { dx: 0, dy: -12 }, { dx: 35, dy: -12 },
+      { dx: -45, dy: -14 }, { dx: 0, dy: -14 }, { dx: 45, dy: -14 },
     ],
     stateShifts: {
       working: { dx: 0, dy: 0 },
-      in_discussion: { dx: 50, dy: -30 },
-      in_review: { dx: 60, dy: 10 },
-      waiting_for_input: { dx: 60, dy: 10 },
-      blocked: { dx: 0, dy: 40 },
+      in_discussion: { dx: 60, dy: -50 },
+      in_review: { dx: 80, dy: 15 },
+      waiting_for_input: { dx: 80, dy: 15 },
+      blocked: { dx: 0, dy: 50 },
       available: { dx: 0, dy: 0 },
-      paused: { dx: 0, dy: 25 },
-      offline: { dx: 0, dy: 25 },
+      paused: { dx: 0, dy: 30 },
+      offline: { dx: 0, dy: 30 },
     },
   },
 ];
@@ -211,73 +211,52 @@ function SVGRoom() {
   return (
     <g>
       {/* Floor */}
-      <polygon points="60,450 450,550 840,450 450,350" fill="var(--background)" stroke="var(--border)" strokeWidth={1} />
+      <polygon points="80,500 500,600 920,500 500,400" fill="var(--background)" stroke="var(--border)" strokeWidth={1} />
 
       {/* Back wall */}
-      <polygon points="60,100 450,20 840,100 840,350 450,450 60,350" fill="var(--surface)" stroke="var(--border)" strokeWidth={1} opacity={0.3} />
+      <polygon points="80,120 500,30 920,120 920,400 500,500 80,400" fill="var(--surface)" stroke="var(--border)" strokeWidth={1} opacity={0.3} />
 
       {/* Floor grid lines (subtle) */}
-      <line x1={150} y1={380} x2={750} y2={380} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
-      <line x1={200} y1={400} x2={700} y2={400} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
-      <line x1={250} y1={420} x2={650} y2={420} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
+      <line x1={200} y1={430} x2={800} y2={430} stroke="var(--border)" strokeWidth={0.3} opacity={0.25} />
+      <line x1={250} y1={450} x2={750} y2={450} stroke="var(--border)" strokeWidth={0.3} opacity={0.25} />
+      <line x1={300} y1={470} x2={700} y2={470} stroke="var(--border)" strokeWidth={0.3} opacity={0.25} />
 
       {/* ── Meeting Table ── */}
       <g>
-        {/* Table surface (isometric diamond) */}
-        <polygon points="450,248 490,268 450,288 410,268"
-          fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1} />
-        {/* Table top highlight */}
-        <polygon points="450,252 482,268 450,284 418,268"
+        <polygon points="500,270 550,295 500,320 450,295"
+          fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1.2} />
+        <polygon points="500,275 542,295 500,315 458,295"
           fill="rgba(139,92,246,0.03)" />
-
-        {/* Seating positions around table (4 chairs) */}
-        <circle cx={420} cy={255} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
-        <circle cx={480} cy={255} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
-        <circle cx={420} cy={282} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
-        <circle cx={480} cy={282} r={6} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
-
-        {/* Label */}
-        <text x={450} y={298} fontSize={7} fontWeight={600} fill="rgba(139,92,246,0.5)" textAnchor="middle">
+        <circle cx={460} cy={280} r={8} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <circle cx={540} cy={280} r={8} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <circle cx={460} cy={310} r={8} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <circle cx={540} cy={310} r={8} fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <text x={500} y={332} fontSize={9} fontWeight={600} fill="rgba(139,92,246,0.5)" textAnchor="middle">
           Meeting Table
         </text>
       </g>
 
       {/* ── Review Corner ── */}
       <g>
-        {/* Review desk surface */}
-        <rect x={728} y={320} width={60} height={28} rx={4}
-          fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.12)" strokeWidth={1} />
-        {/* Review desk top highlight */}
-        <rect x={732} y={324} width={52} height={20} rx={3}
+        <rect x={790} y={360} width={75} height={35} rx={5}
+          fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.12)" strokeWidth={1.2} />
+        <rect x={795} y={365} width={65} height={25} rx={4}
           fill="rgba(245,158,11,0.02)" />
-
-        {/* Review chair */}
-        <circle cx={758} cy={360} r={7} fill="none" stroke="rgba(245,158,11,0.1)" strokeWidth={0.8} strokeDasharray="2,2" />
-
-        {/* "Review" stamp icon */}
-        <text x={758} y={338} fontSize={10} textAnchor="middle" opacity={0.15}>📋</text>
-
-        {/* Label */}
-        <text x={758} y={372} fontSize={7} fontWeight={600} fill="rgba(245,158,11,0.5)" textAnchor="middle">
+        <circle cx={828} cy={408} r={9} fill="none" stroke="rgba(245,158,11,0.1)" strokeWidth={0.8} strokeDasharray="2,2" />
+        <text x={828} y={382} fontSize={12} textAnchor="middle" opacity={0.15}>📋</text>
+        <text x={828} y={422} fontSize={9} fontWeight={600} fill="rgba(245,158,11,0.5)" textAnchor="middle">
           Review Corner
         </text>
       </g>
 
       {/* ── Attention Area ── */}
       <g>
-        {/* Attention platform (subtle isometric diamond) */}
-        <polygon points="450,478 490,498 450,518 410,498"
-          fill="rgba(239,68,68,0.03)" stroke="rgba(239,68,68,0.08)" strokeWidth={1} />
-
-        {/* Attention desk */}
-        <rect x={432} y={488} width={36} height={16} rx={3}
+        <polygon points="500,520 550,545 500,570 450,545"
+          fill="rgba(239,68,68,0.03)" stroke="rgba(239,68,68,0.08)" strokeWidth={1.2} />
+        <rect x={480} y={535} width={40} height={18} rx={4}
           fill="rgba(239,68,68,0.04)" stroke="rgba(239,68,68,0.1)" strokeWidth={0.8} />
-
-        {/* Warning icon */}
-        <text x={450} y={499} fontSize={8} textAnchor="middle" opacity={0.2}>⚠</text>
-
-        {/* Label */}
-        <text x={450} y={528} fontSize={7} fontWeight={600} fill="rgba(239,68,68,0.5)" textAnchor="middle">
+        <text x={500} y={548} fontSize={9} textAnchor="middle" opacity={0.2}>⚠</text>
+        <text x={500} y={580} fontSize={9} fontWeight={600} fill="rgba(239,68,68,0.5)" textAnchor="middle">
           Attention
         </text>
       </g>
@@ -285,21 +264,16 @@ function SVGRoom() {
       {/* ── Department Desk Clusters ── */}
       {CLUSTERS.map((cluster) => (
         <g key={cluster.slug}>
-          {/* Cluster floor pad (subtle) */}
-          <ellipse cx={cluster.cx} cy={cluster.cy} rx={70} ry={35}
-            fill={cluster.color} opacity={0.04} stroke={cluster.color} strokeWidth={0.5} strokeOpacity={0.15} />
-
-          {/* Empty desk outlines (show where desks are) */}
+          <ellipse cx={cluster.cx} cy={cluster.cy} rx={85} ry={42}
+            fill={cluster.color} opacity={0.04} stroke={cluster.color} strokeWidth={0.6} strokeOpacity={0.15} />
           {cluster.desks.map((desk, i) => (
             <rect key={i}
-              x={cluster.cx + desk.dx - 25} y={cluster.cy + desk.dy - 11}
-              width={50} height={22} rx={4}
+              x={cluster.cx + desk.dx - 28} y={cluster.cy + desk.dy - 12}
+              width={56} height={24} rx={4}
               fill="none" stroke={cluster.color} strokeWidth={0.5} opacity={0.15}
               strokeDasharray="3,3" />
           ))}
-
-          {/* Cluster label */}
-          <text x={cluster.cx} y={cluster.cy + 45} fontSize={8} fontWeight={600}
+          <text x={cluster.cx} y={cluster.cy + 55} fontSize={10} fontWeight={600}
             fill={cluster.color} textAnchor="middle" opacity={0.5}>
             {cluster.label}
           </text>
@@ -310,46 +284,46 @@ function SVGRoom() {
 }
 
 function SVGOrchestrator({ coordination }: { coordination: CoordinationState }) {
-  const cx = 450, cy = 200;
+  const cx = 500, cy = 210;
 
   return (
     <g>
       {/* Orchestrator platform (larger, prominent) */}
-      <ellipse cx={cx} cy={cy + 30} rx={60} ry={25} fill="var(--accent)" opacity={0.08} />
+      <ellipse cx={cx} cy={cy + 35} rx={75} ry={30} fill="var(--accent)" opacity={0.08} />
 
       {/* Connection lines to department clusters */}
       {CLUSTERS.map((cluster, i) => (
-        <line key={i} x1={cx} y1={cy + 10} x2={cluster.cx} y2={cluster.cy}
-          stroke="var(--accent)" strokeWidth={1} opacity={0.15} strokeDasharray="4,4" />
+        <line key={i} x1={cx} y1={cy + 15} x2={cluster.cx} y2={cluster.cy}
+          stroke="var(--accent)" strokeWidth={1.2} opacity={0.15} strokeDasharray="5,5" />
       ))}
 
       {/* Central desk (larger than agent desks) */}
-      <rect x={cx - 45} y={cy - 20} width={90} height={40} rx={8}
+      <rect x={cx - 55} y={cy - 24} width={110} height={48} rx={10}
         fill="var(--surface)" stroke="var(--accent)" strokeWidth={2.5} />
 
       {/* Yas Claw emoji (larger) */}
-      <text x={cx - 20} y={cy + 6} fontSize={24} textAnchor="middle" dominantBaseline="central">🦀</text>
+      <text x={cx - 22} y={cy + 5} fontSize={28} textAnchor="middle" dominantBaseline="central">🦀</text>
 
       {/* Label */}
-      <text x={cx + 14} y={cy - 4} fontSize={12} fontWeight={700} fill="var(--text)" textAnchor="start" dominantBaseline="central">
+      <text x={cx + 18} y={cy - 6} fontSize={14} fontWeight={700} fill="var(--text)" textAnchor="start" dominantBaseline="central">
         Yas Claw
       </text>
-      <text x={cx + 14} y={cy + 10} fontSize={8} fill="var(--accent)" textAnchor="start" dominantBaseline="central">
+      <text x={cx + 18} y={cy + 12} fontSize={9} fill="var(--accent)" textAnchor="start" dominantBaseline="central">
         ORCHESTRATOR
       </text>
 
       {/* Coordination indicator */}
       {coordination.isCoordinating && (
         <g>
-          <circle cx={cx + 38} cy={cy - 16} r={6} fill="#3b82f6" />
-          <text x={cx + 38} y={cy - 15} fontSize={7} fill="white" textAnchor="middle" dominantBaseline="central" fontWeight={700}>
+          <circle cx={cx + 48} cy={cy - 18} r={7} fill="#3b82f6" />
+          <text x={cx + 48} y={cy - 17} fontSize={8} fill="white" textAnchor="middle" dominantBaseline="central" fontWeight={700}>
             {coordination.recentRoutes.length + coordination.pendingReviews.length}
           </text>
         </g>
       )}
 
       {/* Status line */}
-      <text x={cx} y={cy + 45} fontSize={8} fill="var(--text-quiet)" textAnchor="middle">
+      <text x={cx} y={cy + 55} fontSize={9} fill="var(--text-quiet)" textAnchor="middle">
         All agents coordinate through this node
       </text>
     </g>
@@ -371,7 +345,7 @@ function SVGAgentDesk({ agent, presence, x, y, signal, govSignals, focused, onCl
 
   const hasAlert = govSignals.some((s) => s.severity === "critical" || s.severity === "attention");
   const isAway = presence?.state === "paused" || presence?.state === "offline";
-  const deskW = 50, deskH = 22;
+  const deskW = 56, deskH = 24;
 
   // All elements rendered at (0,0) origin — group handles position via CSS transform
   return (
@@ -621,7 +595,7 @@ export default function OfficePage() {
 
       {/* Isometric Office Scene */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
-        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto" style={{ maxHeight: "75vh" }}>
+        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto" style={{ maxHeight: "80vh" }}>
           {/* Presence dot pulse animation */}
           <style>{`
             @keyframes presence-pulse {
