@@ -96,6 +96,7 @@ const priorityColors: Record<string, { text: string; dot: string }> = {
 };
 
 const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "in-review", "done"];
+const BOARD_COLUMNS: TaskWithAgent["status"][] = ["pending", "in-progress", "in-review", "done"];
 
 // Transition rules: from → allowed to
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -763,7 +764,7 @@ export default function TasksPage() {
       {/* Board View — Kanban lanes */}
       {viewMode === "board" && (
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-            {STATUSES.map((status) => {
+            {BOARD_COLUMNS.map((status) => {
               const columnTasks = filtered.filter((t) => t.status === status);
               const dotColor: Record<string, string> = {
                 pending: "dot-gray",
