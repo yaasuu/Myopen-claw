@@ -73,7 +73,12 @@ export interface FeedEvent {
     | "approval_requested"
     | "approval_granted"
     | "approval_rejected"
-    | "task_returned_for_rework";
+    | "task_returned_for_rework"
+    | "capability_gap_detected"
+    | "capability_review_requested"
+    | "skill_recommendation_approved"
+    | "skill_recommendation_rejected"
+    | "capability_gap_resolved";
   source: string;
   summary: string;
   related_task_id: string | null;
@@ -180,6 +185,105 @@ export interface SkillRequest {
   requested_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+}
+
+// ── Phase 11K: Capability Governance ─────────────────
+
+export type GapCategory =
+  | "missing_skill"
+  | "wrong_assignment"
+  | "unclear_scope"
+  | "dependency_blocker"
+  | "missing_process"
+  | "approval_delay";
+
+export type ConfidenceLevel = "low" | "medium" | "high";
+export type UrgencyLevel = "low" | "medium" | "high";
+
+export type GapReviewStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "resolved"
+  | "monitoring";
+
+export type SignalType =
+  | "repeated_blocked_tasks"
+  | "rejected_review"
+  | "rework_cycle"
+  | "tool_mention_no_skill"
+  | "session_tool_failure"
+  | "unassigned_pending"
+  | "user_correction"
+  | "fallback_chain"
+  | "keyword_cluster";
+
+export interface CapabilityGap {
+  id: string;
+  agent_id: string | null;
+  agent_name?: string;
+  agent_emoji?: string;
+  gap_category: GapCategory;
+  capability_area: string;
+  missing_skill_slug: string;
+  missing_skill_name: string;
+  confidence_level: ConfidenceLevel;
+  urgency_level: UrgencyLevel;
+  evidence_count: number;
+  evidence_summary: string;
+  evidence_task_ids: string[];
+  evidence_session_ids: string[];
+  why_flagged: string;
+  recommended_action: string;
+  review_status: GapReviewStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GapEvidence {
+  id: string;
+  gap_id: string;
+  signal_type: SignalType;
+  severity: "low" | "medium" | "high" | "critical";
+  source: "session" | "task" | "feed_event" | "review" | "discussion";
+  source_id: string;
+  evidence_text: string;
+  detected_at: string;
+}
+
+export interface AuditRun {
+  id: string;
+  run_date: string;
+  sessions_scanned: number;
+  tasks_scanned: number;
+  feed_events_scanned: number;
+  gaps_detected: number;
+  new_gaps: number;
+  critical_gaps: number;
+  resolved_gaps: number;
+  summary: string;
+  run_duration_ms: number;
+  created_at: string;
+}
+
+export interface CapabilityImprovement {
+  id: string;
+  gap_id: string;
+  skill_slug: string;
+  agent_id: string | null;
+  measured_at: string;
+  days_since_install: number;
+  blocker_count_before: number;
+  blocker_count_after: number;
+  rework_count_before: number;
+  rework_count_after: number;
+  review_pass_rate_before: number;
+  review_pass_rate_after: number;
+  improvement_score: number;
+  notes: string;
 }
 
 export interface Project {

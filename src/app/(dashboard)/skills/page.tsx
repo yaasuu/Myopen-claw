@@ -30,6 +30,13 @@ import {
   Zap,
   TrendingUp,
   Award,
+  Search,
+  Target,
+  BarChart3,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  Activity,
 } from "lucide-react";
 import {
   getSkills,
@@ -41,6 +48,11 @@ import {
   analyzeSkillGaps,
   scanSkillContent,
 } from "@/lib/data/skills";
+import {
+  getCapabilityGaps,
+  getAuditRuns,
+  reviewCapabilityGap,
+} from "@/lib/data/capability-governance";
 import { getAgents } from "@/lib/data/agents";
 import { getTasks } from "@/lib/data/tasks";
 import { useCanWrite } from "@/lib/auth/use-can-write";
@@ -52,6 +64,9 @@ import type {
   SkillScanResult,
   Agent,
   TaskWithAgent,
+  CapabilityGap,
+  AuditRun,
+  GapReviewStatus,
 } from "@/types/dashboard";
 
 function timeAgo(iso: string): string {
@@ -82,6 +97,8 @@ export default function SkillsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [gaps, setGaps] = useState<ReturnType<typeof analyzeSkillGaps>>([]);
+  const [capabilityGaps, setCapabilityGaps] = useState<CapabilityGap[]>([]);
+  const [auditRuns, setAuditRuns] = useState<AuditRun[]>([]);
 
   const [processing, setProcessing] = useState<string | null>(null);
 
@@ -95,12 +112,14 @@ export default function SkillsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [skillsR, agentSkillsR, requestsR, agentsR, tasksR] = await Promise.all([
+      const [skillsR, agentSkillsR, requestsR, agentsR, tasksR, capGapsR, auditsR] = await Promise.all([
         getSkills(),
         getAgentSkills(),
         getSkillRequests(),
         getAgents(),
         getTasks(),
+        getCapabilityGaps(),
+        getAuditRuns(),
       ]);
       setSkills(skillsR.data);
       setAgentSkills(agentSkillsR.data);
@@ -108,6 +127,8 @@ export default function SkillsPage() {
       setAgents(agentsR.data);
       setTasks(tasksR.data);
       setGaps(analyzeSkillGaps(tasksR.data, agentsR.data, agentSkillsR.data));
+      setCapabilityGaps(capGapsR.data);
+      setAuditRuns(auditsR.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -133,6 +154,14 @@ export default function SkillsPage() {
   async function handleReject(requestId: string) {
     setProcessing(requestId);
     await rejectSkillRequest(requestId, "CEO");
+    await load();
+    setProcessing(null);
+  }
+
+  async function handleReviewGap(gapId: string, status: GapReviewStatus) {
+    setProcessing(gapId);
+    const result = await reviewCapabilityGap(gapId, status, "CEO");
+    if (result.error) setError(result.error);
     await load();
     setProcessing(null);
   }
@@ -326,6 +355,177 @@ export default function SkillsPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Capability Governance — Nightly Audit Detections */}
+      {capabilityGaps.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+              <Target className="h-4 w-4 text-[var(--accent)]" />
+            </div>
+            <h2 className="section-title">Capability Gap Detection</h2>
+            <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">
+              {capabilityGaps.filter(g => g.review_status === "pending").length} pending
+            </Badge>
+          </div>
+
+          {/* Audit history summary */}
+          {auditRuns.length > 0 && (
+            <div className="flex items-center gap-3 mb-4 text-xs text-muted-foreground">
+              <Activity className="h-3.5 w-3.5" />
+              <span>Last audit: {auditRuns[0]?.run_date}</span>
+              <span>·</span>
+              <span>{auditRuns[0]?.sessions_scanned} sessions</span>
+              <span>·</span>
+              <span>{auditRuns[0]?.gaps_detected} gaps found</span>
+              {auditRuns[0]?.summary && (
+                <>
+                  <span>·</span>
+                  <span className="truncate max-w-md">{auditRuns[0].summary}</span>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {capabilityGaps.map((gap) => {
+              const confidenceColors = {
+                high: "text-[var(--danger)]",
+                medium: "text-[var(--warning)]",
+                low: "text-[var(--info)]",
+              };
+              const urgencyColors = {
+                high: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]",
+                medium: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]",
+                low: "bg-[rgba(59,130,246,0.12)] text-[var(--info)]",
+              };
+              const statusColors = {
+                pending: "border-l-amber-400",
+                approved: "border-l-emerald-500",
+                rejected: "border-l-red-500",
+                resolved: "border-l-gray-300",
+                monitoring: "border-l-blue-400",
+              };
+              const categoryLabels = {
+                missing_skill: "Missing Skill",
+                wrong_assignment: "Wrong Assignment",
+                unclear_scope: "Unclear Scope",
+                dependency_blocker: "Dependency Blocker",
+                missing_process: "Missing Process",
+                approval_delay: "Approval Delay",
+              };
+
+              return (
+                <Card key={gap.id} className={`stat-card border-l-4 ${statusColors[gap.review_status]}`}>
+                  <CardContent className="p-5 space-y-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold">{gap.capability_area}</span>
+                          <Badge variant="outline" className="text-[10px]">
+                            {categoryLabels[gap.gap_category]}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {gap.agent_emoji && <span className="text-lg">{gap.agent_emoji}</span>}
+                          <span className="text-xs text-muted-foreground">
+                            {gap.agent_name ?? "System-wide"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`text-[10px] ${urgencyColors[gap.urgency_level]}`}>
+                          {gap.urgency_level}
+                        </Badge>
+                        <Badge variant="outline" className={`text-[10px] ${confidenceColors[gap.confidence_level]}`}>
+                          {gap.confidence_level} conf
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Why flagged */}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Why flagged</p>
+                      <p className="text-sm">{gap.why_flagged}</p>
+                    </div>
+
+                    {/* Evidence & recommended action */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <BarChart3 className="h-3.5 w-3.5" />
+                          {gap.evidence_count} evidence
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {timeAgo(gap.last_seen_at)}
+                        </span>
+                      </div>
+                      {gap.recommended_action && (
+                        <div className="flex items-start gap-2 rounded-lg bg-[rgba(139,92,246,0.05)] px-3 py-2">
+                          <ChevronRight className="h-3.5 w-3.5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                          <p className="text-xs">{gap.recommended_action}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Evidence summary */}
+                    {gap.evidence_summary && (
+                      <p className="text-xs text-muted-foreground">{gap.evidence_summary}</p>
+                    )}
+
+                    {/* Status badge */}
+                    {gap.review_status !== "pending" && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {gap.review_status === "monitoring" && <Eye className="h-3 w-3 mr-1" />}
+                        {gap.review_status === "approved" && <ThumbsUp className="h-3 w-3 mr-1" />}
+                        {gap.review_status === "rejected" && <ThumbsDown className="h-3 w-3 mr-1" />}
+                        {gap.review_status}
+                      </Badge>
+                    )}
+
+                    {/* Actions — only for pending gaps */}
+                    {canWrite && gap.review_status === "pending" && (
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button
+                          size="sm"
+                          className="gap-1.5 flex-1"
+                          disabled={processing === gap.id}
+                          onClick={() => handleReviewGap(gap.id, "approved")}
+                        >
+                          {processing === gap.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsUp className="h-3.5 w-3.5" />}
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 flex-1"
+                          disabled={processing === gap.id}
+                          onClick={() => handleReviewGap(gap.id, "rejected")}
+                        >
+                          <ThumbsDown className="h-3.5 w-3.5" />
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1.5"
+                          disabled={processing === gap.id}
+                          onClick={() => handleReviewGap(gap.id, "monitoring")}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Monitor
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </section>
       )}

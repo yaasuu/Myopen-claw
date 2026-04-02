@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
 import { getTasks } from "@/lib/data/tasks";
+import { getFeedEvents } from "@/lib/data/feed";
+import { deriveAgentPresence, getPresenceConfig, type AgentPresence, type PresenceState } from "@/lib/data/presence";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent } from "@/types/dashboard";
 
