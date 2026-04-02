@@ -210,79 +210,57 @@ function computeAgentPositions(
 function SVGRoom() {
   return (
     <g>
-      {/* Floor (slightly brighter to add depth) */}
-      <polygon points="80,500 500,600 920,500 500,400" fill="var(--surface)" stroke="var(--border)" strokeWidth={1} opacity={0.6} />
+      {/* Floor */}
+      <polygon className="office-floor" points="80,500 500,600 920,500 500,400" strokeWidth={1.5} />
 
-      {/* Floor shadow (subtle depth) */}
-      <polygon points="100,495 500,590 900,495 500,395" fill="var(--border)" opacity={0.08} />
+      {/* Floor shadow */}
+      <polygon className="office-shadow" points="100,495 500,590 900,495 500,395" opacity={0.1} />
 
-      {/* Back wall (slightly more visible) */}
-      <polygon points="80,120 500,30 920,120 920,400 500,500 80,400" fill="var(--surface)" stroke="var(--border)" strokeWidth={1} opacity={0.4} />
+      {/* Back wall */}
+      <polygon className="office-wall" points="80,120 500,30 920,120 920,400 500,500 80,400" strokeWidth={1.5} opacity={0.5} />
 
-      {/* Wall-floor boundary line */}
-      <line x1={80} y1={400} x2={500} y2={500} stroke="var(--border)" strokeWidth={0.8} opacity={0.4} />
-      <line x1={500} y1={500} x2={920} y2={400} stroke="var(--border)" strokeWidth={0.8} opacity={0.4} />
+      {/* Wall-floor boundary */}
+      <line className="office-boundary" x1={80} y1={400} x2={500} y2={500} strokeWidth={1} opacity={0.5} />
+      <line className="office-boundary" x1={500} y1={500} x2={920} y2={400} strokeWidth={1} opacity={0.5} />
 
-      {/* Floor grid lines */}
-      <line x1={200} y1={430} x2={800} y2={430} stroke="var(--border)" strokeWidth={0.3} opacity={0.2} />
-      <line x1={250} y1={450} x2={750} y2={450} stroke="var(--border)" strokeWidth={0.3} opacity={0.2} />
-      <line x1={300} y1={470} x2={700} y2={470} stroke="var(--border)" strokeWidth={0.3} opacity={0.2} />
+      {/* Floor grid */}
+      <line className="office-grid" x1={200} y1={430} x2={800} y2={430} strokeWidth={0.4} opacity={0.25} />
+      <line className="office-grid" x1={250} y1={450} x2={750} y2={450} strokeWidth={0.4} opacity={0.25} />
+      <line className="office-grid" x1={300} y1={470} x2={700} y2={470} strokeWidth={0.4} opacity={0.25} />
 
       {/* ── Meeting Table ── */}
       <g>
-        {/* Table shadow */}
-        <polygon points="500,273 552,298 500,323 448,298" fill="var(--border)" opacity={0.06} />
-        {/* Table surface */}
-        <polygon points="500,270 550,295 500,320 450,295"
-          fill="rgba(139,92,246,0.08)" stroke="rgba(139,92,246,0.2)" strokeWidth={1.5} />
-        {/* Table highlight */}
-        <polygon points="500,275 542,295 500,315 458,295"
-          fill="rgba(139,92,246,0.04)" />
-        {/* Seating positions */}
-        <circle cx={455} cy={278} r={8} fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1} strokeDasharray="3,3" />
-        <circle cx={545} cy={278} r={8} fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1} strokeDasharray="3,3" />
-        <circle cx={455} cy={312} r={8} fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1} strokeDasharray="3,3" />
-        <circle cx={545} cy={312} r={8} fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.15)" strokeWidth={1} strokeDasharray="3,3" />
-        {/* Label */}
-        <text x={500} y={336} fontSize={9} fontWeight={600} fill="rgba(139,92,246,0.6)" textAnchor="middle">
+        <polygon className="office-shadow" points="500,273 552,298 500,323 448,298" opacity={0.08} />
+        <polygon className="zone-meeting" points="500,270 550,295 500,320 450,295" strokeWidth={1.5} />
+        <polygon fill="rgba(139,92,246,0.05)" points="500,275 542,295 500,315 458,295" />
+        <circle className="zone-meeting-seat" cx={455} cy={278} r={9} strokeWidth={1} strokeDasharray="3,3" />
+        <circle className="zone-meeting-seat" cx={545} cy={278} r={9} strokeWidth={1} strokeDasharray="3,3" />
+        <circle className="zone-meeting-seat" cx={455} cy={312} r={9} strokeWidth={1} strokeDasharray="3,3" />
+        <circle className="zone-meeting-seat" cx={545} cy={312} r={9} strokeWidth={1} strokeDasharray="3,3" />
+        <text className="label-zone" x={500} y={336} fontSize={10} textAnchor="middle">
           Meeting Table
         </text>
       </g>
 
       {/* ── Review Corner ── */}
       <g>
-        {/* Desk shadow */}
-        <rect x={792} y={363} width={75} height={35} rx={5} fill="var(--border)" opacity={0.06} />
-        {/* Desk surface */}
-        <rect x={790} y={360} width={75} height={35} rx={5}
-          fill="rgba(245,158,11,0.07)" stroke="rgba(245,158,11,0.18)" strokeWidth={1.5} />
-        {/* Desk highlight */}
-        <rect x={795} y={365} width={65} height={25} rx={4}
-          fill="rgba(245,158,11,0.03)" />
-        {/* Chair */}
-        <circle cx={828} cy={408} r={9} fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.15)" strokeWidth={1} strokeDasharray="3,3" />
-        {/* Icon */}
-        <text x={828} y={382} fontSize={12} textAnchor="middle" opacity={0.2}>📋</text>
-        {/* Label */}
-        <text x={828} y={424} fontSize={9} fontWeight={600} fill="rgba(245,158,11,0.6)" textAnchor="middle">
+        <rect className="office-shadow" x={792} y={363} width={75} height={35} rx={5} opacity={0.08} />
+        <rect className="zone-review" x={790} y={360} width={75} height={35} rx={5} strokeWidth={1.5} />
+        <rect fill="rgba(245,158,11,0.04)" x={795} y={365} width={65} height={25} rx={4} />
+        <circle className="zone-review-seat" cx={828} cy={408} r={10} strokeWidth={1} strokeDasharray="3,3" />
+        <text x={828} y={382} fontSize={13} textAnchor="middle" opacity={0.2}>📋</text>
+        <text className="label-zone" x={828} y={426} fontSize={10} textAnchor="middle">
           Review Corner
         </text>
       </g>
 
       {/* ── Attention Area ── */}
       <g>
-        {/* Platform shadow */}
-        <polygon points="500,523 552,548 500,573 448,548" fill="var(--border)" opacity={0.05} />
-        {/* Platform */}
-        <polygon points="500,520 550,545 500,570 450,545"
-          fill="rgba(239,68,68,0.05)" stroke="rgba(239,68,68,0.12)" strokeWidth={1.5} />
-        {/* Desk */}
-        <rect x={478} y={533} width={44} height={20} rx={4}
-          fill="rgba(239,68,68,0.05)" stroke="rgba(239,68,68,0.12)" strokeWidth={1} />
-        {/* Warning icon */}
-        <text x={500} y={547} fontSize={10} textAnchor="middle" opacity={0.25}>⚠</text>
-        {/* Label */}
-        <text x={500} y={582} fontSize={9} fontWeight={600} fill="rgba(239,68,68,0.6)" textAnchor="middle">
+        <polygon className="office-shadow" points="500,523 552,548 500,573 448,548" opacity={0.06} />
+        <polygon className="zone-attention" points="500,520 550,545 500,570 450,545" strokeWidth={1.5} />
+        <rect className="zone-attention" x={476} y={532} width={48} height={22} rx={4} strokeWidth={1} />
+        <text x={500} y={547} fontSize={11} textAnchor="middle" opacity={0.25}>⚠</text>
+        <text className="label-zone" x={500} y={584} fontSize={10} textAnchor="middle">
           Attention
         </text>
       </g>
@@ -290,20 +268,16 @@ function SVGRoom() {
       {/* ── Department Desk Clusters ── */}
       {CLUSTERS.map((cluster) => (
         <g key={cluster.slug}>
-          {/* Cluster floor pad */}
-          <ellipse cx={cluster.cx} cy={cluster.cy} rx={85} ry={42}
-            fill={cluster.color} opacity={0.05} stroke={cluster.color} strokeWidth={0.8} strokeOpacity={0.2} />
-          {/* Desk outlines */}
+          <ellipse className="cluster-pad" cx={cluster.cx} cy={cluster.cy} rx={85} ry={42}
+            fill={cluster.color} fillOpacity={0.08} stroke={cluster.color} strokeWidth={0.8} />
           {cluster.desks.map((desk, i) => (
-            <rect key={i}
+            <rect key={i} className="cluster-desk"
               x={cluster.cx + desk.dx - 28} y={cluster.cy + desk.dy - 12}
               width={56} height={24} rx={4}
-              fill={cluster.color} opacity={0.03} stroke={cluster.color} strokeWidth={0.6} strokeOpacity={0.2}
+              fill={cluster.color} stroke={cluster.color} strokeWidth={0.7}
               strokeDasharray="3,3" />
           ))}
-          {/* Label */}
-          <text x={cluster.cx} y={cluster.cy + 58} fontSize={10} fontWeight={600}
-            fill={cluster.color} textAnchor="middle" opacity={0.6}>
+          <text className="label-dept" x={cluster.cx} y={cluster.cy + 60} fontSize={11} textAnchor="middle">
             {cluster.label}
           </text>
         </g>
@@ -330,7 +304,7 @@ function SVGOrchestrator({ coordination }: { coordination: CoordinationState }) 
 
       {/* Desk shadow */}
       <rect x={cx - 53} y={cy - 21} width={110} height={48} rx={10}
-        fill="var(--border)" opacity={0.08} />
+        className="office-shadow" opacity={0.1} />
       {/* Central desk */}
       <rect x={cx - 55} y={cy - 24} width={110} height={48} rx={10}
         fill="var(--surface)" stroke="var(--accent)" strokeWidth={3} />
@@ -393,11 +367,11 @@ function SVGAgentDesk({ agent, presence, x, y, signal, govSignals, focused, onCl
       }}
     >
       {/* Desk surface */}
-      <rect x={-deskW / 2} y={-deskH / 2} width={deskW} height={deskH} rx={4}
+      <rect x={-deskW / 2} y={-deskH / 2} width={deskW} height={deskH} rx={5}
         fill={focused ? "var(--accent)" : "var(--surface)"}
-        stroke={focused ? "var(--accent)" : hasAlert ? "#ef4444" : "var(--border)"}
-        strokeWidth={focused ? 2 : hasAlert ? 1.5 : 1}
-        opacity={focused ? 0.9 : 0.8} />
+        stroke={focused ? "var(--accent)" : hasAlert ? "#ef4444" : "var(--border-strong)"}
+        strokeWidth={focused ? 2.5 : hasAlert ? 2 : 1.5}
+        opacity={focused ? 0.95 : 0.9} />
 
       {/* Agent emoji */}
       <text x={-14} y={1} fontSize={14} textAnchor="middle" dominantBaseline="central">
@@ -630,12 +604,28 @@ export default function OfficePage() {
       {/* Isometric Office Scene */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
         <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto" style={{ maxHeight: "80vh" }}>
-          {/* Presence dot pulse animation */}
+          {/* Presence dot pulse + theme-aware office colors */}
           <style>{`
             @keyframes presence-pulse {
               0%, 100% { opacity: 1; }
               50% { opacity: 0.5; }
             }
+            .office-floor { fill: var(--surface-muted); stroke: var(--border-strong); }
+            .office-wall { fill: var(--surface); stroke: var(--border); }
+            .office-shadow { fill: var(--border-strong); }
+            .office-grid { stroke: var(--border); }
+            .office-boundary { stroke: var(--border-strong); }
+            .desk-fill { fill: var(--surface); stroke: var(--border-strong); }
+            .desk-outline { fill: var(--surface-muted); stroke: var(--border); }
+            .zone-meeting { fill: rgba(139,92,246,0.1); stroke: rgba(139,92,246,0.3); }
+            .zone-meeting-seat { fill: rgba(139,92,246,0.08); stroke: rgba(139,92,246,0.25); }
+            .zone-review { fill: rgba(245,158,11,0.1); stroke: rgba(245,158,11,0.3); }
+            .zone-review-seat { fill: rgba(245,158,11,0.08); stroke: rgba(245,158,11,0.2); }
+            .zone-attention { fill: rgba(239,68,68,0.08); stroke: rgba(239,68,68,0.2); }
+            .cluster-pad { stroke-opacity: 0.3; }
+            .cluster-desk { stroke-opacity: 0.3; fill-opacity: 0.06; }
+            .label-zone { fill: var(--text-muted); font-weight: 600; }
+            .label-dept { fill: var(--text-muted); font-weight: 600; }
           `}</style>
           {/* Room */}
           <SVGRoom />
