@@ -18,15 +18,17 @@ import {
   ListTodo,
   Users,
   Radio,
+  FolderOpen,
 } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
 import { getTasks } from "@/lib/data/tasks";
 import { getFeedEvents } from "@/lib/data/feed";
+import { getProjects } from "@/lib/data/projects";
 import { deriveAgentPresence, getPresenceConfig, type AgentPresence, type PresenceState } from "@/lib/data/presence";
 import { computeCollaborationSignals, computeCoordinationState, type CollaborationSignal, type CoordinationState } from "@/lib/data/collaboration";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { Agent, TaskWithAgent, Department, FeedEvent } from "@/types/dashboard";
+import type { Agent, TaskWithAgent, Department, FeedEvent, Project } from "@/types/dashboard";
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "away";
@@ -147,6 +149,7 @@ function AgentDetailPanel({
   tasks,
   events,
   departments,
+  projects,
   onClose,
 }: {
   agent: Agent;
@@ -155,6 +158,7 @@ function AgentDetailPanel({
   tasks: TaskWithAgent[];
   events: FeedEvent[];
   departments: Department[];
+  projects: Project[];
   onClose: () => void;
 }) {
   const config = getPresenceConfig(presence.state);
@@ -178,6 +182,7 @@ function AgentDetailPanel({
   const primaryTask = openAgentTasks.find((t) => t.status === "in-progress") ?? openAgentTasks[0] ?? null;
   const waitingTask = openAgentTasks.find((t) => t.status === "in-review");
   const blockedTask = openAgentTasks.find((t) => t.status === "blocked");
+  const linkedProject = primaryTask?.project_id ? projects.find((p) => p.id === primaryTask.project_id) : null;
 
   return (
     <div
@@ -288,6 +293,19 @@ function AgentDetailPanel({
                   <span className="text-[10px]" style={{ color: "var(--info)" }}>Routed by {signal.routedBy}</span>
                 </div>
               </div>
+            )}
+            {linkedProject && (
+              <Link href={`/projects/${linkedProject.id}`} className="p-2 rounded hover:opacity-80" style={{ background: "var(--surface-muted)" }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <FolderOpen className="h-3 w-3" style={{ color: "var(--accent)" }} />
+                  <span className="text-[10px] font-semibold" style={{ color: "var(--text-quiet)" }}>Project</span>
+                </div>
+                <p className="text-[11px]" style={{ color: "var(--text)" }}>{linkedProject.title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[9px] px-1 rounded" style={{ background: "var(--accent)", color: "white" }}>{linkedProject.project_code}</span>
+                  <span className="text-[9px]" style={{ color: "var(--text-quiet)" }}>{linkedProject.progress}%</span>
+                </div>
+              </Link>
             )}
           </div>
         </div>
@@ -549,6 +567,7 @@ export default function OfficePage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
   const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [presences, setPresences] = useState<AgentPresence[]>([]);
   const [signals, setSignals] = useState<Map<string, CollaborationSignal>>(new Map());
   const [coordination, setCoordination] = useState<CoordinationState>({
@@ -558,11 +577,12 @@ export default function OfficePage() {
 
   async function load() {
     setLoading(true);
-    const [a, d, t, e] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50)]);
+    const [a, d, t, e, p] = await Promise.all([getAgents(), getDepartments(), getTasks(), getFeedEvents(50), getProjects()]);
     setAgents(a.data);
     setDepartments(d.data);
     setTasks(t.data);
     setEvents(e.data);
+    setProjects(p.data);
 
     const presenceList = a.data.map((agent) => deriveAgentPresence(agent, t.data, e.data));
     setPresences(presenceList);
@@ -683,6 +703,7 @@ export default function OfficePage() {
             tasks={tasks}
             events={events}
             departments={departments}
+            projects={projects}
             onClose={() => setSelectedAgent(null)}
           />
         </>

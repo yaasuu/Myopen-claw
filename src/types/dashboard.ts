@@ -18,6 +18,7 @@ export interface Task {
   status: "pending" | "in-progress" | "blocked" | "in-review" | "done";
   priority: "high" | "medium" | "low";
   assigned_agent_id: string | null;
+  project_id: string | null;
   blocker: string | null;
   owner: string;
   is_archived: boolean;
