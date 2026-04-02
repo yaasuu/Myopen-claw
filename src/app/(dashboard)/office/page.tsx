@@ -29,9 +29,19 @@ function timeAgo(iso: string | null): string {
 }
 
 const DIRECT_SHORT_IDS = ["research-agent", "executive-finance", "qa-agent"];
+
+// Hardcoded department mapping (Agent type has no department_slug field)
+const AGENT_DEPT_MAP: Record<string, string> = {
+  "export-growth": "export-growth",
+  "ops-improvement": "ops-improvement",
+  "architecture-systems": "architecture-systems",
+  "ui-ux-designer": "architecture-systems",
+  "data-analyst": "ops-improvement",
+};
+
 function getAgentDeptSlug(agent: Agent): string {
   if (DIRECT_SHORT_IDS.includes(agent.short_id)) return "direct";
-  return (agent as any).department_slug ?? "";
+  return AGENT_DEPT_MAP[agent.short_id] ?? "direct";
 }
 
 // ═══════════════════════════════════════
