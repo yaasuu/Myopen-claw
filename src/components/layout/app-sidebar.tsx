@@ -19,6 +19,7 @@ import {
   BookOpen,
   FolderKanban,
   BarChart3,
+  Monitor,
   Brain,
   ShieldCheck,
   CalendarIcon,
@@ -57,6 +58,7 @@ const sections = [
     label: "Workforce",
     items: [
       { title: "Workforce", href: "/workforce", icon: Users },
+      { title: "Office", href: "/office", icon: Monitor },
     ],
   },
   {
