@@ -181,24 +181,53 @@ function Desk3D({ position, color, label, occupied }: {
   return (
     <group position={position}>
       {/* Desk surface */}
-      <RoundedBox args={[1.4, 0.08, 0.8]} radius={0.03} position={[0, 0.75, 0]} castShadow>
+      <RoundedBox args={[1.4, 0.06, 0.8]} radius={0.02} position={[0, 0.75, 0]} castShadow>
         <meshStandardMaterial color={occupied ? "#2a3040" : "#222838"} opacity={occupied ? 1 : 0.5} transparent={!occupied} />
       </RoundedBox>
       {/* Desk legs */}
       {[[-0.6, 0, -0.3], [0.6, 0, -0.3], [-0.6, 0, 0.3], [0.6, 0, 0.3]].map((pos, i) => (
         <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
-          <boxGeometry args={[0.06, 0.75, 0.06]} />
+          <boxGeometry args={[0.05, 0.75, 0.05]} />
           <meshStandardMaterial color="#1a1f2e" />
         </mesh>
       ))}
-      {/* Label on desk */}
-      <Text position={[0, 0.82, 0]} fontSize={0.12} color="#7F8A9A" anchorX="center" anchorY="middle">
+
+      {/* Monitor (screen) */}
+      <mesh position={[0, 1, -0.3]} castShadow>
+        <boxGeometry args={[0.6, 0.4, 0.03]} />
+        <meshStandardMaterial color={occupied ? "#1e293b" : "#1a1f2e"} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.1 : 0} />
+      </mesh>
+      {/* Monitor stand */}
+      <mesh position={[0, 0.8, -0.3]}>
+        <boxGeometry args={[0.08, 0.15, 0.06]} />
+        <meshStandardMaterial color="#1a1f2e" />
+      </mesh>
+      {/* Monitor base */}
+      <mesh position={[0, 0.78, -0.3]}>
+        <boxGeometry args={[0.2, 0.02, 0.12]} />
+        <meshStandardMaterial color="#1a1f2e" />
+      </mesh>
+
+      {/* Chair */}
+      <mesh position={[0, 0.35, 0.55]}>
+        <boxGeometry args={[0.35, 0.04, 0.35]} />
+        <meshStandardMaterial color="#1e2535" />
+      </mesh>
+      {/* Chair back */}
+      <mesh position={[0, 0.55, 0.7]}>
+        <boxGeometry args={[0.35, 0.4, 0.04]} />
+        <meshStandardMaterial color="#1e2535" />
+      </mesh>
+
+      {/* Label on desk (front edge) */}
+      <Text position={[0, 0.8, 0.35]} fontSize={0.09} color="#7F8A9A" anchorX="center" anchorY="middle">
         {label}
       </Text>
-      {/* Status indicator */}
-      <mesh position={[0.6, 0.82, -0.3]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
-        <meshStandardMaterial color={occupied ? color : "#4a5568"} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.5 : 0} />
+
+      {/* Status indicator (back corner) */}
+      <mesh position={[0.6, 0.8, -0.3]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
+        <meshStandardMaterial color={occupied ? color : "#4a5568"} emissive={occupied ? color : "#000000"} emissiveIntensity={occupied ? 0.6 : 0} />
       </mesh>
     </group>
   );
@@ -411,6 +440,8 @@ function Agent3D({
   const meshRef = useRef<THREE.Group>(null);
   const targetRef = useRef<[number, number, number]>([...homePosition]);
   const currentRef = useRef<[number, number, number]>([...homePosition]);
+  const facingRef = useRef<number>(0); // y-rotation
+  const bobRef = useRef<number>(0); // walking bob phase
 
   const state = presence?.state ?? "available";
   const dotColor = getDotColor(state);
@@ -431,22 +462,57 @@ function Agent3D({
     }
   }, [state, homePosition, allPresences, agent.id]);
 
-  // Smooth movement animation
+  // Smooth movement + facing + walking bob
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     const target = targetRef.current;
     const current = currentRef.current;
-    const speed = 2; // units per second
+    const speed = 2.5; // units per second
 
     const dx = target[0] - current[0];
     const dz = target[2] - current[2];
     const dist = Math.sqrt(dx * dx + dz * dz);
 
     if (dist > 0.05) {
+      // Move toward target
       const step = Math.min(speed * delta, dist);
       current[0] += (dx / dist) * step;
       current[2] += (dz / dist) * step;
       meshRef.current.position.set(current[0], 0, current[2]);
+
+      // Face movement direction
+      facingRef.current = Math.atan2(dx, dz);
+      meshRef.current.rotation.y = facingRef.current;
+
+      // Walking bob (subtle vertical oscillation)
+      bobRef.current += delta * 8;
+      meshRef.current.position.y = Math.abs(Math.sin(bobRef.current)) * 0.04;
+    } else {
+      // At destination — face desk/zone center
+      bobRef.current = 0;
+      meshRef.current.position.y = 0;
+
+      // Face toward zone center when stationary
+      const zone = getTargetZone(state);
+      let faceTarget: [number, number] = [0, 0];
+      if (zone === "desk") {
+        faceTarget = [homePosition[0], homePosition[2] - 0.5]; // face desk
+      } else if (zone === "meeting") {
+        faceTarget = [MEETING_POSITION[0], MEETING_POSITION[2]]; // face table center
+      } else if (zone === "review") {
+        faceTarget = [REVIEW_POSITION[0], REVIEW_POSITION[2]]; // face review desk
+      } else if (zone === "attention") {
+        faceTarget = [ATTENTION_POSITION[0], ATTENTION_POSITION[2]]; // face attention desk
+      }
+      const faceDx = faceTarget[0] - current[0];
+      const faceDz = faceTarget[1] - current[2];
+      const targetAngle = Math.atan2(faceDx, faceDz);
+      // Smooth rotation toward facing direction
+      let angleDiff = targetAngle - facingRef.current;
+      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      facingRef.current += angleDiff * Math.min(1, delta * 5);
+      meshRef.current.rotation.y = facingRef.current;
     }
   });
 
@@ -454,34 +520,43 @@ function Agent3D({
 
   return (
     <group ref={meshRef} position={[homePosition[0], 0, homePosition[2]]} onClick={onClick}>
-      {/* Body (capsule-like) */}
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <capsuleGeometry args={[0.15, 0.4, 8, 16]} />
+      {/* Body (taller, slimmer capsule) */}
+      <mesh position={[0, 0.65, 0]} castShadow>
+        <capsuleGeometry args={[0.12, 0.5, 8, 16]} />
         <meshStandardMaterial color={isAway ? "#4a5568" : "#2a3040"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
       </mesh>
-      {/* Head */}
-      <mesh position={[0, 1, 0]} castShadow>
-        <sphereGeometry args={[0.15, 16, 16]} />
+      {/* Shoulders */}
+      <mesh position={[0, 0.85, 0]} castShadow>
+        <boxGeometry args={[0.35, 0.06, 0.18]} />
+        <meshStandardMaterial color={isAway ? "#4a5568" : "#2a3040"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
+      </mesh>
+      {/* Head (slightly larger) */}
+      <mesh position={[0, 1.05, 0]} castShadow>
+        <sphereGeometry args={[0.13, 16, 16]} />
         <meshStandardMaterial color={isAway ? "#6b7280" : "#e2e8f0"} transparent={isAway} opacity={isAway ? 0.4 : 1} />
       </mesh>
-      {/* Presence dot */}
-      <mesh position={[0.12, 1.1, -0.1]}>
-        <sphereGeometry args={[0.04, 8, 8]} />
+
+      {/* Presence dot (shoulder) */}
+      <mesh position={[0.15, 0.9, -0.08]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
         <meshStandardMaterial color={dotColor} emissive={dotColor} emissiveIntensity={state === "working" || state === "in_discussion" ? 0.8 : 0.3} />
       </mesh>
+
       {/* Alert indicator */}
       {hasAlert && (
-        <mesh position={[-0.12, 1.1, -0.1]}>
-          <sphereGeometry args={[0.04, 8, 8]} />
+        <mesh position={[-0.15, 0.9, -0.08]}>
+          <sphereGeometry args={[0.035, 8, 8]} />
           <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1} />
         </mesh>
       )}
-      {/* Name label */}
-      <Text position={[0, 1.3, 0]} fontSize={0.1} color="#F5F7FA" anchorX="center" anchorY="middle">
+
+      {/* Name label (above head) */}
+      <Text position={[0, 1.35, 0]} fontSize={0.1} color="#F5F7FA" anchorX="center" anchorY="middle" outlineWidth={0.01} outlineColor="#000000">
         {agent.emoji} {agent.name.split(" ")[0]}
       </Text>
-      {/* State label */}
-      <Text position={[0, 1.18, 0]} fontSize={0.07} color={config?.color === "var(--info)" ? "#3b82f6" : config?.color === "var(--warning)" ? "#f59e0b" : config?.color === "var(--danger)" ? "#ef4444" : config?.color === "var(--success)" ? "#22c55e" : "#7F8A9A"} anchorX="center" anchorY="middle">
+
+      {/* State label (below name) */}
+      <Text position={[0, 1.22, 0]} fontSize={0.065} color={config?.color === "var(--info)" ? "#3b82f6" : config?.color === "var(--warning)" ? "#f59e0b" : config?.color === "var(--danger)" ? "#ef4444" : config?.color === "var(--success)" ? "#22c55e" : "#7F8A9A"} anchorX="center" anchorY="middle" outlineWidth={0.005} outlineColor="#000000">
         {config?.label ?? state}
       </Text>
     </group>
