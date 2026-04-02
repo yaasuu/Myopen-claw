@@ -65,12 +65,13 @@ export default function OrgChartPage() {
     );
   }
 
-  // Research Agent goes directly under Yas Claw
-  const researchAgent = agents.find((a) => a.short_id === "research-agent");
+  // Direct agents under Yas Claw
+  const directAgentShortIds = ["research-agent", "executive-finance", "qa-agent"];
+  const directAgents = agents.filter((a) => directAgentShortIds.includes(a.short_id));
 
-  // Unassigned agents (excluding research agent)
+  // Unassigned agents (excluding direct agents)
   const assignedIds = new Set([...deptAgents.values()].flat().map((a) => a.id));
-  assignedIds.add(researchAgent?.id ?? ""); // Research agent is assigned to Yas Claw
+  directAgents.forEach((a) => assignedIds.add(a.id));
   const unassigned = agents.filter((a) => !assignedIds.has(a.id));
 
   if (loading) {
@@ -118,25 +119,27 @@ export default function OrgChartPage() {
         </Link>
       </div>
 
-      {/* Research Agent under Yas Claw */}
-      {researchAgent && (
+      {/* Direct agents under Yas Claw */}
+      {directAgents.length > 0 && (
         <>
           <div className="flex justify-center">
             <div className="w-px h-6" style={{ background: "var(--border)" }} />
           </div>
-          <div className="flex justify-center">
-            <Link href={`/agents/${researchAgent.id}`}>
-              <div className="surface-card-hover p-4 flex items-center gap-3" style={{ minWidth: "220px" }}>
-                <div className="relative">
-                  <span className="text-2xl">{researchAgent.emoji}</span>
-                  <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${researchAgent.status === "active" ? "dot-green" : "dot-amber"}`} style={{ borderColor: "var(--surface)" }} />
+          <div className="flex justify-center gap-4">
+            {directAgents.map((agent) => (
+              <Link key={agent.id} href={`/agents/${agent.id}`}>
+                <div className="surface-card-hover p-4 flex items-center gap-3" style={{ minWidth: "180px" }}>
+                  <div className="relative">
+                    <span className="text-2xl">{agent.emoji}</span>
+                    <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${agent.status === "active" ? "dot-green" : "dot-amber"}`} style={{ borderColor: "var(--surface)" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{agent.name}</p>
+                    <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agent.domain.split(",")[0]}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{researchAgent.name}</p>
-                  <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{researchAgent.domain}</p>
-                </div>
-              </div>
-            </Link>
+              </Link>
+            ))}
           </div>
         </>
       )}

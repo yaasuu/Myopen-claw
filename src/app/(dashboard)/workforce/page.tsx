@@ -119,7 +119,7 @@ export default function WorkforcePage() {
   useEffect(() => { load(); }, []);
 
   // Agents that sit directly under Yas Claw (not under a department)
-  const DIRECT_AGENTS = ["research-agent", "executive-finance"];
+  const DIRECT_AGENTS = ["research-agent", "executive-finance", "qa-agent"];
 
   // Explicit agent-to-department mapping (avoids fragile domain keyword matching)
   const AGENT_DEPT_MAP: Record<string, string> = {
@@ -128,7 +128,6 @@ export default function WorkforcePage() {
     "architecture-systems": "architecture-systems",
     "ui-ux-designer": "architecture-systems",
     "data-analyst": "ops-improvement",
-    "qa-agent": "ops-improvement",
   };
 
   function getAgentDeptId(agentShortId: string): string | undefined {
