@@ -196,26 +196,75 @@ function Room3D() {
     <group>
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
-        <planeGeometry args={[24, 16]} />
+        <planeGeometry args={[28, 20]} />
         <meshStandardMaterial color="#1a1f2e" />
       </mesh>
       {/* Floor grid */}
-      <gridHelper args={[24, 24, "#2a3040", "#222838"]} position={[0, -0.04, 0]} />
+      <gridHelper args={[28, 28, "#2a3040", "#222838"]} position={[0, -0.04, 0]} />
 
       {/* Back wall */}
-      <mesh position={[0, 2.5, -8]} receiveShadow>
-        <boxGeometry args={[24, 5, 0.2]} />
+      <mesh position={[0, 2.5, -10]} receiveShadow>
+        <boxGeometry args={[28, 5, 0.2]} />
         <meshStandardMaterial color="#161b28" />
       </mesh>
       {/* Left wall */}
-      <mesh position={[-12, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <boxGeometry args={[16, 5, 0.2]} />
+      <mesh position={[-14, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[20, 5, 0.2]} />
         <meshStandardMaterial color="#181d2a" />
       </mesh>
       {/* Right wall */}
-      <mesh position={[12, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <boxGeometry args={[16, 5, 0.2]} />
+      <mesh position={[14, 2.5, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <boxGeometry args={[20, 5, 0.2]} />
         <meshStandardMaterial color="#181d2a" />
+      </mesh>
+
+      {/* Department floor pads */}
+      {Object.entries(DEPT_POSITIONS).map(([slug, pos]) => {
+        const color = getDeptColor(slug);
+        return (
+          <group key={slug}>
+            {/* Main pad */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos[0], 0.005, pos[2]]}>
+              <circleGeometry args={[2.8, 32]} />
+              <meshStandardMaterial color={color} transparent opacity={0.06} />
+            </mesh>
+            {/* Pad border ring */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos[0], 0.008, pos[2]]}>
+              <ringGeometry args={[2.7, 2.8, 32]} />
+              <meshStandardMaterial color={color} transparent opacity={0.15} />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/* Meeting floor pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[MEETING_POSITION[0], 0.005, MEETING_POSITION[2]]}>
+        <circleGeometry args={[2.2, 32]} />
+        <meshStandardMaterial color="#8b5cf6" transparent opacity={0.05} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[MEETING_POSITION[0], 0.008, MEETING_POSITION[2]]}>
+        <ringGeometry args={[2.1, 2.2, 32]} />
+        <meshStandardMaterial color="#8b5cf6" transparent opacity={0.12} />
+      </mesh>
+
+      {/* Review floor pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[REVIEW_POSITION[0], 0.005, REVIEW_POSITION[2]]}>
+        <circleGeometry args={[2, 32]} />
+        <meshStandardMaterial color="#f59e0b" transparent opacity={0.05} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[REVIEW_POSITION[0], 0.008, REVIEW_POSITION[2]]}>
+        <ringGeometry args={[1.9, 2, 32]} />
+        <meshStandardMaterial color="#f59e0b" transparent opacity={0.12} />
+      </mesh>
+
+      {/* Attention floor pad */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ATTENTION_POSITION[0], 0.005, ATTENTION_POSITION[2]]}>
+        <circleGeometry args={[1.8, 32]} />
+        <meshStandardMaterial color="#ef4444" transparent opacity={0.04} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ATTENTION_POSITION[0], 0.008, ATTENTION_POSITION[2]]}>
+        <ringGeometry args={[1.7, 1.8, 32]} />
+        <meshStandardMaterial color="#ef4444" transparent opacity={0.1} />
       </mesh>
     </group>
   );
@@ -340,12 +389,28 @@ function MeetingTable3D() {
       <Text position={[0, 0.95, 0]} fontSize={0.15} color="#8b5cf6" anchorX="center" anchorY="middle">
         Meeting Table
       </Text>
-      {/* Seating positions */}
-      {[-1, -0.33, 0.33, 1].map((x, i) => (
-        <mesh key={i} position={[x * 1.2, 0.02, 0]}>
-          <cylinderGeometry args={[0.2, 0.2, 0.04, 16]} />
-          <meshStandardMaterial color="#8b5cf6" transparent opacity={0.08} />
-        </mesh>
+
+      {/* Chairs around table (matching MEETING_SLOTS) */}
+      {MEETING_SLOTS.map((slot, i) => (
+        <group key={i} position={slot}>
+          {/* Chair seat */}
+          <mesh position={[0, 0.35, 0]}>
+            <boxGeometry args={[0.35, 0.04, 0.35]} />
+            <meshStandardMaterial color="#1e2030" />
+          </mesh>
+          {/* Chair back */}
+          <mesh position={[0, 0.55, slot[2] > 0 ? 0.18 : -0.18]}>
+            <boxGeometry args={[0.35, 0.4, 0.04]} />
+            <meshStandardMaterial color="#1e2030" />
+          </mesh>
+          {/* Chair legs */}
+          {[[-0.14, 0, -0.14], [0.14, 0, -0.14], [-0.14, 0, 0.14], [0.14, 0, 0.14]].map((lp, li) => (
+            <mesh key={li} position={[lp[0], 0.175, lp[2]]}>
+              <boxGeometry args={[0.04, 0.35, 0.04]} />
+              <meshStandardMaterial color="#1a1f2e" />
+            </mesh>
+          ))}
+        </group>
       ))}
     </group>
   );
@@ -360,14 +425,34 @@ function ReviewArea3D() {
       <RoundedBox args={[2, 0.08, 1]} radius={0.04} position={[0, 0.75, 0]} castShadow>
         <meshStandardMaterial color="#3d2e0f" />
       </RoundedBox>
+      {/* Desk legs */}
+      {[[-0.8, 0, -0.35], [0.8, 0, -0.35], [-0.8, 0, 0.35], [0.8, 0, 0.35]].map((pos, i) => (
+        <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
+          <boxGeometry args={[0.06, 0.75, 0.06]} />
+          <meshStandardMaterial color="#2a2010" />
+        </mesh>
+      ))}
+      {/* Review monitor */}
+      <mesh position={[0, 1, -0.35]} castShadow>
+        <boxGeometry args={[0.5, 0.35, 0.03]} />
+        <meshStandardMaterial color="#1e293b" emissive="#f59e0b" emissiveIntensity={0.05} />
+      </mesh>
+      <mesh position={[0, 0.82, -0.35]}>
+        <boxGeometry args={[0.06, 0.12, 0.05]} />
+        <meshStandardMaterial color="#1a1f2e" />
+      </mesh>
       {/* Label */}
-      <Text position={[0, 0.9, 0]} fontSize={0.15} color="#f59e0b" anchorX="center" anchorY="middle">
+      <Text position={[0, 0.9, 0.4]} fontSize={0.13} color="#f59e0b" anchorX="center" anchorY="middle">
         Review Corner
       </Text>
-      {/* Review pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[1.8, 32]} />
-        <meshStandardMaterial color="#f59e0b" transparent opacity={0.04} />
+      {/* Review chair (for reviewer) */}
+      <mesh position={[0, 0.35, 0.55]}>
+        <boxGeometry args={[0.35, 0.04, 0.35]} />
+        <meshStandardMaterial color="#2a2010" />
+      </mesh>
+      <mesh position={[0, 0.55, 0.7]}>
+        <boxGeometry args={[0.35, 0.4, 0.04]} />
+        <meshStandardMaterial color="#2a2010" />
       </mesh>
     </group>
   );
@@ -382,14 +467,34 @@ function AttentionArea3D() {
       <RoundedBox args={[1.5, 0.08, 0.8]} radius={0.04} position={[0, 0.75, 0]} castShadow>
         <meshStandardMaterial color="#3d1515" />
       </RoundedBox>
+      {/* Desk legs */}
+      {[[-0.6, 0, -0.3], [0.6, 0, -0.3], [-0.6, 0, 0.3], [0.6, 0, 0.3]].map((pos, i) => (
+        <mesh key={i} position={[pos[0], 0.375, pos[2]]}>
+          <boxGeometry args={[0.05, 0.75, 0.05]} />
+          <meshStandardMaterial color="#2a1010" />
+        </mesh>
+      ))}
+      {/* Attention monitor */}
+      <mesh position={[0, 1, -0.3]} castShadow>
+        <boxGeometry args={[0.45, 0.3, 0.03]} />
+        <meshStandardMaterial color="#1e2025" emissive="#ef4444" emissiveIntensity={0.05} />
+      </mesh>
+      <mesh position={[0, 0.82, -0.3]}>
+        <boxGeometry args={[0.06, 0.12, 0.05]} />
+        <meshStandardMaterial color="#1a1f2e" />
+      </mesh>
       {/* Label */}
-      <Text position={[0, 0.9, 0]} fontSize={0.15} color="#ef4444" anchorX="center" anchorY="middle">
+      <Text position={[0, 0.9, 0.35]} fontSize={0.13} color="#ef4444" anchorX="center" anchorY="middle">
         Attention
       </Text>
-      {/* Attention pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[1.5, 32]} />
-        <meshStandardMaterial color="#ef4444" transparent opacity={0.04} />
+      {/* Chair */}
+      <mesh position={[0, 0.35, 0.45]}>
+        <boxGeometry args={[0.3, 0.04, 0.3]} />
+        <meshStandardMaterial color="#2a1515" />
+      </mesh>
+      <mesh position={[0, 0.55, 0.58]}>
+        <boxGeometry args={[0.3, 0.35, 0.04]} />
+        <meshStandardMaterial color="#2a1515" />
       </mesh>
     </group>
   );
@@ -802,9 +907,18 @@ export default function OfficePage() {
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "70vh", background: "#0E1116" }}>
         <Canvas shadows camera={{ position: [12, 10, 12], fov: 45 }} style={{ background: "#0E1116" }}>
           {/* Lights */}
-          <ambientLight intensity={0.3} />
-          <directionalLight position={[10, 15, 10]} intensity={0.6} castShadow />
-          <pointLight position={[0, 5, 0]} intensity={0.4} color="#22C7B8" />
+          {/* Key light */}
+          <ambientLight intensity={0.25} />
+          <directionalLight position={[8, 12, 8]} intensity={0.5} castShadow shadow-mapSize={[1024, 1024]} />
+
+          {/* Fill light (opposite side) */}
+          <directionalLight position={[-6, 8, -4]} intensity={0.2} color="#8b9dc3" />
+
+          {/* Accent lights */}
+          <pointLight position={[0, 4, 0]} intensity={0.3} color="#22C7B8" distance={15} />
+          <pointLight position={[MEETING_POSITION[0], 3, MEETING_POSITION[2]]} intensity={0.15} color="#8b5cf6" distance={8} />
+          <pointLight position={[REVIEW_POSITION[0], 3, REVIEW_POSITION[2]]} intensity={0.12} color="#f59e0b" distance={6} />
+          <pointLight position={[ATTENTION_POSITION[0], 3, ATTENTION_POSITION[2]]} intensity={0.1} color="#ef4444" distance={6} />
 
           {/* Room */}
           <Room3D />
