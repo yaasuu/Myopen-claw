@@ -69,7 +69,7 @@ const sections = [
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
       { title: "Hiring", href: "/hiring", icon: UserPlus },
       { title: "Skills", href: "/skills", icon: GraduationCap },
-      { title: "Memory", href: "/memory", icon: Brain },
+      { title: "Knowledge", href: "/notes", icon: Brain },
     ],
   },
   {
