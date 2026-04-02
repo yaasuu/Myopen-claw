@@ -97,6 +97,15 @@ const priorityColors: Record<string, { text: string; dot: string }> = {
 
 const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "in-review", "done"];
 
+// Transition rules: from → allowed to
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  pending: ["in-progress"],
+  "in-progress": ["blocked", "in-review"],
+  blocked: ["in-progress"],
+  "in-review": ["done", "in-progress", "blocked"],
+  done: [],
+};
+
 const priorityBadgeStyle: Record<string, React.CSSProperties> = {
   high: { background: "rgba(220,38,38,0.08)", color: "#dc2626" },
   medium: { background: "rgba(217,119,6,0.08)", color: "#d97706" },
@@ -953,7 +962,7 @@ export default function TasksPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {STATUSES.map((s) => (
+                          {STATUSES.filter((s) => s === task.status || ALLOWED_TRANSITIONS[task.status]?.includes(s)).map((s) => (
                             <SelectItem key={s} value={s} className="text-xs">
                               <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[s]}`}>
                                 {s}
