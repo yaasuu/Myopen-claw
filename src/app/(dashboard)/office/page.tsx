@@ -55,54 +55,151 @@ function getDeptLabel(slug: string, departments: Department[]): string {
 //   - blocked → attention area
 //   - available → standby desks
 
+// ─── Department Desk Clusters ───
+// Each department has a grid of desk positions
+// Agents are seated at desks within their department cluster
+// State changes shift agents from their desk but keep them near the cluster
+
 const SVG_W = 900;
 const SVG_H = 600;
 
-// Department anchor positions
-const DEPT_ANCHORS: Record<string, { x: number; y: number; label: string; color: string }> = {
-  "export-growth": { x: 200, y: 320, label: "Export-Growth", color: "#3b82f6" },
-  "ops-improvement": { x: 400, y: 380, label: "Ops-Improvement", color: "#f59e0b" },
-  "architecture-systems": { x: 650, y: 320, label: "Architecture", color: "#8b5cf6" },
-  "direct": { x: 450, y: 280, label: "Direct", color: "#22c55e" },
-};
+interface DeskCluster {
+  slug: string;
+  label: string;
+  color: string;
+  // Cluster center
+  cx: number;
+  cy: number;
+  // Desk positions (relative to cluster center)
+  desks: { dx: number; dy: number }[];
+  // State offsets from desk (relative to desk position)
+  stateShifts: Record<string, { dx: number; dy: number }>;
+}
 
-// State-based desk positions within a department (relative to anchor)
-const STATE_OFFSETS: Record<string, { dx: number; dy: number }> = {
-  working: { dx: -30, dy: 0 },
-  in_discussion: { dx: 30, dy: -20 },
-  in_review: { dx: 60, dy: 10 },
-  waiting_for_input: { dx: 60, dy: 10 },
-  blocked: { dx: 0, dy: 30 },
-  available: { dx: -30, dy: 20 },
-  paused: { dx: 30, dy: 30 },
-  offline: { dx: 30, dy: 30 },
-};
+const CLUSTERS: DeskCluster[] = [
+  {
+    slug: "export-growth",
+    label: "Export-Growth",
+    color: "#3b82f6",
+    cx: 180, cy: 340,
+    desks: [
+      { dx: -40, dy: -15 }, { dx: 0, dy: -15 }, { dx: 40, dy: -15 },
+      { dx: -40, dy: 15 }, { dx: 0, dy: 15 }, { dx: 40, dy: 15 },
+    ],
+    stateShifts: {
+      working: { dx: 0, dy: 0 },
+      in_discussion: { dx: 80, dy: -40 },
+      in_review: { dx: 100, dy: 10 },
+      waiting_for_input: { dx: 100, dy: 10 },
+      blocked: { dx: 0, dy: 50 },
+      available: { dx: 0, dy: 0 },
+      paused: { dx: 0, dy: 35 },
+      offline: { dx: 0, dy: 35 },
+    },
+  },
+  {
+    slug: "ops-improvement",
+    label: "Ops-Improvement",
+    color: "#f59e0b",
+    cx: 400, cy: 400,
+    desks: [
+      { dx: -40, dy: -15 }, { dx: 0, dy: -15 }, { dx: 40, dy: -15 },
+      { dx: -40, dy: 15 }, { dx: 0, dy: 15 }, { dx: 40, dy: 15 },
+    ],
+    stateShifts: {
+      working: { dx: 0, dy: 0 },
+      in_discussion: { dx: -60, dy: -50 },
+      in_review: { dx: 80, dy: -20 },
+      waiting_for_input: { dx: 80, dy: -20 },
+      blocked: { dx: 0, dy: 50 },
+      available: { dx: 0, dy: 0 },
+      paused: { dx: 0, dy: 35 },
+      offline: { dx: 0, dy: 35 },
+    },
+  },
+  {
+    slug: "architecture-systems",
+    label: "Architecture",
+    color: "#8b5cf6",
+    cx: 650, cy: 340,
+    desks: [
+      { dx: -40, dy: -15 }, { dx: 0, dy: -15 }, { dx: 40, dy: -15 },
+      { dx: -40, dy: 15 }, { dx: 0, dy: 15 }, { dx: 40, dy: 15 },
+    ],
+    stateShifts: {
+      working: { dx: 0, dy: 0 },
+      in_discussion: { dx: -80, dy: -40 },
+      in_review: { dx: -100, dy: 10 },
+      waiting_for_input: { dx: -100, dy: 10 },
+      blocked: { dx: 0, dy: 50 },
+      available: { dx: 0, dy: 0 },
+      paused: { dx: 0, dy: 35 },
+      offline: { dx: 0, dy: 35 },
+    },
+  },
+  {
+    slug: "direct",
+    label: "Direct",
+    color: "#22c55e",
+    cx: 450, cy: 290,
+    desks: [
+      { dx: -35, dy: -12 }, { dx: 0, dy: -12 }, { dx: 35, dy: -12 },
+    ],
+    stateShifts: {
+      working: { dx: 0, dy: 0 },
+      in_discussion: { dx: 50, dy: -30 },
+      in_review: { dx: 60, dy: 10 },
+      waiting_for_input: { dx: 60, dy: 10 },
+      blocked: { dx: 0, dy: 40 },
+      available: { dx: 0, dy: 0 },
+      paused: { dx: 0, dy: 25 },
+      offline: { dx: 0, dy: 25 },
+    },
+  },
+];
 
-// Compute final agent positions
-function computeAgentPositions(agents: Agent[], presences: AgentPresence[]): Map<string, { x: number; y: number; dept: string; state: string }> {
+// ─── Agent position computation (cluster-based) ───
+
+function computeAgentPositions(
+  agents: Agent[],
+  presences: AgentPresence[]
+): Map<string, { x: number; y: number; dept: string; state: string }> {
   const positions = new Map<string, { x: number; y: number; dept: string; state: string }>();
-  const deptStateCounts: Record<string, Record<string, number>> = {};
 
+  // Group agents by department
+  const deptAgents: Record<string, Agent[]> = {};
   for (const agent of agents) {
     const deptSlug = getAgentDeptSlug(agent);
-    const presence = presences.find((p) => p.agentId === agent.id);
-    const state = presence?.state ?? "available";
+    if (!deptAgents[deptSlug]) deptAgents[deptSlug] = [];
+    deptAgents[deptSlug].push(agent);
+  }
 
-    const anchor = DEPT_ANCHORS[deptSlug] ?? DEPT_ANCHORS["direct"];
-    const offset = STATE_OFFSETS[state] ?? STATE_OFFSETS["available"];
+  // Assign each agent to a desk within their cluster
+  for (const [deptSlug, deptAgentList] of Object.entries(deptAgents)) {
+    const cluster = CLUSTERS.find((c) => c.slug === deptSlug) ?? CLUSTERS[3]; // default to direct
 
-    // Count agents in same dept+state to avoid overlap
-    if (!deptStateCounts[deptSlug]) deptStateCounts[deptSlug] = {};
-    if (!deptStateCounts[deptSlug][state]) deptStateCounts[deptSlug][state] = 0;
-    const idx = deptStateCounts[deptSlug][state]++;
+    for (let i = 0; i < deptAgentList.length; i++) {
+      const agent = deptAgentList[i];
+      const presence = presences.find((p) => p.agentId === agent.id);
+      const state = presence?.state ?? "available";
 
-    // Spread agents in a grid within their state area
-    const col = idx % 3;
-    const row = Math.floor(idx / 3);
-    const x = anchor.x + offset.dx + col * 55;
-    const y = anchor.y + offset.dy + row * 40;
+      // Get desk position
+      const desk = cluster.desks[i % cluster.desks.length];
+      const deskX = cluster.cx + desk.dx;
+      const deskY = cluster.cy + desk.dy;
 
-    positions.set(agent.id, { x: Math.max(60, Math.min(840, x)), y: Math.max(80, Math.min(550, y)), dept: deptSlug, state });
+      // Apply state shift
+      const shift = cluster.stateShifts[state] ?? cluster.stateShifts["available"];
+      const x = deskX + shift.dx;
+      const y = deskY + shift.dy;
+
+      positions.set(agent.id, {
+        x: Math.max(60, Math.min(840, x)),
+        y: Math.max(80, Math.min(560, y)),
+        dept: deptSlug,
+        state,
+      });
+    }
   }
 
   return positions;
@@ -124,17 +221,41 @@ function SVGRoom() {
       <line x1={200} y1={400} x2={700} y2={400} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
       <line x1={250} y1={420} x2={650} y2={420} stroke="var(--border)" strokeWidth={0.3} opacity={0.3} />
 
-      {/* Department floor zones (subtle colored regions) */}
-      {Object.entries(DEPT_ANCHORS).map(([slug, anchor]) => (
-        <g key={slug}>
-          <ellipse cx={anchor.x} cy={anchor.y + 20} rx={80} ry={40}
-            fill={anchor.color} opacity={0.04} />
-          <text x={anchor.x} y={anchor.y + 55} fontSize={8} fontWeight={600}
-            fill={anchor.color} textAnchor="middle" opacity={0.5}>
-            {anchor.label}
+      {/* Department desk clusters */}
+      {CLUSTERS.map((cluster) => (
+        <g key={cluster.slug}>
+          {/* Cluster floor pad (subtle) */}
+          <ellipse cx={cluster.cx} cy={cluster.cy} rx={70} ry={35}
+            fill={cluster.color} opacity={0.04} stroke={cluster.color} strokeWidth={0.5} strokeOpacity={0.15} />
+
+          {/* Empty desk outlines (show where desks are) */}
+          {cluster.desks.map((desk, i) => (
+            <rect key={i}
+              x={cluster.cx + desk.dx - 25} y={cluster.cy + desk.dy - 11}
+              width={50} height={22} rx={4}
+              fill="none" stroke={cluster.color} strokeWidth={0.5} opacity={0.15}
+              strokeDasharray="3,3" />
+          ))}
+
+          {/* Cluster label */}
+          <text x={cluster.cx} y={cluster.cy + 45} fontSize={8} fontWeight={600}
+            fill={cluster.color} textAnchor="middle" opacity={0.5}>
+            {cluster.label}
           </text>
         </g>
       ))}
+
+      {/* Meeting area (center, near Yas Claw) */}
+      <ellipse cx={450} cy={260} rx={30} ry={15} fill="rgba(139,92,246,0.04)" stroke="rgba(139,92,246,0.1)" strokeWidth={0.5} />
+      <text x={450} y={263} fontSize={6} fill="var(--text-quiet)" textAnchor="middle" opacity={0.4}>meeting</text>
+
+      {/* Review area (right side) */}
+      <ellipse cx={750} cy={340} rx={25} ry={12} fill="rgba(245,158,11,0.04)" stroke="rgba(245,158,11,0.1)" strokeWidth={0.5} />
+      <text x={750} y={343} fontSize={6} fill="var(--text-quiet)" textAnchor="middle" opacity={0.4}>review</text>
+
+      {/* Attention area (bottom) */}
+      <ellipse cx={450} cy={490} rx={40} ry={15} fill="rgba(239,68,68,0.03)" stroke="rgba(239,68,68,0.08)" strokeWidth={0.5} />
+      <text x={450} y={493} fontSize={6} fill="var(--text-quiet)" textAnchor="middle" opacity={0.4}>attention</text>
     </g>
   );
 }
@@ -147,9 +268,9 @@ function SVGOrchestrator({ coordination }: { coordination: CoordinationState }) 
       {/* Orchestrator platform (larger, prominent) */}
       <ellipse cx={cx} cy={cy + 30} rx={60} ry={25} fill="var(--accent)" opacity={0.08} />
 
-      {/* Connection lines to departments */}
-      {Object.values(DEPT_ANCHORS).filter((a) => a.x !== cx || a.y !== cy).map((anchor, i) => (
-        <line key={i} x1={cx} y1={cy + 10} x2={anchor.x} y2={anchor.y}
+      {/* Connection lines to department clusters */}
+      {CLUSTERS.map((cluster, i) => (
+        <line key={i} x1={cx} y1={cy + 10} x2={cluster.cx} y2={cluster.cy}
           stroke="var(--accent)" strokeWidth={1} opacity={0.15} strokeDasharray="4,4" />
       ))}
 
