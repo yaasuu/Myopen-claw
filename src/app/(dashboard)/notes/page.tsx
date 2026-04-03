@@ -167,55 +167,122 @@ export default function NotesPage() {
         })}
       </div>
 
-      {/* Today's Daily Note */}
+      {/* Today's Daily Note / Sync Report */}
       {todayNote && (
         <section>
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
               <Calendar className="h-4 w-4 text-[var(--success)]" />
             </div>
-            <h2 className="section-title">Today — {todayNote.date}</h2>
+            <h2 className="section-title">{todayNote.sync_type === "full_sync" ? "Daily Team Sync" : "Daily Note"} — {todayNote.date}</h2>
           </div>
 
-          <Card className="stat-card border-l-4 border-l-emerald-500">
+          <Card className={`stat-card ${todayNote.sync_type === "full_sync" ? "border-l-4 border-l-[var(--accent)]" : "border-l-4 border-l-emerald-500"}`}>
             <CardContent className="p-5 space-y-4">
-              <p className="text-sm">{todayNote.summary}</p>
+              {/* A. Executive Summary */}
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">A. Executive Summary</h3>
+                <p className="text-sm">{todayNote.summary}</p>
+              </div>
 
-              {todayNote.decisions.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--info)]">Decisions</p>
-                  {todayNote.decisions.map((d, i) => (
+              {/* B. Agent Updates (if full sync) */}
+              {todayNote.sync_type === "full_sync" && todayNote.agent_updates && todayNote.agent_updates.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">B. Agent / Department Updates</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {todayNote.agent_updates.map((agent: any) => (
+                      <div key={agent.agent_id} className="rounded-md border p-3 bg-background/50">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{agent.emoji}</span>
+                          <span className="text-sm font-semibold">{agent.name}</span>
+                          <Badge variant="outline" className="ml-auto text-[10px]">{agent.utilization}</Badge>
+                        </div>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <p>✅ Completed: {agent.workload.completed}</p>
+                          <p>🚧 Active: {agent.workload.in_progress + agent.workload.in_review}</p>
+                          {agent.blockers.length > 0 && (
+                            <p className="text-[var(--danger)]">⚠️ Blockers: {agent.blockers.length}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* C. Cross-Team Coordination */}
+              {todayNote.sync_type === "full_sync" && todayNote.cross_team_summary && (
+                <div className="rounded-md border p-3 bg-background/50">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">C. Cross-Team Coordination</h3>
+                  <div className="grid grid-cols-3 gap-2 text-center mb-2">
+                    <div className="rounded bg-muted/50 p-2">
+                      <p className="text-lg font-bold text-[var(--danger)]">{todayNote.cross_team_summary.total_blockers}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Blockers</p>
+                    </div>
+                    <div className="rounded bg-muted/50 p-2">
+                      <p className="text-lg font-bold text-[var(--info)]">{todayNote.cross_team_summary.total_in_review}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">In Review</p>
+                    </div>
+                    <div className="rounded bg-muted/50 p-2">
+                      <p className="text-lg font-bold text-[var(--warning)]">{todayNote.cross_team_summary.unassigned_open}</p>
+                      <p className="text-[10px] text-muted-foreground uppercase">Unassigned</p>
+                    </div>
+                  </div>
+                  {todayNote.cross_team_summary.coordination_notes?.map((note: string, i: number) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                      <CheckCircle2 className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" /> {d}
+                      <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" /> {note}
                     </p>
                   ))}
                 </div>
               )}
 
-              {todayNote.blockers.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--danger)]">Blockers</p>
-                  {todayNote.blockers.map((b, i) => (
-                    <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                      <AlertCircle className="h-3 w-3 text-[var(--danger)] mt-0.5 shrink-0" /> {b}
+              {/* D. Skill Gaps */}
+              {todayNote.sync_type === "full_sync" && todayNote.skill_gaps && todayNote.skill_gaps.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">D. Skill / Capability Gaps</h3>
+                  {todayNote.skill_gaps.map((gap: any, i: number) => (
+                    <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1">
+                      <AlertCircle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" /> {gap.agent}: {gap.issue}
                     </p>
                   ))}
                 </div>
               )}
 
-              {todayNote.priorities_tomorrow.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]">Tomorrow's Priorities</p>
-                  {todayNote.priorities_tomorrow.map((p, i) => (
+              {/* E. Issues Faced */}
+              {todayNote.issues_list && todayNote.issues_list.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">E. Issues Faced Today</h3>
+                  {todayNote.issues_list.map((issue: string, i: number) => (
+                    <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1">
+                      <AlertTriangle className="h-3 w-3 text-[var(--danger)] mt-0.5 shrink-0" /> {issue}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* F. Next-Day Priorities & G. Decisions */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">F. Tomorrow's Priorities</h3>
+                  {(todayNote.priorities_tomorrow || []).map((p: string, i: number) => (
                     <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
                       <ChevronRight className="h-3 w-3 text-violet-500 mt-0.5 shrink-0" /> {p}
                     </p>
                   ))}
                 </div>
-              )}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">G. Yas Claw Decisions</h3>
+                  {(todayNote.yas_decisions || todayNote.decisions || []).map((d: string, i: number) => (
+                    <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <CheckCircle2 className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" /> {d}
+                    </p>
+                  ))}
+                </div>
+              </div>
 
-              <div className="text-[10px] text-muted-foreground pt-2 border-t">
-                {todayNote.events_reviewed} events reviewed · updated {timeAgo(todayNote.updated_at)}
+              <div className="text-[10px] text-muted-foreground pt-2 border-t flex justify-between">
+                <span>{todayNote.events_reviewed} events reviewed</span>
+                <span>Updated {timeAgo(todayNote.updated_at)}</span>
               </div>
             </CardContent>
           </Card>

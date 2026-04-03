@@ -16,6 +16,13 @@ export interface DailyNote {
   decisions: string[];
   blockers: string[];
   priorities_tomorrow: string[];
+  // Full sync fields (A-G report)
+  agent_updates?: any[];
+  cross_team_summary?: any;
+  skill_gaps?: any[];
+  issues_list?: string[];
+  yas_decisions?: string[];
+  sync_type?: "basic" | "full_sync";
   created_at: string;
   updated_at: string;
 }
