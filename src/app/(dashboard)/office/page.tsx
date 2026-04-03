@@ -6,7 +6,8 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Text, RoundedBox, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { PageShell } from "@/components/dashboard/page-shell";
-import { Loader2, X, ListTodo, ShieldCheck, GitBranch, AlertTriangle, Clock, Activity, Monitor } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, X, ListTodo, ShieldCheck, GitBranch, AlertTriangle, Clock, Activity, Monitor, PlayCircle } from "lucide-react";
 import { getAgents } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
 import { getTasks } from "@/lib/data/tasks";
@@ -712,6 +713,7 @@ function DetailPanel({ agent, presence, signal, tasks, events, departments, proj
 
 export default function OfficePage() {
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
@@ -722,6 +724,19 @@ export default function OfficePage() {
   const [coordination, setCoordination] = useState<CoordinationState>({ isCoordinating: false, recentRoutes: [], pendingReviews: [], activeDiscussions: [] });
   const [governance, setGovernance] = useState<OrchestratorGovernance>({ pendingReviews: 0, blockedAgents: 0, overloadedAgents: 0, capabilityAlerts: 0, needsAttention: 0, signals: [] });
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+
+  async function triggerSync() {
+    setSyncing(true);
+    try {
+      await fetch("/api/cron/nightly-summary");
+      alert("Team Sync started! Check the Notes page for the report.");
+      await load();
+    } catch (e) {
+      console.error("Sync failed:", e);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function load() {
     try {
@@ -768,6 +783,10 @@ export default function OfficePage() {
         <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ color: "var(--danger)" }} /><span style={{ color: "var(--text-quiet)" }}>Blocked {bc}</span></div>
         {ac > 0 && <div className="flex items-center gap-1.5 whitespace-nowrap"><div className="h-2 w-2 rounded-full" style={{ background: "var(--text-muted)" }} /><span style={{ color: "var(--text-quiet)" }}>Away {ac}</span></div>}
         <div className="flex gap-1.5 ml-auto shrink-0">
+          <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1" onClick={triggerSync} disabled={syncing}>
+            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <PlayCircle className="h-3 w-3" />}
+            Start Team Sync
+          </Button>
           <Link href="/reviews" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Reviews</Link>
           <Link href="/tasks" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Tasks</Link>
         </div>

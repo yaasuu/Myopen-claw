@@ -43,6 +43,16 @@ interface RoutineEvent {
 
 const ROUTINES: RoutineEvent[] = [
   {
+    id: "sync-daily",
+    title: "Daily Team Sync (Auto)",
+    type: "governance",
+    frequency: "daily",
+    scheduleAddis: "23:00 Daily",
+    status: "active",
+    lastRun: "Yesterday",
+    nextRun: "Today at 23:00",
+  },
+  {
     id: "r1",
     title: "Daily Autonomy Check",
     type: "routine",
@@ -64,13 +74,13 @@ const ROUTINES: RoutineEvent[] = [
   },
   {
     id: "r3",
-    title: "Nightly Summary",
+    title: "Nightly Summary Report",
     type: "governance",
     frequency: "daily",
-    scheduleAddis: "06:00 Daily",
+    scheduleAddis: "23:05 Daily",
     status: "active",
     lastRun: "Yesterday",
-    nextRun: "Today at 23:00",
+    nextRun: "Today at 23:05",
   },
   {
     id: "r4",
@@ -81,16 +91,6 @@ const ROUTINES: RoutineEvent[] = [
     status: "active",
     lastRun: "2 days ago",
     nextRun: "In 5 days",
-  },
-  {
-    id: "r5",
-    title: "Monthly Strategy",
-    type: "governance",
-    frequency: "monthly",
-    scheduleAddis: "1st of month",
-    status: "active",
-    lastRun: "15 days ago",
-    nextRun: "In 15 days",
   },
 ];
 
