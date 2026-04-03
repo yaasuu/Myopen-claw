@@ -49,25 +49,38 @@ function getAgentDeptSlug(agent: Agent): string {
 // ═══════════════════════════════════════
 // These are BRIGHT enough to be visible on dark background
 const C = {
-  floor: "#B89B72",           // BRIGHT WARM WOOD — very visible
-  floorDark: "#A08860",       // grid lines
-  wall: "#6B5D4D",            // warm brown walls
-  desk: "#C4A878",            // LIGHT OAK — clearly wood
-  deskFrame: "#A89060",       // desk frame
-  deskLeg: "#8B7D60",         // desk legs
-  chair: "#7A5540",           // DARK LEATHER — visible brown
-  chairBack: "#6A4530",       // chair back
-  chairLeg: "#5A3D28",        // chair legs
-  monitor: "#3A3028",         // dark screen
-  monitorFrame: "#2A2018",    // monitor frame
-  meetingTable: "#8B5A30",    // BRIGHT DARK WOOD
-  meetingEdge: "#9A6838",     // meeting edge
-  meetingPedestal: "#6A4828", // meeting pedestal
-  reviewDesk: "#C4A878",      // same as regular desk
-  attentionDesk: "#A87060",   // reddish wood
-  receptionDesk: "#C4A878",   // same as desk
-  label: "#F0E0C8",           // warm cream label
-  bg: "#2A2218",              // canvas background (not too dark)
+  // FLOOR — must be clearly visible brown, NOT dark
+  floor: "#C4A470",           // BRIGHT WARM WOOD — very visible
+  floorDark: "#B09060",       // grid lines
+  wall: "#7A6A55",            // brown walls — lighter than before
+
+  // DESKS — LIGHT OAK, clearly lighter than floor
+  desk: "#D4B888",            // BRIGHT LIGHT OAK
+  deskFrame: "#C0A070",       // desk frame
+  deskLeg: "#9A8868",         // desk legs — visible
+
+  // CHAIRS — DARK BROWN LEATHER, clearly darker than desks
+  chair: "#8B6040",           // DARK BROWN LEATHER
+  chairBack: "#7A5030",       // chair back
+  chairLeg: "#6A4528",        // chair legs
+
+  // MONITOR — dark screens
+  monitor: "#3A3028",
+  monitorFrame: "#2D2520",
+
+  // MEETING TABLE — RICH DARK WOOD
+  meetingTable: "#A06830",    // RICH DARK WOOD — visible
+  meetingEdge: "#B07838",     // meeting edge
+  meetingPedestal: "#7A5028", // meeting pedestal
+
+  // OTHER
+  reviewDesk: "#D4B888",      // same as desk
+  attentionDesk: "#B87058",   // reddish wood
+  receptionDesk: "#D4B888",   // same as desk
+  label: "#FFF0D8",           // BRIGHT cream label
+
+  // CANVAS
+  bg: "#2D2520",              // dark warm background
 };
 
 // ═══════════════════════════════════════
@@ -409,8 +422,8 @@ function AttentionArea() {
       ))}
       <mesh position={[0, 1, -0.3]}><boxGeometry args={[0.45, 0.3, 0.03]} /><meshStandardMaterial color={C.monitor} emissive="#ef4444" emissiveIntensity={0.08} /></mesh>
       <Text position={[0, 0.88, 0.35]} fontSize={0.12} color="#ff8080" anchorX="center" anchorY="middle">Attention</Text>
-      <mesh position={[0, 0.38, 0.45]}><boxGeometry args={[0.3, 0.05, 0.3]} /><meshStandardMaterial color="#6B4540" /></mesh>
-      <mesh position={[0, 0.58, 0.58]}><boxGeometry args={[0.3, 0.4, 0.05]} /><meshStandardMaterial color="#5A3830" /></mesh>
+      <mesh position={[0, 0.38, 0.45]}><boxGeometry args={[0.3, 0.05, 0.3]} /><meshStandardMaterial color="#8B6040" /></mesh>
+      <mesh position={[0, 0.58, 0.58]}><boxGeometry args={[0.3, 0.4, 0.05]} /><meshStandardMaterial color="#7A5030" /></mesh>
     </group>
   );
 }
@@ -422,7 +435,7 @@ function Reception() {
         <meshStandardMaterial color={C.receptionDesk} roughness={0.6} />
       </RoundedBox>
       <RoundedBox args={[3.6, 0.04, 0.8]} radius={0.02} position={[0, 0.82, 0]} castShadow>
-        <meshStandardMaterial color="#B89870" roughness={0.45} />
+        <meshStandardMaterial color="#D4B888" roughness={0.45} />
       </RoundedBox>
       <Text position={[0, 0.95, -0.2]} fontSize={0.14} color={C.label} anchorX="center" anchorY="middle">Reception</Text>
     </group>
@@ -434,7 +447,7 @@ function DiningArea() {
     <group position={DINING_POS}>
       <mesh position={[0, 0.75, 0]} castShadow>
         <cylinderGeometry args={[0.9, 0.9, 0.06, 16]} />
-        <meshStandardMaterial color="#8B7355" roughness={0.5} />
+        <meshStandardMaterial color="#C4A470" roughness={0.5} />
       </mesh>
       <mesh position={[0, 0.38, 0]}>
         <cylinderGeometry args={[0.1, 0.15, 0.75, 8]} />
@@ -458,13 +471,13 @@ function LoungeArea() {
   return (
     <group position={LOUNGE_POS}>
       <RoundedBox args={[2, 0.4, 0.7]} radius={0.08} position={[0, 0.2, 0]} castShadow>
-        <meshStandardMaterial color="#4A5565" roughness={0.9} />
+        <meshStandardMaterial color="#6A5040" roughness={0.9} />
       </RoundedBox>
       <RoundedBox args={[2, 0.5, 0.15]} radius={0.06} position={[0, 0.55, -0.3]} castShadow>
-        <meshStandardMaterial color="#4A5565" roughness={0.9} />
+        <meshStandardMaterial color="#6A5040" roughness={0.9} />
       </RoundedBox>
-      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[-0.95, 0.38, 0]}><meshStandardMaterial color="#4A5565" roughness={0.9} /></RoundedBox>
-      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[0.95, 0.38, 0]}><meshStandardMaterial color="#4A5565" roughness={0.9} /></RoundedBox>
+      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[-0.95, 0.38, 0]}><meshStandardMaterial color="#6A5040" roughness={0.9} /></RoundedBox>
+      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[0.95, 0.38, 0]}><meshStandardMaterial color="#6A5040" roughness={0.9} /></RoundedBox>
       <RoundedBox args={[0.8, 0.04, 0.5]} radius={0.02} position={[0, 0.45, 0.8]} castShadow>
         <meshStandardMaterial color={C.desk} roughness={0.5} />
       </RoundedBox>
