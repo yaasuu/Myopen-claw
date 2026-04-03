@@ -49,38 +49,38 @@ function getAgentDeptSlug(agent: Agent): string {
 // ═══════════════════════════════════════
 // These are BRIGHT enough to be visible on dark background
 const C = {
-  // FLOOR — must be clearly visible brown, NOT dark
-  floor: "#C4A470",           // BRIGHT WARM WOOD — very visible
-  floorDark: "#B09060",       // grid lines
-  wall: "#7A6A55",            // brown walls — lighter than before
+  // FLOOR — very bright warm wood
+  floor: "#D4B078",           // BRIGHT GOLDEN WOOD
+  floorGrid: "#C4A068",       // grid
+  wall: "#8A7A65",            // medium brown walls
 
-  // DESKS — LIGHT OAK, clearly lighter than floor
-  desk: "#D4B888",            // BRIGHT LIGHT OAK
-  deskFrame: "#C0A070",       // desk frame
-  deskLeg: "#9A8868",         // desk legs — visible
+  // DESKS — bright light oak
+  desk: "#E0C890",            // VERY BRIGHT OAK
+  deskFrame: "#D0B878",       // frame
+  deskLeg: "#B0A078",         // legs
 
-  // CHAIRS — DARK BROWN LEATHER, clearly darker than desks
-  chair: "#8B6040",           // DARK BROWN LEATHER
-  chairBack: "#7A5030",       // chair back
-  chairLeg: "#6A4528",        // chair legs
+  // CHAIRS — dark but visible brown
+  chair: "#9A7050",           // BROWN LEATHER
+  chairBack: "#8A6040",       // back
+  chairLeg: "#7A5538",        // legs
 
-  // MONITOR — dark screens
-  monitor: "#3A3028",
-  monitorFrame: "#2D2520",
+  // MONITOR
+  monitor: "#4A4038",         // screen
+  monitorFrame: "#3A3028",    // frame
 
-  // MEETING TABLE — RICH DARK WOOD
-  meetingTable: "#A06830",    // RICH DARK WOOD — visible
-  meetingEdge: "#B07838",     // meeting edge
-  meetingPedestal: "#7A5028", // meeting pedestal
+  // MEETING TABLE
+  meetingTable: "#B07838",    // RICH WOOD
+  meetingEdge: "#C08840",     // edge
+  meetingPedestal: "#8A6030", // pedestal
 
   // OTHER
-  reviewDesk: "#D4B888",      // same as desk
-  attentionDesk: "#B87058",   // reddish wood
-  receptionDesk: "#D4B888",   // same as desk
-  label: "#FFF0D8",           // BRIGHT cream label
+  reviewDesk: "#E0C890",
+  attentionDesk: "#C88060",   // reddish
+  receptionDesk: "#E0C890",
+  label: "#FFFFFF",           // WHITE labels — maximum contrast
 
   // CANVAS
-  bg: "#2D2520",              // dark warm background
+  bg: "#3A3028",              // lighter background
 };
 
 // ═══════════════════════════════════════
@@ -190,10 +190,10 @@ function Room() {
       {/* FLOOR — WARM BROWN, clearly visible */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
         <planeGeometry args={[30, 22]} />
-        <meshStandardMaterial color={C.floor} roughness={0.9} />
+        <meshStandardMaterial color={C.floor} roughness={0.4} />
       </mesh>
       {/* Grid lines on floor */}
-      <gridHelper args={[30, 15, C.floorDark, C.floorDark]} position={[0, -0.04, 0]} />
+      <gridHelper args={[30, 15, C.floorGrid, C.floorGrid]} position={[0, -0.04, 0]} />
 
       {/* Walls */}
       <mesh position={[0, 2.5, -11]} receiveShadow>
@@ -274,7 +274,7 @@ function Desk({ position, color, label, occupied }: {
     <group position={position}>
       {/* Desk surface — LIGHT OAK */}
       <RoundedBox args={[1.6, 0.06, 0.9]} radius={0.02} position={[0, 0.75, 0]} castShadow>
-        <meshStandardMaterial color={C.desk} roughness={0.55} />
+        <meshStandardMaterial color={C.desk} roughness={0.4} />
       </RoundedBox>
       {/* Frame */}
       <mesh position={[0, 0.72, 0]}>
@@ -304,11 +304,11 @@ function Desk({ position, color, label, occupied }: {
       {/* Chair — DARK LEATHER */}
       <mesh position={[0, 0.38, 0.6]}>
         <boxGeometry args={[0.4, 0.05, 0.4]} />
-        <meshStandardMaterial color={C.chair} roughness={0.85} />
+        <meshStandardMaterial color={C.chair} roughness={0.5} />
       </mesh>
       <mesh position={[0, 0.62, 0.78]}>
         <boxGeometry args={[0.4, 0.5, 0.05]} />
-        <meshStandardMaterial color={C.chairBack} roughness={0.85} />
+        <meshStandardMaterial color={C.chairBack} roughness={0.5} />
       </mesh>
       {[[-0.16, 0, 0.44], [0.16, 0, 0.44], [-0.16, 0, 0.76], [0.16, 0, 0.76]].map((lp, li) => (
         <mesh key={li} position={[lp[0], 0.19, lp[2]]}>
@@ -381,11 +381,11 @@ function MeetingTable() {
           <group key={i} position={slot} rotation={[0, angle + Math.PI, 0]}>
             <mesh position={[0, 0.38, 0]}>
               <boxGeometry args={[0.38, 0.05, 0.38]} />
-              <meshStandardMaterial color={C.chair} roughness={0.85} />
+              <meshStandardMaterial color={C.chair} roughness={0.5} />
             </mesh>
             <mesh position={[0, 0.6, 0.18]}>
               <boxGeometry args={[0.38, 0.45, 0.05]} />
-              <meshStandardMaterial color={C.chairBack} roughness={0.85} />
+              <meshStandardMaterial color={C.chairBack} roughness={0.5} />
             </mesh>
           </group>
         );
@@ -398,7 +398,7 @@ function ReviewArea() {
   return (
     <group position={REVIEW_POS}>
       <RoundedBox args={[2, 0.06, 1]} radius={0.03} position={[0, 0.75, 0]} castShadow>
-        <meshStandardMaterial color={C.reviewDesk} roughness={0.55} />
+        <meshStandardMaterial color={C.reviewDesk} roughness={0.4} />
       </RoundedBox>
       {[[-0.8, 0, -0.35], [0.8, 0, -0.35], [-0.8, 0, 0.35], [0.8, 0, 0.35]].map((p, i) => (
         <mesh key={i} position={[p[0], 0.375, p[2]]}><boxGeometry args={[0.05, 0.75, 0.05]} /><meshStandardMaterial color={C.deskLeg} /></mesh>
@@ -415,7 +415,7 @@ function AttentionArea() {
   return (
     <group position={ATTENTION_POS}>
       <RoundedBox args={[1.5, 0.06, 0.8]} radius={0.03} position={[0, 0.75, 0]} castShadow>
-        <meshStandardMaterial color={C.attentionDesk} roughness={0.55} />
+        <meshStandardMaterial color={C.attentionDesk} roughness={0.4} />
       </RoundedBox>
       {[[-0.6, 0, -0.3], [0.6, 0, -0.3], [-0.6, 0, 0.3], [0.6, 0, 0.3]].map((p, i) => (
         <mesh key={i} position={[p[0], 0.375, p[2]]}><boxGeometry args={[0.04, 0.75, 0.04]} /><meshStandardMaterial color={C.deskLeg} /></mesh>
@@ -432,7 +432,7 @@ function Reception() {
   return (
     <group position={RECEPTION_POS}>
       <RoundedBox args={[3.5, 0.8, 0.7]} radius={0.04} position={[0, 0.4, 0]} castShadow>
-        <meshStandardMaterial color={C.receptionDesk} roughness={0.6} />
+        <meshStandardMaterial color={C.receptionDesk} roughness={0.4} />
       </RoundedBox>
       <RoundedBox args={[3.6, 0.04, 0.8]} radius={0.02} position={[0, 0.82, 0]} castShadow>
         <meshStandardMaterial color="#D4B888" roughness={0.45} />
@@ -447,7 +447,7 @@ function DiningArea() {
     <group position={DINING_POS}>
       <mesh position={[0, 0.75, 0]} castShadow>
         <cylinderGeometry args={[0.9, 0.9, 0.06, 16]} />
-        <meshStandardMaterial color="#C4A470" roughness={0.5} />
+        <meshStandardMaterial color="#D4B078" roughness={0.5} />
       </mesh>
       <mesh position={[0, 0.38, 0]}>
         <cylinderGeometry args={[0.1, 0.15, 0.75, 8]} />
@@ -471,13 +471,13 @@ function LoungeArea() {
   return (
     <group position={LOUNGE_POS}>
       <RoundedBox args={[2, 0.4, 0.7]} radius={0.08} position={[0, 0.2, 0]} castShadow>
-        <meshStandardMaterial color="#6A5040" roughness={0.9} />
+        <meshStandardMaterial color="#8A7060" roughness={0.4} />
       </RoundedBox>
       <RoundedBox args={[2, 0.5, 0.15]} radius={0.06} position={[0, 0.55, -0.3]} castShadow>
-        <meshStandardMaterial color="#6A5040" roughness={0.9} />
+        <meshStandardMaterial color="#8A7060" roughness={0.4} />
       </RoundedBox>
-      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[-0.95, 0.38, 0]}><meshStandardMaterial color="#6A5040" roughness={0.9} /></RoundedBox>
-      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[0.95, 0.38, 0]}><meshStandardMaterial color="#6A5040" roughness={0.9} /></RoundedBox>
+      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[-0.95, 0.38, 0]}><meshStandardMaterial color="#8A7060" roughness={0.4} /></RoundedBox>
+      <RoundedBox args={[0.15, 0.35, 0.7]} radius={0.06} position={[0.95, 0.38, 0]}><meshStandardMaterial color="#8A7060" roughness={0.4} /></RoundedBox>
       <RoundedBox args={[0.8, 0.04, 0.5]} radius={0.02} position={[0, 0.45, 0.8]} castShadow>
         <meshStandardMaterial color={C.desk} roughness={0.5} />
       </RoundedBox>
@@ -777,14 +777,14 @@ export default function OfficePage() {
       {/* 3D Canvas — BROWN BACKGROUND */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "68vh", background: C.bg }}>
         <Canvas shadows camera={{ position: [8, 8, 18], fov: 50 }} style={{ background: C.bg }}>
-          <ambientLight intensity={0.35} />
-          <directionalLight position={[6, 10, 6]} intensity={0.6} castShadow shadow-mapSize={[1024, 1024]} />
-          <directionalLight position={[-5, 8, 5]} intensity={0.25} color="#e8d8c0" />
-          <pointLight position={[0, 5, 0]} intensity={0.4} color="#22C7B8" distance={20} />
-          <pointLight position={[MEETING_POS[0], 3, MEETING_POS[2]]} intensity={0.2} color="#a080ff" distance={10} />
-          <pointLight position={[DINING_POS[0], 3, DINING_POS[2]]} intensity={0.15} color="#c4a060" distance={8} />
-          <pointLight position={[LOUNGE_POS[0], 3, LOUNGE_POS[2]]} intensity={0.12} color="#80a0c0" distance={8} />
-          <hemisphereLight args={["#e8d8c0", "#3a3028", 0.2]} />
+          <ambientLight intensity={0.5} />
+          <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} />
+          <directionalLight position={[-4, 8, 4]} intensity={0.4} color="#fff0d0" />
+          <pointLight position={[0, 6, 0]} intensity={0.5} color="#ffffff" distance={25} />
+          <pointLight position={[MEETING_POS[0], 4, MEETING_POS[2]]} intensity={0.3} color="#c0a0ff" distance={12} />
+          <pointLight position={[DINING_POS[0], 3, DINING_POS[2]]} intensity={0.2} color="#ffe0a0" distance={10} />
+          <pointLight position={[LOUNGE_POS[0], 3, LOUNGE_POS[2]]} intensity={0.15} color="#a0c0ff" distance={10} />
+          <hemisphereLight args={["#ffffff", "#8a7a65", 0.3]} />
 
           <Room />
           <Orchestrator coordination={coordination} />
