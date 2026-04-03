@@ -49,25 +49,25 @@ function getAgentDeptSlug(agent: Agent): string {
 // ═══════════════════════════════════════
 // These are BRIGHT enough to be visible on dark background
 const C = {
-  floor: "#8B7355",           // WARM WOOD BROWN — very visible
-  floorDark: "#7A6548",       // slightly darker for grid
-  wall: "#5C4D3D",            // warm brown walls
-  desk: "#A08060",            // LIGHT OAK — clearly wood
-  deskFrame: "#8B7355",       // desk frame
-  deskLeg: "#6B5D50",         // desk legs
-  chair: "#5C4033",           // DARK LEATHER
-  chairBack: "#4A3328",       // chair back
-  chairLeg: "#3D2D22",        // chair legs
-  monitor: "#2A2218",         // dark screen
-  monitorFrame: "#1A1510",    // monitor frame
-  meetingTable: "#6B4226",    // DARK WOOD
-  meetingEdge: "#7A5030",     // meeting edge
-  meetingPedestal: "#4A3020", // meeting pedestal
-  reviewDesk: "#A08060",      // same as regular desk
-  attentionDesk: "#8B6050",   // reddish wood
-  receptionDesk: "#A08060",   // same as desk
-  label: "#E8D8C0",           // warm cream label
-  bg: "#1A1510",              // canvas background (dark warm)
+  floor: "#B89B72",           // BRIGHT WARM WOOD — very visible
+  floorDark: "#A08860",       // grid lines
+  wall: "#6B5D4D",            // warm brown walls
+  desk: "#C4A878",            // LIGHT OAK — clearly wood
+  deskFrame: "#A89060",       // desk frame
+  deskLeg: "#8B7D60",         // desk legs
+  chair: "#7A5540",           // DARK LEATHER — visible brown
+  chairBack: "#6A4530",       // chair back
+  chairLeg: "#5A3D28",        // chair legs
+  monitor: "#3A3028",         // dark screen
+  monitorFrame: "#2A2018",    // monitor frame
+  meetingTable: "#8B5A30",    // BRIGHT DARK WOOD
+  meetingEdge: "#9A6838",     // meeting edge
+  meetingPedestal: "#6A4828", // meeting pedestal
+  reviewDesk: "#C4A878",      // same as regular desk
+  attentionDesk: "#A87060",   // reddish wood
+  receptionDesk: "#C4A878",   // same as desk
+  label: "#F0E0C8",           // warm cream label
+  bg: "#2A2218",              // canvas background (not too dark)
 };
 
 // ═══════════════════════════════════════
@@ -764,12 +764,14 @@ export default function OfficePage() {
       {/* 3D Canvas — BROWN BACKGROUND */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "68vh", background: C.bg }}>
         <Canvas shadows camera={{ position: [8, 8, 18], fov: 50 }} style={{ background: C.bg }}>
-          <ambientLight intensity={0.25} />
-          <directionalLight position={[8, 12, 8]} intensity={0.5} castShadow shadow-mapSize={[1024, 1024]} />
-          <directionalLight position={[-6, 8, -4]} intensity={0.15} color="#d4c4a0" />
-          <pointLight position={[0, 4, 0]} intensity={0.35} color="#22C7B8" distance={15} />
-          <pointLight position={[MEETING_POS[0], 3, MEETING_POS[2]]} intensity={0.15} color="#a080ff" distance={8} />
-          <pointLight position={[DINING_POS[0], 2.5, DINING_POS[2]]} intensity={0.1} color="#c4a060" distance={6} />
+          <ambientLight intensity={0.35} />
+          <directionalLight position={[6, 10, 6]} intensity={0.6} castShadow shadow-mapSize={[1024, 1024]} />
+          <directionalLight position={[-5, 8, 5]} intensity={0.25} color="#e8d8c0" />
+          <pointLight position={[0, 5, 0]} intensity={0.4} color="#22C7B8" distance={20} />
+          <pointLight position={[MEETING_POS[0], 3, MEETING_POS[2]]} intensity={0.2} color="#a080ff" distance={10} />
+          <pointLight position={[DINING_POS[0], 3, DINING_POS[2]]} intensity={0.15} color="#c4a060" distance={8} />
+          <pointLight position={[LOUNGE_POS[0], 3, LOUNGE_POS[2]]} intensity={0.12} color="#80a0c0" distance={8} />
+          <hemisphereLight args={["#e8d8c0", "#3a3028", 0.2]} />
 
           <Room />
           <Orchestrator coordination={coordination} />
