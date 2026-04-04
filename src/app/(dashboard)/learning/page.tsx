@@ -18,6 +18,12 @@ import {
   Plus,
   Search,
   Filter,
+  Target,
+  BarChart3,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  Activity,
 } from "lucide-react";
 import { 
   getDailySyncs,
@@ -35,6 +41,16 @@ import {
   type Lesson,
   type SystemUpdate
 } from "@/lib/data/learning";
+import {
+  getCapabilityGaps,
+  getAuditRuns,
+  reviewCapabilityGap,
+} from "@/lib/data/capability-governance";
+import type {
+  CapabilityGap,
+  CapabilityAuditRun,
+  GapReviewStatus,
+} from "@/types/dashboard";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 
 const TABS = [
@@ -43,6 +59,7 @@ const TABS = [
   { key: "lessons", label: "Lessons", sub: "Operational insights", Icon: BookOpen, bg: "bg-amber-500/12", border: "border-amber-500/30", icon: "text-amber-400", text: "text-amber-300" },
   { key: "skills", label: "Skills", sub: "Capabilities & requests", Icon: Lightbulb, bg: "bg-emerald-500/12", border: "border-emerald-500/30", icon: "text-emerald-400", text: "text-emerald-300" },
   { key: "updates", label: "Updates", sub: "Change history", Icon: Zap, bg: "bg-teal-500/12", border: "border-teal-500/30", icon: "text-teal-400", text: "text-teal-300" },
+  { key: "governance", label: "Governance", sub: "Gaps & automation", Icon: Target, bg: "bg-rose-500/12", border: "border-rose-500/30", icon: "text-rose-400", text: "text-rose-300" },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -58,23 +75,29 @@ export default function LearningHubPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [agentPerf, setAgentPerf] = useState<AgentPerformance[]>([]);
+  const [capGaps, setCapGaps] = useState<CapabilityGap[]>([]);
+  const [auditRuns, setAuditRuns] = useState<CapabilityAuditRun[]>([]);
   const [scanMsg, setScanMsg] = useState<string>("");
   const [scanning, setScanning] = useState(false);
 
   async function load() {
     setLoading(true);
-    const [meetingsR, skillsR, lessonsR, updatesR, perfR] = await Promise.all([
+    const [meetingsR, skillsR, lessonsR, updatesR, perfR, gapsR, auditsR] = await Promise.all([
       getDailySyncs(7),
       getSkillRequests(),
       getLessons(lessonFilter === "all" ? undefined : lessonFilter),
       getSystemUpdates(),
       getAgentPerformance(),
+      getCapabilityGaps(),
+      getAuditRuns(),
     ]);
     setMeetings(meetingsR);
     setSkillRequests(skillsR);
     setLessons(lessonsR);
     setUpdates(updatesR);
     setAgentPerf(perfR);
+    setCapGaps(gapsR.data);
+    setAuditRuns(auditsR.data);
     setLoading(false);
   }
 
@@ -131,6 +154,11 @@ export default function LearningHubPage() {
   async function handleLessonStatus(id: string, status: Lesson["status"]) {
     const ok = await updateLessonStatus(id, status);
     if (ok) load();
+  }
+
+  async function handleReviewGap(gapId: string, status: GapReviewStatus) {
+    await reviewCapabilityGap(gapId, status, "Yas");
+    load();
   }
 
   const pendingApprovals = skillRequests.filter(s => s.status === "pending").length;
@@ -533,6 +561,132 @@ export default function LearningHubPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ─── GOVERNANCE ─── */}
+        {activeTab === "governance" && (
+          <div className="space-y-6">
+            {/* Audit History */}
+            {auditRuns.length > 0 && (
+              <Card className="stat-card">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity className="h-4 w-4 text-[var(--accent)]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider">Audit History</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {auditRuns.slice(0, 5).map((run: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3 text-xs rounded-lg border border-border/50 p-3">
+                        <Badge variant="outline" className="text-[10px]">{run.run_date || "Today"}</Badge>
+                        <span className="flex-1 text-muted-foreground">{run.summary || "Audit completed"}</span>
+                        <span className="text-[10px] text-muted-foreground">{run.gaps_detected || run.total_gaps_created || 0} gaps · {run.critical_gaps || 0} critical</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Capability Gaps */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-4 w-4 text-[var(--danger)]" />
+                <h4 className="text-xs font-bold uppercase tracking-wider">Capability Gaps</h4>
+                {capGaps.length > 0 && (
+                  <Badge className="bg-[rgba(239,68,68,0.12)] text-[var(--danger)] text-[10px]">
+                    {capGaps.filter((g: any) => g.review_status === "pending").length} pending
+                  </Badge>
+                )}
+              </div>
+
+              {capGaps.length === 0 ? (
+                <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">No capability gaps detected yet. The nightly audit runs at 23:00 UTC.</CardContent></Card>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {capGaps.map((gap: any) => {
+                    const urgencyColors: Record<string, string> = {
+                      high: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]",
+                      medium: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]",
+                      low: "bg-[rgba(59,130,246,0.12)] text-[var(--info)]",
+                    };
+                    const statusColors: Record<string, string> = {
+                      pending: "border-l-amber-400",
+                      approved: "border-l-emerald-500",
+                      rejected: "border-l-red-500",
+                      monitored: "border-l-blue-400",
+                      resolved: "border-l-gray-300",
+                    };
+                    const categoryLabels: Record<string, string> = {
+                      missing_skill: "Missing Skill",
+                      wrong_assignment: "Wrong Assignment",
+                      unclear_scope: "Unclear Scope",
+                      dependency_blocker: "Dependency Blocker",
+                      missing_process: "Missing Process",
+                      approval_delay: "Approval Delay",
+                    };
+
+                    return (
+                      <Card key={gap.id} className={`stat-card border-l-4 ${statusColors[gap.review_status] || "border-l-amber-400"}`}>
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold">{gap.missing_skill_name || gap.capability_area}</span>
+                                <Badge variant="outline" className="text-[9px]">{categoryLabels[gap.gap_category] || gap.gap_category}</Badge>
+                              </div>
+                              {gap.agent_emoji && (
+                                <span className="text-xs text-muted-foreground">{gap.agent_emoji} {gap.agent_name || "Unassigned"}</span>
+                              )}
+                            </div>
+                            <Badge className={`text-[9px] ${urgencyColors[gap.urgency_level] || urgencyColors.medium}`}>
+                              {gap.urgency_level}
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground">{gap.why_flagged}</p>
+
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" /> {gap.evidence_count || 0} evidence</span>
+                            {gap.confidence_level && <span>Confidence: {gap.confidence_level}</span>}
+                          </div>
+
+                          {gap.recommended_action && (
+                            <div className="flex items-start gap-1.5 rounded-lg bg-[rgba(139,92,246,0.05)] px-2.5 py-1.5">
+                              <ChevronRight className="h-3 w-3 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                              <p className="text-[10px]">{gap.recommended_action}</p>
+                            </div>
+                          )}
+
+                          {gap.review_status !== "pending" && (
+                            <Badge variant="outline" className="text-[9px]">
+                              {gap.review_status === "monitored" && <Eye className="h-2.5 w-2.5 mr-0.5" />}
+                              {gap.review_status === "approved" && <ThumbsUp className="h-2.5 w-2.5 mr-0.5" />}
+                              {gap.review_status === "rejected" && <ThumbsDown className="h-2.5 w-2.5 mr-0.5" />}
+                              {gap.review_status}
+                            </Badge>
+                          )}
+
+                          {gap.review_status === "pending" && (
+                            <div className="flex gap-1.5 pt-1.5 border-t border-border/50">
+                              <Button size="sm" className="h-6 text-[10px] flex-1 gap-1" onClick={() => handleReviewGap(gap.id, "approved")}>
+                                <ThumbsUp className="h-3 w-3" /> Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] flex-1 gap-1" onClick={() => handleReviewGap(gap.id, "rejected")}>
+                                <ThumbsDown className="h-3 w-3" /> Reject
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1" onClick={() => handleReviewGap(gap.id, "monitored")}>
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
