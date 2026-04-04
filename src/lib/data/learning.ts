@@ -128,6 +128,21 @@ export async function approveSkillRequest(id: string) {
   }
 }
 
+export async function rejectSkillRequest(id: string) {
+  await supabase.from("skill_requests").update({ status: "rejected", updated_at: new Date().toISOString() }).eq("id", id);
+  await supabase.from("system_updates").insert({
+    type: "workflow_changed",
+    title: `Rejected Skill Request ${id}`,
+    description: "Skill request reviewed and rejected by Yas.",
+    source_approval_id: id,
+    applied_at: new Date().toISOString()
+  });
+}
+
+export async function requestSkill(title: string, description: string, requestedBy: string) {
+  return await supabase.from("skill_requests").insert({ title, description, requested_by: requestedBy }).select().single();
+}
+
 export async function createLesson(lesson: Omit<Lesson, "id" | "date_detected">) {
   return await supabase.from("lessons").insert(lesson).select().single();
 }

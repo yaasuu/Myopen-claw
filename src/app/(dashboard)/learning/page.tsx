@@ -25,6 +25,8 @@ import {
   getLessons, 
   getSystemUpdates,
   approveSkillRequest,
+  rejectSkillRequest,
+  requestSkill,
   type MeetingSummary, 
   type SkillRequest,
   type Lesson,
@@ -64,6 +66,19 @@ export default function LearningHubPage() {
 
   async function handleApprove(id: string) {
     await approveSkillRequest(id);
+    load();
+  }
+
+  async function handleReject(id: string) {
+    await rejectSkillRequest(id);
+    load();
+  }
+
+  async function handleRequestSkill() {
+    const title = prompt("Skill Name:");
+    if (!title) return;
+    const description = prompt("Description/Reason:") || "";
+    await requestSkill(title, description, "Yas");
     load();
   }
 
@@ -206,35 +221,38 @@ export default function LearningHubPage() {
 
         {/* TAB 2 — APPROVALS */}
         <TabsContent value="approvals" className="space-y-4">
-          <Card className="stat-card">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <CheckCircle2 className="h-4 w-4 text-[var(--accent)]" />
-                <h3 className="text-sm font-semibold">Pending Approvals</h3>
-              </div>
-              <div className="space-y-3">
-                {skillRequests.filter(s => s.status === "pending").map(req => (
-                  <div key={req.id} className="rounded-md border bg-background/50 p-3 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">{req.affected_agent ? `${req.affected_agent} Skill` : "System Skill"}</Badge>
-                        <span className="text-sm font-medium">{req.title}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{req.description}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">Requested by {req.requested_by}</p>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-[var(--accent)]" />
+              <h3 className="text-sm font-semibold">Pending Approvals</h3>
+            </div>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRequestSkill}>
+              <Plus className="h-3 w-3 mr-1" /> Request Skill
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {skillRequests.filter(s => s.status === "pending").map(req => (
+              <Card key={req.id} className="stat-card">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">{req.affected_agent ? `${req.affected_agent} Skill` : "System Skill"}</Badge>
+                      <span className="text-sm font-medium">{req.title}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" className="h-7 text-xs">Edit</Button>
-                      <Button size="sm" className="h-7 text-xs bg-[var(--success)] hover:bg-[var(--success)]/90" onClick={() => handleApprove(req.id)}>Approve</Button>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{req.description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Requested by {req.requested_by}</p>
                   </div>
-                ))}
-                {skillRequests.every(s => s.status !== "pending") && (
-                  <div className="text-center text-sm text-muted-foreground py-4">All caught up! No pending approvals.</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--danger)]" onClick={() => handleReject(req.id)}>Reject</Button>
+                    <Button size="sm" className="h-7 text-xs bg-[var(--success)] hover:bg-[var(--success)]/90" onClick={() => handleApprove(req.id)}>Approve</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {skillRequests.every(s => s.status !== "pending") && (
+              <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">All caught up! No pending approvals.</CardContent></Card>
+            )}
+          </div>
         </TabsContent>
 
         {/* TAB 3 — LESSONS */}

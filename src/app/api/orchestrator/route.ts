@@ -596,5 +596,51 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
+  // ─── Auto-Draft Lessons from Blockers ──────────────────────
+  if (body.action === "check_and_draft_lessons") {
+    const { data: tasks } = await supabase
+      .from("tasks")
+      .select("blocker")
+      .eq("status", "blocked")
+      .not("blocker", "is", null);
+
+    if (tasks) {
+      const blockerCounts: Record<string, number> = {};
+      tasks.forEach((t: any) => {
+        blockerCounts[t.blocker] = (blockerCounts[t.blocker] || 0) + 1;
+      });
+
+      for (const [blocker, count] of Object.entries(blockerCounts)) {
+        if (count >= 2) { // Threshold for auto-draft
+          const { data: existing } = await supabase
+            .from("lessons")
+            .select("id")
+            .eq("pattern", blocker)
+            .eq("status", "draft")
+            .maybeSingle();
+
+          if (!existing) {
+            await supabase.from("lessons").insert({
+              title: `Recurring Blocker: ${blocker}`,
+              pattern: blocker,
+              lesson_statement: `This blocker has appeared in ${count} tasks. Investigation required.`,
+              proposed_fix: "Review agent prompt or workflow associated with this task type.",
+              status: "draft",
+              affected_agents: [] // Will be populated by manual review or deeper analysis
+            });
+            
+            // Log to feed
+            await supabase.from("feed_events").insert({
+              event_type: "lesson_created",
+              source: "Yas Claw Orchestrator",
+              summary: `Auto-drafted lesson for recurring blocker: ${blocker}`
+            });
+          }
+        }
+      }
+    }
+    return NextResponse.json({ message: "Lesson check complete" });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
