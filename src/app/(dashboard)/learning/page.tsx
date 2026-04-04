@@ -58,18 +58,24 @@ export default function LearningHubPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
 
+  const [agentPerf, setAgentPerf] = useState<AgentPerformance[]>([]);
+  const [scanMsg, setScanMsg] = useState<string>("");
+  const [scanning, setScanning] = useState(false);
+
   async function load() {
     setLoading(true);
-    const [meetingsR, skillsR, lessonsR, updatesR] = await Promise.all([
+    const [meetingsR, skillsR, lessonsR, updatesR, perfR] = await Promise.all([
       getDailySyncs(7),
       getSkillRequests(),
       getLessons(lessonFilter === "all" ? undefined : lessonFilter),
       getSystemUpdates(),
+      getAgentPerformance(),
     ]);
     setMeetings(meetingsR);
     setSkillRequests(skillsR);
     setLessons(lessonsR);
     setUpdates(updatesR);
+    setAgentPerf(perfR);
     setLoading(false);
   }
 
@@ -96,27 +102,6 @@ export default function LearningHubPage() {
     const description = prompt("Description/Reason:") || "";
     await requestSkill(title, description, "Yas");
     load();
-  }
-
-  const [agentPerf, setAgentPerf] = useState<AgentPerformance[]>([]);
-  const [scanMsg, setScanMsg] = useState<string>("");
-  const [scanning, setScanning] = useState(false);
-
-  async function load() {
-    setLoading(true);
-    const [meetingsR, skillsR, lessonsR, updatesR, perfR] = await Promise.all([
-      getDailySyncs(7),
-      getSkillRequests(),
-      getLessons(lessonFilter === "all" ? undefined : lessonFilter),
-      getSystemUpdates(),
-      getAgentPerformance(),
-    ]);
-    setMeetings(meetingsR);
-    setSkillRequests(skillsR);
-    setLessons(lessonsR);
-    setUpdates(updatesR);
-    setAgentPerf(perfR);
-    setLoading(false);
   }
 
   async function handleScanLessons() {
