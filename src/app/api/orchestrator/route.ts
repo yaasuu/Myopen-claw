@@ -596,51 +596,113 @@ export async function POST(request: Request) {
     return NextResponse.json({ data });
   }
 
-  // ─── Auto-Draft Lessons from Blockers ──────────────────────
+  // ─── Auto-Draft Lessons from Execution Data ──────────────
   if (body.action === "check_and_draft_lessons") {
-    const { data: tasks } = await supabase
+    // 1. Scan ALL tasks for recurring blockers (not just currently blocked)
+    const { data: allTasks } = await supabase
       .from("tasks")
-      .select("blocker")
-      .eq("status", "blocked")
-      .not("blocker", "is", null);
+      .select("id, title, status, blocker, assigned_agent_id")
+      .not("blocker", "is", null)
+      .order("created_at", { ascending: false });
 
-    if (tasks) {
-      const blockerCounts: Record<string, number> = {};
-      tasks.forEach((t: any) => {
-        blockerCounts[t.blocker] = (blockerCounts[t.blocker] || 0) + 1;
-      });
+    // 2. Scan reviews for recurring "returned_for_rework" patterns
+    const { data: reworkReviews } = await supabase
+      .from("task_reviews")
+      .select("id, task_id, notes, outcome")
+      .eq("outcome", "returned_for_rework")
+      .order("created_at", { ascending: false });
 
-      for (const [blocker, count] of Object.entries(blockerCounts)) {
-        if (count >= 2) { // Threshold for auto-draft
-          const { data: existing } = await supabase
-            .from("lessons")
-            .select("id")
-            .eq("pattern", blocker)
-            .eq("status", "draft")
-            .maybeSingle();
+    let lessonsDrafted = 0;
 
-          if (!existing) {
-            await supabase.from("lessons").insert({
-              title: `Recurring Blocker: ${blocker}`,
-              pattern: blocker,
-              lesson_statement: `This blocker has appeared in ${count} tasks. Investigation required.`,
-              proposed_fix: "Review agent prompt or workflow associated with this task type.",
-              status: "draft",
-              affected_agents: [] // Will be populated by manual review or deeper analysis
-            });
-            
-            // Log to feed
-            await supabase.from("feed_events").insert({
-              event_type: "lesson_created",
-              source: "Yas Claw Orchestrator",
-              summary: `Auto-drafted lesson for recurring blocker: ${blocker}`
-            });
-          }
-        }
+    if (allTasks && allTasks.length > 0) {
+      // Group blockers by normalized pattern
+      const blockerMap: Record<string, { tasks: any[]; agents: Set<string>; count: number }> = {};
+      for (const task of allTasks) {
+        const pattern = (task.blocker || "").trim().toLowerCase().slice(0, 100);
+        if (!pattern) continue;
+        if (!blockerMap[pattern]) blockerMap[pattern] = { tasks: [], agents: new Set(), count: 0 };
+        blockerMap[pattern].tasks.push(task);
+        blockerMap[pattern].count++;
+        if (task.assigned_agent_id) blockerMap[pattern].agents.add(task.assigned_agent_id);
+      }
+
+      // Fetch agent names
+      const agentIdToName: Record<string, string> = {};
+      const allAgentIds = new Set<string>();
+      for (const bm of Object.values(blockerMap)) for (const aid of bm.agents) allAgentIds.add(aid);
+      if (allAgentIds.size > 0) {
+        const { data: agents } = await supabase.from("agents").select("id, name").in("id", Array.from(allAgentIds));
+        if (agents) for (const a of agents) agentIdToName[a.id] = a.name;
+      }
+
+      // Draft lessons for patterns seen 2+ times
+      for (const [pattern, info] of Object.entries(blockerMap)) {
+        if (info.count < 2) continue;
+        const { data: existing } = await supabase.from("lessons").select("id").eq("pattern", pattern).eq("status", "draft").maybeSingle();
+        if (existing) continue;
+
+        const blockedCount = info.tasks.filter((t: any) => t.status === "blocked").length;
+        const doneCount = info.tasks.filter((t: any) => t.status === "done").length;
+        const agentNames = Array.from(info.agents).map((id) => agentIdToName[id] || id).join(", ");
+
+        await supabase.from("lessons").insert({
+          title: `Recurring: ${pattern.slice(0, 100)}`,
+          pattern: pattern,
+          lesson_statement: `This issue appeared in ${info.count} tasks (${blockedCount} currently blocked, ${doneCount} completed).${agentNames ? ` Affected: ${agentNames}.` : ""} Root cause investigation needed.`,
+          proposed_fix: blockedCount > 0
+            ? `Unblock the ${blockedCount} currently blocked task(s) and update agent workflow to prevent recurrence.`
+            : `Review completed tasks to understand how blocker was resolved and apply as standard practice.`,
+          proposed_fix_type: info.tasks.some((t: any) => t.assigned_agent_id) ? "prompt_update" : "workflow_change",
+          status: "draft",
+          affected_agents: Array.from(info.agents).map((id) => agentIdToName[id] || id).filter(Boolean),
+          source_type: "blocker_analysis",
+          source_refs: info.tasks.slice(0, 10).map((t: any) => t.id),
+          confidence: info.count >= 5 ? "high" : info.count >= 3 ? "medium" : "low",
+        });
+
+        await supabase.from("feed_events").insert({
+          event_type: "task_created",
+          source: "Yas Claw Orchestrator",
+          summary: `Auto-drafted lesson: "${pattern.slice(0, 60)}..." (${info.count} occurrences)`,
+        });
+
+        lessonsDrafted++;
       }
     }
-    return NextResponse.json({ message: "Lesson check complete" });
-  }
 
+    // 3. Check for recurring rework reviews
+    if (reworkReviews && reworkReviews.length >= 2) {
+      const reviewPatterns: Record<string, { count: number; taskIds: string[] }> = {};
+      for (const r of reworkReviews) {
+        const note = (r.notes || "").trim().toLowerCase().slice(0, 100);
+        if (!note) continue;
+        if (!reviewPatterns[note]) reviewPatterns[note] = { count: 0, taskIds: [] };
+        reviewPatterns[note].count++;
+        reviewPatterns[note].taskIds.push(String(r.task_id || ""));
+      }
+
+      for (const [note, info] of Object.entries(reviewPatterns)) {
+        if (info.count < 2) continue;
+        const { data: existing } = await supabase.from("lessons").select("id").eq("pattern", note).eq("source_type", "review_feedback").eq("status", "draft").maybeSingle();
+        if (existing) continue;
+
+        await supabase.from("lessons").insert({
+          title: `Quality Issue: ${note.slice(0, 100)}`,
+          pattern: note,
+          lesson_statement: `Work was returned for rework ${info.count} times for the same reason. Review quality standards.`,
+          proposed_fix: "Update agent instructions or add a quality checklist before submission.",
+          proposed_fix_type: "sop_addition",
+          status: "draft",
+          source_type: "review_feedback",
+          source_refs: info.taskIds.filter(Boolean),
+          confidence: info.count >= 5 ? "high" : "medium",
+        });
+
+        lessonsDrafted++;
+      }
+    }
+
+    return NextResponse.json({ message: `Lesson scan complete. ${lessonsDrafted} new lessons drafted.`, lessons_draft: lessonsDrafted });
+  }
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }

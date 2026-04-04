@@ -95,6 +95,34 @@ export default function LearningHubPage() {
     load();
   }
 
+  const [scanMsg, setScanMsg] = useState<string>("");
+  const [scanning, setScanning] = useState(false);
+
+  async function handleScanLessons() {
+    setScanning(true);
+    setScanMsg("Scanning tasks and reviews for patterns...");
+    try {
+      const resp = await fetch(
+        process.env.NEXT_PUBLIC_SUPABASE_URL ? `/api/orchestrator` : ``,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "check_and_draft_lessons" }),
+        }
+      );
+      const result = await resp.json();
+      if (result.lessons_draft > 0) {
+        setScanMsg(`✅ ${result.lessons_draft} new lesson(s) drafted.`);
+      } else {
+        setScanMsg("✅ No new recurring patterns found.");
+      }
+      load();
+    } catch (e: any) {
+      setScanMsg(`❌ Scan failed: ${e.message}`);
+    }
+    setScanning(false);
+  }
+
   const pendingApprovals = skillRequests.filter(s => s.status === "pending").length;
   const installedSkills = skillRequests.filter(s => s.status === "installed").length;
 
@@ -319,7 +347,16 @@ export default function LearningHubPage() {
                   {f.charAt(0).toUpperCase() + f.slice(1)}
                 </Button>
               ))}
+              <Button size="sm" variant="outline" className="h-7 text-xs ml-auto" disabled={scanning} onClick={handleScanLessons}>
+                {scanning ? "Scanning..." : "🔍 Scan Now"}
+              </Button>
             </div>
+            {scanMsg && (
+              <div className="text-xs font-mono px-3 py-2 rounded-md" style={{
+                background: scanMsg.startsWith("✅") ? "rgba(16,185,129,0.08)" : scanMsg.startsWith("❌") ? "rgba(239,68,68,0.08)" : "rgba(139,92,246,0.08)",
+                color: scanMsg.startsWith("✅") ? "var(--success)" : scanMsg.startsWith("❌") ? "var(--danger)" : "var(--accent)",
+              }}>{scanMsg}</div>
+            )}
             {lessons.length === 0 ? (
               <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">No lessons logged yet. The system is monitoring for patterns.</CardContent></Card>
             ) : (
