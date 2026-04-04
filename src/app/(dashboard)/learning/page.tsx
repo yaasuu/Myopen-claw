@@ -35,11 +35,11 @@ import {
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 
 const TABS = [
-  { key: "meeting", label: "Meeting", sub: "Daily sync reports", Icon: Calendar, tint: "var(--info)" },
-  { key: "approvals", label: "Approvals", sub: "Decision queue", Icon: CheckCircle2, tint: "var(--accent)" },
-  { key: "lessons", label: "Lessons", sub: "Operational insights", Icon: BookOpen, tint: "var(--warning)" },
-  { key: "skills", label: "Skills", sub: "Capabilities & requests", Icon: Lightbulb, tint: "var(--success)" },
-  { key: "updates", label: "Updates", sub: "Change history", Icon: Zap, tint: "var(--success)" },
+  { key: "meeting", label: "Meeting", sub: "Daily sync reports", Icon: Calendar, bg: "bg-blue-500/12", border: "border-blue-500/30", icon: "text-blue-400", text: "text-blue-300" },
+  { key: "approvals", label: "Approvals", sub: "Decision queue", Icon: CheckCircle2, bg: "bg-violet-500/12", border: "border-violet-500/30", icon: "text-violet-400", text: "text-violet-300" },
+  { key: "lessons", label: "Lessons", sub: "Operational insights", Icon: BookOpen, bg: "bg-amber-500/12", border: "border-amber-500/30", icon: "text-amber-400", text: "text-amber-300" },
+  { key: "skills", label: "Skills", sub: "Capabilities & requests", Icon: Lightbulb, bg: "bg-emerald-500/12", border: "border-emerald-500/30", icon: "text-emerald-400", text: "text-emerald-300" },
+  { key: "updates", label: "Updates", sub: "Change history", Icon: Zap, bg: "bg-teal-500/12", border: "border-teal-500/30", icon: "text-teal-400", text: "text-teal-300" },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -146,19 +146,19 @@ export default function LearningHubPage() {
       {/* Premium Segmented Tab Bar */}
       <div className="rounded-xl border border-border/60 bg-surface/60 backdrop-blur p-1.5 mb-6">
         <div className="flex gap-1">
-          {TABS.map(({ key, label, sub, Icon, tint }) => {
+          {TABS.map(({ key, label, sub, Icon, bg, border, icon, text }) => {
             const isActive = activeTab === key;
             return (
               <button
                 key={key}
                 onClick={() => setActiveTab(key as TabKey)}
                 className={`flex-1 flex flex-col items-center gap-0.5 py-3 px-3 rounded-lg text-xs font-medium transition-all duration-150 ${
-                  isActive ? "bg-surface-muted shadow-sm" : "hover:bg-surface-muted/50"
+                  isActive ? `${bg} ${border} border shadow-sm` : "hover:bg-surface-muted/40"
                 }`}
               >
-                <Icon className={`h-3.5 w-3.5 ${isActive ? "opacity-100" : "opacity-40"}`} style={isActive ? { color: tint } : undefined} />
-                <span className={isActive ? "text-[var(--text)]" : "text-[var(--text-muted)]/70"}>{label}</span>
-                <span className="text-[9px] text-[var(--text-muted)]/40 leading-none">{sub}</span>
+                <Icon className={`h-4 w-4 transition-colors ${isActive ? icon : "text-muted-foreground/40"}`} />
+                <span className={`transition-colors ${isActive ? text : "text-muted-foreground/60"}`}>{label}</span>
+                <span className="text-[9px] text-muted-foreground/30 leading-none">{sub}</span>
               </button>
             );
           })}
