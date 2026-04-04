@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ChevronDown, Target, Plus, Loader2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
