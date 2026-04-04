@@ -50,7 +50,6 @@ const sections = [
   {
     label: "Operations",
     items: [
-      { title: "Projects", href: "/projects", icon: FolderKanban },
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Portfolio", href: "/portfolio", icon: BarChart3 },
     ],
