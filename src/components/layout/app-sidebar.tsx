@@ -15,6 +15,7 @@ import {
   Shield,
   Building2,
   Zap,
+  Lightbulb,
   GraduationCap,
   BookOpen,
   FolderKanban,
@@ -22,6 +23,7 @@ import {
   Monitor,
   Brain,
   ShieldCheck,
+  Lightbulb,
   CalendarIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,7 +71,7 @@ const sections = [
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
       { title: "Hiring", href: "/hiring", icon: UserPlus },
       { title: "Skills", href: "/skills", icon: GraduationCap },
-      { title: "Knowledge", href: "/notes", icon: Brain },
+      { title: "Learning", href: "/learning", icon: Lightbulb },
     ],
   },
   {

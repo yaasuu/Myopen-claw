@@ -98,7 +98,8 @@ export default function NotesPage() {
     load();
   }
 
-  const todayNote = dailyNotes.find((n) => n.date === new Date().toISOString().split("T")[0]);
+  const todayNote = dailyNotes.length > 0 ? dailyNotes[0] : null;
+  const previousNotes = dailyNotes.slice(1);
 
   if (loading) {
     return (
@@ -290,7 +291,7 @@ export default function NotesPage() {
       )}
 
       {/* Previous Daily Notes */}
-      {dailyNotes.filter((n) => n.date !== new Date().toISOString().split("T")[0]).length > 0 && (
+      {previousNotes.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted">
@@ -300,8 +301,7 @@ export default function NotesPage() {
           </div>
 
           <div className="space-y-3">
-            {dailyNotes
-              .filter((n) => n.date !== new Date().toISOString().split("T")[0])
+            {previousNotes
               .slice(0, 7)
               .map((note) => (
                 <Card key={note.id} className="stat-card">
