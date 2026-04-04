@@ -20,14 +20,17 @@ import {
   Filter,
 } from "lucide-react";
 import { 
-  getDailySyncs, 
+  getDailySyncs,
+  getAgentPerformance,
   getSkillRequests, 
   getLessons, 
   getSystemUpdates,
   approveSkillRequest,
   rejectSkillRequest,
   requestSkill,
-  type MeetingSummary, 
+  updateLessonStatus,
+  type MeetingSummary,
+  type AgentPerformance, 
   type SkillRequest,
   type Lesson,
   type SystemUpdate
@@ -95,8 +98,26 @@ export default function LearningHubPage() {
     load();
   }
 
+  const [agentPerf, setAgentPerf] = useState<AgentPerformance[]>([]);
   const [scanMsg, setScanMsg] = useState<string>("");
   const [scanning, setScanning] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    const [meetingsR, skillsR, lessonsR, updatesR, perfR] = await Promise.all([
+      getDailySyncs(7),
+      getSkillRequests(),
+      getLessons(lessonFilter === "all" ? undefined : lessonFilter),
+      getSystemUpdates(),
+      getAgentPerformance(),
+    ]);
+    setMeetings(meetingsR);
+    setSkillRequests(skillsR);
+    setLessons(lessonsR);
+    setUpdates(updatesR);
+    setAgentPerf(perfR);
+    setLoading(false);
+  }
 
   async function handleScanLessons() {
     setScanning(true);
@@ -121,6 +142,11 @@ export default function LearningHubPage() {
       setScanMsg(`❌ Scan failed: ${e.message}`);
     }
     setScanning(false);
+  }
+
+  async function handleLessonStatus(id: string, status: Lesson["status"]) {
+    const ok = await updateLessonStatus(id, status);
+    if (ok) load();
   }
 
   const pendingApprovals = skillRequests.filter(s => s.status === "pending").length;
@@ -299,6 +325,59 @@ export default function LearningHubPage() {
                 </Card>
               ))
             )}
+
+            {/* Agent Performance Section */}
+            {agentPerf.length > 0 && (
+              <Card className="stat-card">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Zap className="h-4 w-4 text-[var(--accent)]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider">H. Agent Performance — All Time</h4>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {[...agentPerf]
+                      .sort((a, b) => b.total - a.total)
+                      .map(agent => {
+                        const hasBlockers = agent.blocked > 0 || agent.blockers.length > 0;
+                        return (
+                          <div key={agent.name} className={`rounded border p-3 text-xs ${hasBlockers ? "border-amber-500/30 bg-amber-500/3" : "border-border/50 bg-muted/20"}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-lg">{agent.emoji}</span>
+                              <span className="text-sm font-semibold truncate flex-1">{agent.name}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${agent.completionRate >= 50 ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
+                                {agent.completionRate}%
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 text-center text-[10px] text-muted-foreground">
+                              <div className="rounded bg-muted/50 p-1">
+                                <div className="text-sm font-bold text-[var(--success)]">{agent.completed}</div>
+                                <div className="text-[8px] uppercase">Done</div>
+                              </div>
+                              <div className="rounded bg-muted/50 p-1">
+                                <div className="text-sm font-bold text-[var(--info)]">{agent.inProgress + agent.inReview}</div>
+                                <div className="text-[8px] uppercase">Active</div>
+                              </div>
+                              <div className="rounded bg-muted/50 p-1">
+                                <div className={`text-sm font-bold ${agent.blocked > 0 ? "text-[var(--danger)]" : "text-muted-foreground"}`}>{agent.blocked}</div>
+                                <div className="text-[8px] uppercase">Blocked</div>
+                              </div>
+                            </div>
+                            {agent.blockers.length > 0 && (
+                              <div className="mt-1.5 text-[10px] text-[var(--danger)]">
+                                {agent.blockers.slice(0, 2).map((b, i) => (
+                                  <div key={i} className="flex items-start gap-1">
+                                    <AlertTriangle className="h-2.5 w-2.5 mt-0.5 shrink-0" /> {b}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -362,15 +441,39 @@ export default function LearningHubPage() {
             ) : (
               lessons.map(lesson => (
                 <Card key={lesson.id} className="stat-card">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold">{lesson.title}</h3>
-                      <Badge variant={lesson.status === "applied" ? "default" : lesson.status === "pending" ? "outline" : "secondary"} className="text-[10px] capitalize">{lesson.status}</Badge>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h3 className="text-sm font-semibold flex-1">{lesson.title}</h3>
+                      <Badge variant={lesson.status === "applied" ? "default" : lesson.status === "pending" ? "outline" : "secondary"} className="text-[10px] capitalize shrink-0">{lesson.status}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">{lesson.lesson_statement}</p>
-                    <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
-                      <span className="bg-muted px-2 py-0.5 rounded">Pattern: {lesson.pattern}</span>
-                      <span className="bg-muted px-2 py-0.5 rounded">Detected: {new Date(lesson.date_detected).toLocaleDateString()}</span>
+                    <p className="text-xs text-muted-foreground mb-2">{lesson.lesson_statement}</p>
+                    {lesson.proposed_fix && (
+                      <div className="rounded-md bg-muted/30 p-2 mb-2 text-[11px] text-muted-foreground">
+                        <span className="font-medium">Proposed fix:</span> {lesson.proposed_fix}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
+                        {lesson.affected_agents && lesson.affected_agents.length > 0 && (
+                          <span className="bg-muted px-2 py-0.5 rounded">Agent{lesson.affected_agents.length > 1 ? "s" : ""}: {lesson.affected_agents.join(", ")}</span>
+                        )}
+                        <span className="bg-muted px-2 py-0.5 rounded">{new Date(lesson.date_detected).toLocaleDateString()}</span>
+                      </div>
+                      {/* Status progression buttons */}
+                      <div className="flex gap-1">
+                        {lesson.status === "draft" && (
+                          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "pending")}>Promote → Pending</Button>
+                        )}
+                        {lesson.status === "pending" && (
+                          <>
+                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "approved")}>✅ Approve</Button>
+                            <Button size="sm" variant="outline" className="h-6 text-[10px] text-[var(--danger)]" onClick={() => handleLessonStatus(lesson.id, "rejected")}>✕ Reject</Button>
+                          </>
+                        )}
+                        {lesson.status === "approved" && (
+                          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "applied")}>🚀 Mark Applied</Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

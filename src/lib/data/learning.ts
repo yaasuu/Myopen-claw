@@ -8,6 +8,19 @@ export interface AgentUpdate {
   utilization: string;
 }
 
+export interface AgentPerformance {
+  name: string;
+  emoji: string;
+  total: number;
+  completed: number;
+  blocked: number;
+  inReview: number;
+  inProgress: number;
+  pending: number;
+  completionRate: number;
+  blockers: string[];
+}
+
 export interface MeetingSummary {
   id: string;
   date: string;
@@ -84,6 +97,38 @@ export async function getDailySyncs(limit = 10): Promise<MeetingSummary[]> {
   });
 }
 
+export async function getAgentPerformance(): Promise<AgentPerformance[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  const { data: agents } = await supabase.from("agents").select("id, name, emoji").order("created_at", { ascending: true });
+  const { data: tasks } = await supabase.from("tasks").select("id, title, status, blocker, assigned_agent_id");
+
+  if (!agents || !tasks) return [];
+
+  return agents.map((agent: any) => {
+    const agentTasks = tasks.filter((t: any) => t.assigned_agent_id === agent.id);
+    const completed = agentTasks.filter((t: any) => t.status === "done").length;
+    const blocked = agentTasks.filter((t: any) => t.status === "blocked");
+    const inReview = agentTasks.filter((t: any) => t.status === "in-review").length;
+    const inProgress = agentTasks.filter((t: any) => t.status === "in-progress").length;
+    const pending = agentTasks.filter((t: any) => t.status === "pending").length;
+    const total = agentTasks.length;
+    return {
+      name: agent.name,
+      emoji: agent.emoji,
+      total,
+      completed,
+      blocked: blocked.length,
+      inReview,
+      inProgress,
+      pending,
+      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      blockers: blocked.map((t: any) => t.blocker || "Unknown").slice(0, 3),
+    };
+  });
+}
+
 export async function getSkillRequests(): Promise<SkillRequest[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
@@ -98,6 +143,24 @@ export async function getLessons(status?: string): Promise<Lesson[]> {
   if (status) query = query.eq("status", status);
   const { data } = await query;
   return data || [];
+}
+
+export async function updateLessonStatus(id: string, status: Lesson["status"]): Promise<boolean> {
+  const supabase = getSupabase();
+  if (!supabase) return false;
+  const { error } = await supabase.from("lessons").update({ status }).eq("id", id);
+  if (error) return false;
+
+  // Log to system_updates if status advances to approved or applied
+  if (status === "approved" || status === "applied") {
+    await supabase.from("system_updates").insert({
+      type: "sop_added",
+      title: `Lesson ${status}: "${id.slice(0, 8)}..."`,
+      description: `Lesson marked as ${status}.`,
+      applied_at: new Date().toISOString(),
+    });
+  }
+  return true;
 }
 
 export async function getSystemUpdates(): Promise<SystemUpdate[]> {
