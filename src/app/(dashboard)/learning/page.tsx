@@ -16,8 +16,7 @@ import {
   Calendar,
   ChevronRight,
   Lightbulb,
-  Users,
-  FileText,
+  Plus,
 } from "lucide-react";
 import { 
   getDailySyncs, 
@@ -150,7 +149,7 @@ export default function LearningHubPage() {
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <h3 className="text-sm font-semibold text-foreground">Daily Sync — {day.date}</h3>
                     </div>
-                    <Badge variant={day.health === "healthy" ? "success" : "outline"} className={day.health === "needs_attention" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : ""}>
+                    <Badge variant={day.health === "healthy" ? "default" : "outline"} className={day.health === "needs_attention" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : ""}>
                       {day.health === "healthy" ? "Healthy" : "Needs Attention"}
                     </Badge>
                   </div>
@@ -273,7 +272,7 @@ export default function LearningHubPage() {
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold">{lesson.title}</h3>
-                      <Badge variant={lesson.status === "applied" ? "success" : lesson.status === "pending" ? "outline" : "secondary"} className="text-[10px] capitalize">{lesson.status}</Badge>
+                      <Badge variant={lesson.status === "applied" ? "default" : lesson.status === "pending" ? "outline" : "secondary"} className="text-[10px] capitalize">{lesson.status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">{lesson.lesson_statement}</p>
                     <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">

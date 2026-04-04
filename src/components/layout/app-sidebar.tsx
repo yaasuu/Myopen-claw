@@ -23,7 +23,6 @@ import {
   Monitor,
   Brain,
   ShieldCheck,
-  Lightbulb,
   CalendarIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";

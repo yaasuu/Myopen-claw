@@ -30,6 +30,7 @@ export interface Lesson {
   pattern: string;
   affected_agents: string[];
   proposed_fix: string;
+  lesson_statement: string;
   date_detected: string;
 }
 
@@ -49,16 +50,6 @@ export interface SystemUpdate {
   title: string;
   description: string;
   applied_at: string;
-}
-
-export interface Lesson {
-  id: string;
-  title: string;
-  status: "draft" | "pending" | "approved" | "applied" | "rejected";
-  pattern: string;
-  affected_agents: string[];
-  proposed_fix: string;
-  date_detected: string;
 }
 
 export async function getDailySyncs(limit = 10): Promise<MeetingSummary[]> {
@@ -86,7 +77,6 @@ export async function getDailySyncs(limit = 10): Promise<MeetingSummary[]> {
       findings: note.issues_list || [],
       assigned_actions: note.priorities_tomorrow || [],
       event_count: note.events_reviewed || 0,
-      // Advanced A-G Fields
       agent_updates: note.agent_updates || [],
       cross_team: note.cross_team_summary || {},
       skill_gaps: note.skill_gaps || [],
@@ -97,39 +87,29 @@ export async function getDailySyncs(limit = 10): Promise<MeetingSummary[]> {
 export async function getSkillRequests(): Promise<SkillRequest[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
-  
-  const { data, error } = await supabase
-    .from("skill_requests")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data } = await supabase.from("skill_requests").select("*").order("created_at", { ascending: false });
   return data || [];
 }
 
 export async function getLessons(status?: string): Promise<Lesson[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
-  
   let query = supabase.from("lessons").select("*").order("date_detected", { ascending: false });
   if (status) query = query.eq("status", status);
-  const { data, error } = await query;
+  const { data } = await query;
   return data || [];
 }
 
 export async function getSystemUpdates(): Promise<SystemUpdate[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
-  
-  const { data, error } = await supabase
-    .from("system_updates")
-    .select("*")
-    .order("applied_at", { ascending: false });
+  const { data } = await supabase.from("system_updates").select("*").order("applied_at", { ascending: false });
   return data || [];
 }
 
 export async function approveSkillRequest(id: string) {
   const supabase = getSupabase();
   if (!supabase) return;
-  
   await supabase.from("skill_requests").update({ status: "installed", updated_at: new Date().toISOString() }).eq("id", id);
   const { data: req } = await supabase.from("skill_requests").select("*").eq("id", id).single();
   if (req) {
@@ -146,7 +126,6 @@ export async function approveSkillRequest(id: string) {
 export async function rejectSkillRequest(id: string) {
   const supabase = getSupabase();
   if (!supabase) return;
-  
   await supabase.from("skill_requests").update({ status: "rejected", updated_at: new Date().toISOString() }).eq("id", id);
   await supabase.from("system_updates").insert({
     type: "workflow_changed",
@@ -160,13 +139,11 @@ export async function rejectSkillRequest(id: string) {
 export async function requestSkill(title: string, description: string, requestedBy: string) {
   const supabase = getSupabase();
   if (!supabase) return null;
-  
   return await supabase.from("skill_requests").insert({ title, description, requested_by: requestedBy }).select().single();
 }
 
 export async function createLesson(lesson: Omit<Lesson, "id" | "date_detected">) {
   const supabase = getSupabase();
   if (!supabase) return null;
-  
   return await supabase.from("lessons").insert(lesson).select().single();
 }
