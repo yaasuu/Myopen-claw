@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
@@ -28,6 +28,7 @@ import {
   AlertOctagon,
   CheckCircle2,
 } from "lucide-react";
+import { testSupabaseConnection } from "@/lib/supabase/client";
 import { getAgents, updateAgentStatus } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
 import { getSpecialists } from "@/lib/data/departments";
@@ -53,6 +54,52 @@ function timeAgo(iso: string | null): string {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function SupabaseTestDebug() {
+  const [result, setResult] = useState<string>("testing...");
+  const [rawResult, setRawResult] = useState<string>("");
+
+  useEffect(() => {
+    testSupabaseConnection().then(async (statusLine) => {
+      setResult(statusLine);
+      // Also do a direct fetch to get the raw response
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (url && key) {
+        try {
+          const resp = await fetch(`${url}/rest/v1/agents?select=id,name,short_id,status&limit=8`, {
+            headers: { apikey: key, Authorization: `Bearer ${key}` },
+          });
+          const text = await resp.text();
+          setRawResult(`HTTP ${resp.status}: ${text.slice(0, 200)}`);
+        } catch (e: any) {
+          setRawResult(`fetch failed: ${e.message}`);
+        }
+      } else {
+        setRawResult(`env vars: url=${!!url} key=${!!key}`);
+      }
+    });
+  }, []);
+
+  return (
+    <div className="font-mono text-[11px] p-3 rounded-lg mb-3 bg-[rgba(139,92,246,0.08)] border border-[rgba(139,92,246,0.2)]">
+      <div className="flex items-center gap-1 mb-1 font-bold text-[var(--accent)]">
+        🔬 Supabase Runtime Diagnosis
+      </div>
+      <div className="text-muted-foreground">
+        <span>SUPABASE_URL: <span className="font-bold text-[var(--text)]">{process.env.NEXT_PUBLIC_SUPABASE_URL || "⚠️ UNDEFINED"}</span></span>
+      </div>
+      <div className="text-muted-foreground">
+        <span>Connection test: <span className="font-bold text-[var(--text)]">{result}</span></span>
+      </div>
+      {rawResult && (
+        <div className="text-muted-foreground mt-1">
+          <span>Raw response: <span className="text-[var(--danger)] font-bold break-all">{rawResult}</span></span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 type UnitType = "orchestrator" | "department" | "agent" | "specialist";
@@ -289,15 +336,11 @@ export default function WorkforcePage() {
   return (
     <PageShell title="Workforce" description="Organization hierarchy and unit workspaces">
       {error && (
-        <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>{error}</div>
+        <div className="rounded-lg border px-4 py-2.5 text-xs font-mono" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>{error}</div>
       )}
 
-      {/* Runtime debug strip */}
-      <div className="font-mono text-[10px] flex gap-3 flex-wrap">
-        <span>SUPABASE_URL: <strong>{process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "⚠️ UNDEFINED"}</strong></span>
-        <span>agents count: <strong>{agents.length}</strong></span>
-        <span>depts count: <strong>{departments.length}</strong></span>
-      </div>
+      {/* Supabase Connection Test */}
+      <SuspenseTestCard />
 
       {/* Top metrics */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
