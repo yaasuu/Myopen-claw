@@ -292,6 +292,13 @@ export default function WorkforcePage() {
         <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>{error}</div>
       )}
 
+      {/* Runtime debug strip */}
+      <div className="font-mono text-[10px] flex gap-3 flex-wrap">
+        <span>SUPABASE_URL: <strong>{process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "⚠️ UNDEFINED"}</strong></span>
+        <span>agents count: <strong>{agents.length}</strong></span>
+        <span>depts count: <strong>{departments.length}</strong></span>
+      </div>
+
       {/* Top metrics */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         {[
