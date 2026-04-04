@@ -27,7 +27,6 @@ const pageTitles: Record<string, string> = {
   "/departments": "Departments",
   "/specialists": "Specialists",
   "/projects": "Projects",
-  "/portfolio": "Portfolio",
 };
 
 export function AppHeader() {

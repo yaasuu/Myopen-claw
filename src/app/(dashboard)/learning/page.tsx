@@ -61,10 +61,6 @@ export default function LearningHubPage() {
   const [scanMsg, setScanMsg] = useState<string>("");
   const [scanning, setScanning] = useState(false);
 
-  const [agentPerf, setAgentPerf] = useState<AgentPerformance[]>([]);
-  const [scanMsg, setScanMsg] = useState<string>("");
-  const [scanning, setScanning] = useState(false);
-
   async function load() {
     setLoading(true);
     const [meetingsR, skillsR, lessonsR, updatesR, perfR] = await Promise.all([

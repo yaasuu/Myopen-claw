@@ -51,7 +51,7 @@ const sections = [
     label: "Operations",
     items: [
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
-      { title: "Portfolio", href: "/portfolio", icon: BarChart3 },
+      { title: "Projects", href: "/projects", icon: BarChart3 },
     ],
   },
   {
