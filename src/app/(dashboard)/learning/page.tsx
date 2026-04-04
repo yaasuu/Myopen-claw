@@ -114,12 +114,6 @@ export default function LearningHubPage() {
   return (
     <PageShell title="Learning Hub" description="Daily sync, findings, lessons, skills, and operational improvements">
       
-      {/* Runtime debug strip */}
-      <div className="font-mono text-[10px] flex gap-3 flex-wrap mb-3">
-        <span>SUPABASE_URL: <strong>{process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "⚠️ UNDEFINED"}</strong></span>
-        <span>meetings count: <strong>{meetings.length}</strong></span>
-        <span>skillRequests count: <strong>{skillRequests.length}</strong></span>
-      </div>
 
       {/* Summary Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">

@@ -92,12 +92,6 @@ export default function OrgChartPage() {
         </div>
       )}
 
-      {/* Runtime debug strip */}
-      <div className="font-mono text-[10px] flex gap-3 flex-wrap mb-3">
-        <span>SUPABASE_URL: <strong>{process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "⚠️ UNDEFINED"}</strong></span>
-        <span>agents count: <strong>{agents.length}</strong></span>
-        <span>depts count: <strong>{departments.length}</strong></span>
-      </div>
 
       {/* CEO */}
       <div className="flex justify-center">
