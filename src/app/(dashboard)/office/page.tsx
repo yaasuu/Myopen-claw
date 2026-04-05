@@ -714,6 +714,7 @@ function DetailPanel({ agent, presence, signal, tasks, events, departments, proj
 export default function OfficePage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ ok: boolean; date?: string; error?: string } | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
@@ -727,14 +728,20 @@ export default function OfficePage() {
 
   async function triggerSync() {
     setSyncing(true);
+    setSyncStatus(null);
     try {
-      await fetch("/api/cron/nightly-summary");
-      alert("Team Sync started! Check the Notes page for the report.");
-      await load();
-    } catch (e) {
-      console.error("Sync failed:", e);
+      const res = await fetch("/api/cron/nightly-summary");
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setSyncStatus({ ok: true, date: json.date });
+      } else {
+        setSyncStatus({ ok: false, error: json.error || "Sync failed" });
+      }
+    } catch (e: any) {
+      setSyncStatus({ ok: false, error: e.message });
     } finally {
       setSyncing(false);
+      setTimeout(() => setSyncStatus(null), 8000);
     }
   }
 
@@ -787,8 +794,14 @@ export default function OfficePage() {
             {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <PlayCircle className="h-3 w-3" />}
             Start Team Sync
           </Button>
+          {syncStatus && (
+            <span className={syncStatus.ok ? "text-emerald-400" : "text-red-400"}>
+              {syncStatus.ok ? `✅ Sync done: ${syncStatus.date}` : `❌ ${syncStatus.error}`}
+            </span>
+          )}
           <Link href="/reviews" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Reviews</Link>
           <Link href="/tasks" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Tasks</Link>
+          <Link href="/learning" className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>Learning Hub</Link>
         </div>
         <div className="flex items-center gap-1.5 shrink-0"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
