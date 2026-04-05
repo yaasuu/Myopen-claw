@@ -153,7 +153,6 @@ export async function GET() {
     yas_decisions: yasDecisions,
     sync_type: "full_sync",
     updated_at: now.toISOString(),
-    health,
     wins,
   };
 
