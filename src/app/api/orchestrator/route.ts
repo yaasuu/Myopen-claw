@@ -22,6 +22,7 @@ export async function POST(request: Request) {
         status: body.status ?? "pending",
         priority: body.priority ?? "medium",
         assigned_agent_id: body.assigned_agent_id ?? null,
+        goal_id: body.goal_id ?? null,
         owner: body.owner ?? "Yas",
       })
       .select()

@@ -11,6 +11,16 @@ export interface Agent {
   created_at: string;
 }
 
+export interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  parent_goal_id: string | null;
+  status: "active" | "completed" | "paused" | "abandoned";
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -19,6 +29,7 @@ export interface Task {
   priority: "high" | "medium" | "low";
   assigned_agent_id: string | null;
   project_id: string | null;
+  goal_id: string | null;
   blocker: string | null;
   owner: string;
   is_archived: boolean;
@@ -29,6 +40,7 @@ export interface Task {
 export interface TaskWithAgent extends Task {
   assigned_agent_name: string | null;
   assigned_agent_emoji: string | null;
+  goal_title: string | null;
 }
 
 export interface FeedEvent {

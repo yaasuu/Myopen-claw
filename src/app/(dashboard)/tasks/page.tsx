@@ -73,13 +73,14 @@ import {
   updateTaskAssignment,
   archiveTask,
   unarchiveTask,
+  getGoals,
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
 import { getTaskComments, addTaskComment } from "@/lib/data/comments";
 import { getTaskReviews, submitReview } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { TaskWithAgent, Agent, TaskComment } from "@/types/dashboard";
+import type { TaskWithAgent, Agent, TaskComment, Goal } from "@/types/dashboard";
 
 const statusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
@@ -137,6 +138,7 @@ export default function TasksPage() {
   const [filterAgent, setFilterAgent] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<"board" | "table">("board");
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -146,6 +148,7 @@ export default function TasksPage() {
   const [newStatus, setNewStatus] = useState<TaskWithAgent["status"]>("pending");
   const [newPriority, setNewPriority] = useState<TaskWithAgent["priority"]>("medium");
   const [newAgentId, setNewAgentId] = useState<string>("none");
+  const [newGoalId, setNewGoalId] = useState<string>("none");
   const [newBlocker, setNewBlocker] = useState("");
   const [newOwner, setNewOwner] = useState("Yas");
   const [createSuccess, setCreateSuccess] = useState(false);
@@ -177,13 +180,15 @@ export default function TasksPage() {
     setLoading(true);
     setError(null);
     try {
-      const [tasksResult, agentsResult] = await Promise.all([
+      const [tasksResult, agentsResult, goalsResult] = await Promise.all([
         getTasks({ includeArchived: showArchived }),
         getAgents(),
+        getGoals(),
       ]);
       if (tasksResult.error) setError(tasksResult.error);
       setTasks(tasksResult.data);
       setAgents(agentsResult.data);
+      setGoals(goalsResult.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load tasks");
     } finally {
@@ -210,6 +215,7 @@ export default function TasksPage() {
         status: newStatus,
         priority: newPriority,
         assigned_agent_id: newAgentId === "none" ? null : newAgentId,
+        goal_id: newGoalId === "none" ? null : newGoalId,
         blocker: newBlocker.trim() || null,
         owner: newOwner.trim() || "Yas",
       });
@@ -225,6 +231,7 @@ export default function TasksPage() {
           setNewStatus("pending");
           setNewPriority("medium");
           setNewAgentId("none");
+          setNewGoalId("none");
           setNewBlocker("");
           setNewOwner("Yas");
         }, 800);
@@ -704,6 +711,22 @@ export default function TasksPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {goals.length > 0 && (
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Link to Goal</label>
+                      <Select value={newGoalId} onValueChange={setNewGoalId}>
+                        <SelectTrigger className="mt-1 w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No goal</SelectItem>
+                          {goals.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">Owner</label>
@@ -859,7 +882,7 @@ export default function TasksPage() {
                             </span>
                           </div>
 
-                          {/* Bottom: assignee + time */}
+                          {/* Bottom: assignee + goal + time */}
                           <div className="mt-2.5 flex items-center justify-between text-[11px]" style={{ color: "var(--text-muted)" }}>
                             <div className="flex items-center gap-1.5 min-w-0">
                               {task.assigned_agent_id && task.assigned_agent_name ? (
@@ -873,6 +896,11 @@ export default function TasksPage() {
                                 </Link>
                               ) : (
                                 <span className="italic truncate" style={{ color: "var(--text-quiet)" }}>Unassigned</span>
+                              )}
+                              {task.goal_title && (
+                                <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20 ml-1">
+                                  🎯 {task.goal_title}
+                                </span>
                               )}
                             </div>
                             <span className="shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>

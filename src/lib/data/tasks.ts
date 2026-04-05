@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { logFeedEvent, type FeedEventType } from "@/lib/data/feed-events";
-import type { Task, TaskWithAgent } from "@/types/dashboard";
+import type { Task, TaskWithAgent, Goal } from "@/types/dashboard";
 
 const MOCK_AGENT_MAP: Record<string, { name: string; emoji: string }> = {
   "mock-1": { name: "Export-Growth Agent", emoji: "📦" },
@@ -17,6 +17,7 @@ const MOCK_TASKS: Task[] = [
     priority: "high",
     assigned_agent_id: "mock-1",
     project_id: null,
+    goal_id: null,
     blocker: null,
     owner: "Yas",
     is_archived: false,
@@ -31,6 +32,7 @@ const MOCK_TASKS: Task[] = [
     priority: "medium",
     assigned_agent_id: "mock-1",
     project_id: null,
+    goal_id: null,
     blocker: null,
     owner: "Yas",
     is_archived: false,
@@ -45,6 +47,7 @@ const MOCK_TASKS: Task[] = [
     priority: "medium",
     assigned_agent_id: "mock-2",
     project_id: null,
+    goal_id: null,
     blocker: null,
     owner: "Yas",
     is_archived: false,
@@ -59,6 +62,7 @@ const MOCK_TASKS: Task[] = [
     priority: "high",
     assigned_agent_id: "mock-1",
     project_id: null,
+    goal_id: null,
     blocker: "Waiting on supplier quote — 3 days overdue",
     owner: "Yas",
     is_archived: false,
@@ -73,6 +77,7 @@ const MOCK_TASKS: Task[] = [
     priority: "medium",
     assigned_agent_id: "mock-3",
     project_id: null,
+    goal_id: null,
     blocker: null,
     owner: "Yas",
     is_archived: false,
@@ -83,7 +88,8 @@ const MOCK_TASKS: Task[] = [
 
 function attachAgentNames(
   tasks: Task[],
-  agentMap: Record<string, { name: string; emoji: string }>
+  agentMap: Record<string, { name: string; emoji: string }>,
+  goalMap: Record<string, string> = {}
 ): TaskWithAgent[] {
   return tasks.map((task) => {
     const agent = task.assigned_agent_id ? agentMap[task.assigned_agent_id] : null;
@@ -91,6 +97,7 @@ function attachAgentNames(
       ...task,
       assigned_agent_name: agent?.name ?? null,
       assigned_agent_emoji: agent?.emoji ?? null,
+      goal_title: task.goal_id ? (goalMap[task.goal_id] || null) : null,
     };
   });
 }
@@ -107,6 +114,26 @@ async function buildAgentMap(
   return map;
 }
 
+async function buildGoalMap(
+  supabase: NonNullable<ReturnType<typeof getSupabase>>
+): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from("goals").select("id, title");
+  if (error || !data || data.length === 0) return {};
+  const map: Record<string, string> = {};
+  for (const g of data) {
+    map[g.id] = g.title;
+  }
+  return map;
+}
+
+export async function getGoals(): Promise<{ data: Goal[]; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: null };
+  const { data, error } = await supabase.from("goals").select("*").order("created_at", { ascending: true });
+  if (error) return { data: [], error: error.message };
+  return { data: (data ?? []) as Goal[], error: null };
+}
+
 export async function getTasks(options?: { includeArchived?: boolean }): Promise<{ data: TaskWithAgent[]; error: string | null }> {
   const supabase = getSupabase();
 
@@ -119,15 +146,16 @@ export async function getTasks(options?: { includeArchived?: boolean }): Promise
     query = query.or("is_archived.is.null,is_archived.eq.false");
   }
 
-  const [tasksResult, agentMap] = await Promise.all([
+  const [tasksResult, agentMap, goalMap] = await Promise.all([
     query.order("created_at", { ascending: false }),
     buildAgentMap(supabase),
+    buildGoalMap(supabase),
   ]);
 
   const { data, error } = tasksResult;
   if (error) return { data: [], error: error.message };
 
-  return { data: attachAgentNames((data ?? []) as Task[], agentMap), error: null };
+  return { data: attachAgentNames((data ?? []) as Task[], agentMap, goalMap), error: null };
 }
 
 export async function getTasksByStatus(status: Task["status"]): Promise<{ data: TaskWithAgent[]; error: string | null }> {
@@ -161,6 +189,7 @@ export type CreateTaskInput = {
   status?: Task["status"];
   priority?: Task["priority"];
   assigned_agent_id?: string | null;
+  goal_id?: string | null;
   blocker?: string | null;
   owner?: string;
 };
@@ -177,6 +206,7 @@ export async function createTask(input: CreateTaskInput): Promise<{ data: Task |
       status: input.status ?? "pending",
       priority: input.priority ?? "medium",
       assigned_agent_id: input.assigned_agent_id ?? null,
+      goal_id: input.goal_id ?? null,
       blocker: input.blocker ?? null,
       owner: input.owner ?? "Yas",
     })
@@ -296,7 +326,7 @@ export async function unblockTask(
 
 export async function updateTask(
   id: string,
-  updates: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "assigned_agent_id" | "blocker" | "owner">>
+  updates: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "assigned_agent_id" | "goal_id" | "blocker" | "owner">>
 ): Promise<{ data: Task | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
