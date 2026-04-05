@@ -13,6 +13,7 @@ import { getDepartments } from "@/lib/data/departments";
 import { getTasks } from "@/lib/data/tasks";
 import { getFeedEvents } from "@/lib/data/feed";
 import { getProjects } from "@/lib/data/projects";
+import { getLiveAgentRuns, type LiveAgentRun } from "@/lib/data/heartbeats";
 import { getCapabilityGaps } from "@/lib/data/capability-governance";
 import { deriveAgentPresence, getPresenceConfig, type AgentPresence, type PresenceState } from "@/lib/data/presence";
 import { computeCollaborationSignals, computeCoordinationState, type CollaborationSignal, type CoordinationState } from "@/lib/data/collaboration";
@@ -721,9 +722,11 @@ export default function OfficePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [presences, setPresences] = useState<AgentPresence[]>([]);
   const [signals, setSignals] = useState<Map<string, CollaborationSignal>>(new Map());
+  const [liveRuns, setLiveRuns] = useState<LiveAgentRun[]>([]);
   const [coordination, setCoordination] = useState<CoordinationState>({ isCoordinating: false, recentRoutes: [], pendingReviews: [], activeDiscussions: [] });
   const [governance, setGovernance] = useState<OrchestratorGovernance>({ pendingReviews: 0, blockedAgents: 0, overloadedAgents: 0, capabilityAlerts: 0, needsAttention: 0, signals: [] });
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [livePoll, setLivePoll] = useState(0);
 
   async function triggerSync() {
     setSyncing(true);
@@ -767,6 +770,20 @@ export default function OfficePage() {
   const rc = presences.filter((p) => p.state === "in_review" || p.state === "waiting_for_input").length;
   const bc = presences.filter((p) => p.state === "blocked").length;
   const ac = presences.filter((p) => p.state === "paused" || p.state === "offline").length;
+  const liveRunCount = liveRuns.length;
+
+  // Live heartbeat polling every 15s
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const runs = await getLiveAgentRuns();
+        setLiveRuns(runs);
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [livePoll]);
 
   if (loading) return <PageShell title="Office" description="Loading..."><div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}><Loader2 className="h-4 w-4 animate-spin" /> Loading office...</div></PageShell>;
 
@@ -792,6 +809,28 @@ export default function OfficePage() {
         </div>
         <div className="flex items-center gap-1.5 shrink-0"><div className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--success)" }} /><span style={{ color: "var(--text-quiet)" }}>live</span></div>
       </div>
+
+      {/* Live Heartbeat Runs */}
+      {liveRunCount > 0 && (
+        <div className="rounded-lg p-3 mb-4 flex items-center gap-3 overflow-x-auto text-xs" style={{ background: "var(--background)", border: "1px solid var(--border)" }}>
+          <span className="text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "var(--text-quiet)" }}>
+            Live Runs ({liveRunCount})
+          </span>
+          {liveRuns.map((r) => (
+            <div key={r.run_id} className="flex items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded" style={{ background: "var(--surface-muted)" }}>
+              <span className="text-sm">{r.agent_emoji}</span>
+              <span className="font-medium" style={{ color: "var(--text)" }}>{r.agent_name}</span>
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] ${
+                r.status === "running" ? "bg-green-500/10 text-green-400" :
+                r.status === "failed" ? "bg-red-500/10 text-red-400" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {r.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 3D Canvas — BROWN BACKGROUND */}
       <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)", height: "68vh", background: C.bg }}>

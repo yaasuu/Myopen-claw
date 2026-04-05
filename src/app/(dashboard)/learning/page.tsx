@@ -36,11 +36,18 @@ import {
   rejectSkillRequest,
   requestSkill,
   updateLessonStatus,
+  getApprovals,
+  resolveApproval,
+  createApproval,
   type MeetingSummary,
   type AgentPerformance, 
   type SkillRequest,
   type Lesson,
-  type SystemUpdate
+  type SystemUpdate,
+  type Approval,
+  type ApprovalType,
+  type ApprovalStatus,
+  APPROVAL_LABELS
 } from "@/lib/data/learning";
 import {
   getCapabilityGaps,
@@ -73,6 +80,7 @@ export default function LearningHubPage() {
   const [skillRequests, setSkillRequests] = useState<SkillRequest[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [updates, setUpdates] = useState<SystemUpdate[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
   const [lessonFilter, setLessonFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
@@ -84,7 +92,7 @@ export default function LearningHubPage() {
 
   async function load() {
     setLoading(true);
-    const [meetingsR, skillsR, lessonsR, updatesR, perfR, gapsR, auditsR] = await Promise.all([
+    const [meetingsR, skillsR, lessonsR, updatesR, perfR, gapsR, auditsR, approvalsR] = await Promise.all([
       getDailySyncs(7),
       getSkillRequests(),
       getLessons(lessonFilter === "all" ? undefined : lessonFilter),
@@ -92,6 +100,7 @@ export default function LearningHubPage() {
       getAgentPerformance(),
       getCapabilityGaps(),
       getAuditRuns(),
+      getApprovals("pending"),
     ]);
     setMeetings(meetingsR);
     setSkillRequests(skillsR);
@@ -100,6 +109,7 @@ export default function LearningHubPage() {
     setAgentPerf(perfR);
     setCapGaps(gapsR.data);
     setAuditRuns(auditsR.data);
+    setApprovals(approvalsR);
     setLoading(false);
   }
 
@@ -163,7 +173,15 @@ export default function LearningHubPage() {
     load();
   }
 
-  const pendingApprovals = skillRequests.filter(s => s.status === "pending").length;
+  async function handleResolveApproval(id: string, status: "approved" | "rejected" | "revision_requested") {
+    const ok = await resolveApproval(id, status, "Yas");
+    if (ok) {
+      setApprovals((prev) => prev.filter((a) => a.id !== id));
+      load();
+    }
+  }
+
+  const pendingApprovals = skillRequests.filter(s => s.status === "pending").length + approvals.length;
   const installedSkills = skillRequests.filter(s => s.status === "installed").length;
 
   const draftLessons = lessons.filter(l => l.status === "draft").length;
@@ -402,11 +420,32 @@ export default function LearningHubPage() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-[var(--accent)]" />
                 <h3 className="text-sm font-semibold">Pending Approvals</h3>
+                <Badge variant="outline" className="text-[10px]">{approvals.length} typed + {skillRequests.filter(s => s.status === "pending").length} skill</Badge>
               </div>
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRequestSkill}>
                 <Plus className="h-3 w-3 mr-1" /> Request Skill
               </Button>
             </div>
+
+            {/* Typed approvals */}
+            {approvals.map(a => (
+              <Card key={a.id} className="stat-card">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <Badge variant="outline" className="text-[10px]">{APPROVAL_LABELS[a.approval_type]}</Badge>
+                    <span className="text-[10px] text-muted-foreground">by {a.requested_by}</span>
+                  </div>
+                  <p className="text-sm font-medium">{a.description}</p>
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => handleResolveApproval(a.id, "approved")}>✅ Approve</Button>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleResolveApproval(a.id, "revision_requested")}>↩ Rework</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--danger)]" onClick={() => handleResolveApproval(a.id, "rejected")}>✕ Reject</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Pending skill requests */}
             {skillRequests.filter(s => s.status === "pending").map(req => (
               <Card key={req.id} className="stat-card">
                 <CardContent className="p-4 flex items-center justify-between">
@@ -425,7 +464,7 @@ export default function LearningHubPage() {
                 </CardContent>
               </Card>
             ))}
-            {skillRequests.every(s => s.status !== "pending") && (
+            {approvals.length === 0 && skillRequests.every((s: SkillRequest) => s.status !== "pending") && (
               <EmptyState icon={CheckCircle} title="All caught up" message="No pending approvals right now." />
             )}
           </div>

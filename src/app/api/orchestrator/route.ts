@@ -705,5 +705,66 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ message: `Lesson scan complete. ${lessonsDrafted} new lessons drafted.`, lessons_draft: lessonsDrafted });
   }
+
+  // ─── Record / Get Heartbeats ───────────────────────────────
+  if (body.action === "record_heartbeat") {
+    const { data, error } = await supabase.from("heartbeat_runs").insert({
+      agent_id: body.agent_id,
+      run_status: body.run_status ?? "running",
+      summary: body.summary ?? "",
+      detail: body.detail ?? {},
+      next_due_at: body.next_due_at ?? null,
+      completed_at: body.run_status === "completed" || body.run_status === "skipped" ? new Date().toISOString() : null,
+      started_at: new Date().toISOString(),
+    }).select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ data });
+  }
+
+  if (body.action === "get_live_runs") {
+    const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: runs } = await supabase
+      .from("heartbeat_runs")
+      .select("*, agents(name, emoji)")
+      .gte("started_at", cutoff)
+      .order("started_at", { ascending: false });
+
+    if (!runs) return NextResponse.json({ data: [] });
+
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const run of runs) {
+      if (!seen.has(run.agent_id)) {
+        seen.add(run.agent_id);
+        unique.push({
+          agent_id: run.agent_id,
+          agent_name: run.agents?.name ?? "Unknown Agent",
+          agent_emoji: run.agents?.emoji ?? "🤖",
+          run_id: run.id,
+          status: run.run_status,
+          started_at: run.started_at,
+          summary: run.summary,
+        });
+      }
+    }
+    return NextResponse.json({ data: unique });
+  }
+
+  // ─── Get Recent Heartbeats ──────────────────────────────────
+  if (body.action === "get_recent_heartbeats") {
+    const limit = body.limit ?? 50;
+    const { data } = await supabase
+      .from("heartbeat_runs")
+      .select("*, agents(name, emoji)")
+      .order("started_at", { ascending: false })
+      .limit(limit);
+    const mapped = (data || []).map((run: any) => ({
+      ...run,
+      agent_name: run.agents?.name ?? "Unknown",
+      agent_emoji: run.agents?.emoji ?? "🤖",
+    }));
+    return NextResponse.json({ data: mapped });
+  }
+
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
 }
