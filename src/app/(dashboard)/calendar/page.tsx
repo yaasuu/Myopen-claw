@@ -27,6 +27,7 @@ import {
   AlignLeft,
   AlertTriangle,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type ViewType = "month" | "week" | "agenda";
 type FilterType = "all" | "routine" | "cron" | "governance";
@@ -339,7 +340,7 @@ export default function CalendarPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">No scheduled events</p>
+                    <EmptyState icon={CalendarIcon} title="No events" message="No routines scheduled for this day." className="py-6" />
                   )}
                 </CardContent>
               </Card>

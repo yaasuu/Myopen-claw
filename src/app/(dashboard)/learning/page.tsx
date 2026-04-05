@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Loader2,
   BookOpen,
+  CheckCircle,
   CheckCircle2,
   AlertTriangle,
   Zap,
@@ -52,6 +53,7 @@ import type {
   GapReviewStatus,
 } from "@/types/dashboard";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const TABS = [
   { key: "meeting", label: "Meeting", sub: "Daily sync reports", Icon: Calendar, bg: "bg-blue-500/12", border: "border-blue-500/30", icon: "text-blue-400", text: "text-blue-300" },
@@ -265,7 +267,7 @@ export default function LearningHubPage() {
         {activeTab === "meeting" && (
           <div className="space-y-4">
             {meetings.length === 0 ? (
-              <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">No daily syncs found yet.</CardContent></Card>
+              <EmptyState icon={Calendar} title="No daily syncs yet" message="Daily sync reports will appear here as the system runs." />
             ) : (
               meetings.map((day) => (
                 <Card key={day.id} className={`stat-card ${day.health === "needs_attention" ? "border-l-4 border-l-amber-500" : "border-l-4 border-l-emerald-500"}`}>
@@ -424,7 +426,7 @@ export default function LearningHubPage() {
               </Card>
             ))}
             {skillRequests.every(s => s.status !== "pending") && (
-              <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">All caught up! No pending approvals.</CardContent></Card>
+              <EmptyState icon={CheckCircle} title="All caught up" message="No pending approvals right now." />
             )}
           </div>
         )}
@@ -449,7 +451,7 @@ export default function LearningHubPage() {
               }}>{scanMsg}</div>
             )}
             {lessons.length === 0 ? (
-              <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">No lessons logged yet. The system is monitoring for patterns.</CardContent></Card>
+              <EmptyState icon={BookOpen} title="No lessons yet" message="Lessons are auto-generated when recurring patterns are detected." action={{ label: "Scan Now", onClick: handleScanLessons }} />
             ) : (
               lessons.map(lesson => (
                 <Card key={lesson.id} className="stat-card">
@@ -540,7 +542,7 @@ export default function LearningHubPage() {
         {activeTab === "updates" && (
           <div className="space-y-4">
             {updates.length === 0 ? (
-              <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">No updates applied yet.</CardContent></Card>
+              <EmptyState icon={Zap} title="No updates yet" message="Applied improvements will appear here." />
             ) : (
               <div className="space-y-3">
                 {updates.map(update => (

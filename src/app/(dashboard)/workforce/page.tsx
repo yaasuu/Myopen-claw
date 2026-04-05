@@ -27,6 +27,7 @@ import {
   Activity,
   AlertOctagon,
   CheckCircle2,
+  UserPlus,
 } from "lucide-react";
 import { getAgents, updateAgentStatus } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
@@ -43,6 +44,7 @@ import { useCanWrite } from "@/lib/auth/use-can-write";
 import { RelatedContext } from "@/components/ui/related-context";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "—";
@@ -610,7 +612,7 @@ export default function WorkforcePage() {
                     </button>
                   ))}
                   {agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id).length === 0 && (
-                    <div className="py-6 text-center text-sm" style={{ color: "var(--text-quiet)" }}>No agents assigned</div>
+                    <EmptyState icon={UserPlus} title="No agents assigned" message="Assign agents to this department from the hiring page." className="py-6" />
                   )}
                 </div>
               </div>

@@ -81,6 +81,7 @@ import { getTaskReviews, submitReview } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, Agent, TaskComment, Goal } from "@/types/dashboard";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const statusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
@@ -827,9 +828,12 @@ export default function TasksPage() {
                   {/* Lane content — independent scroll */}
                   <div className="p-3 space-y-2 flex-1 overflow-y-auto" style={{ maxHeight: "calc(100vh - 340px)" }}>
                     {columnTasks.length === 0 ? (
-                      <div className="rounded-lg border border-dashed py-10 text-center" style={{ borderColor: "var(--border)" }}>
-                        <p className="text-xs" style={{ color: "var(--text-quiet)" }}>No tasks in {statusLabel[status].toLowerCase()}</p>
-                      </div>
+                      <EmptyState
+                        icon={List}
+                        title="No tasks"
+                        message={`No tasks in ${statusLabel[status].toLowerCase()}.`}
+                        className="py-8"
+                      />
                     ) : (
                       columnTasks.map((task) => (
                         <div
@@ -947,13 +951,12 @@ export default function TasksPage() {
       <Card>
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              {tasks.length === 0
-                ? showArchived
-                  ? "No tasks found"
-                  : "No tasks yet — create one to get started"
-                : "No tasks match the current filters"}
-            </div>
+            <EmptyState
+              icon={List}
+              title={tasks.length === 0 ? (showArchived ? "No tasks found" : "No tasks yet") : "No tasks match the current filters"}
+              message={tasks.length === 0 ? "Create a new task to get started." : "Try adjusting your filters to see more tasks."}
+              action={tasks.length === 0 ? { label: "New Task", onClick: () => setCreateOpen(true) } : undefined}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -1343,8 +1346,9 @@ export default function TasksPage() {
                       <Loader2 className="h-3 w-3 animate-spin" /> Loading comments...
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="py-8 text-center text-xs" style={{ color: "var(--text-quiet)" }}>
-                      No comments yet. Start the conversation.
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <p className="text-xs mb-1" style={{ color: "var(--text-quiet)" }}>No comments yet</p>
+                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Start the conversation below.</p>
                     </div>
                   ) : (
                     comments.map((comment) => (
