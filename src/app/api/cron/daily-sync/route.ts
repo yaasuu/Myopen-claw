@@ -158,7 +158,7 @@ export async function GET() {
     skill_gaps: skillGaps,
     issues_list: blockersList.map((b: any) => `[${b.agent}] ${b.task}: ${b.blocker} (${b.cause})`),
     yas_decisions: yasDecisions,
-    sync_type: "daily_sync",
+    sync_type: "full_sync",
     updated_at: now.toISOString(),
     wins,
   };
