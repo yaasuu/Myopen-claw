@@ -145,58 +145,94 @@ export async function getLessons(status?: string): Promise<Lesson[]> {
   return data || [];
 }
 
-export async function updateLessonStatus(id: string, status: Lesson["status"]): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-  const { error } = await supabase.from("lessons").update({ status }).eq("id", id);
-  if (error) return false;
+export async function updateLessonStatus(id: string, status: Lesson["status"], approved_by?: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/lessons', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, approved_by }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      console.error('updateLessonStatus failed:', body.error || res.statusText)
+      return false
+    }
 
-  // Log to system_updates if status advances to approved or applied
-  if (status === "approved" || status === "applied") {
-    await supabase.from("system_updates").insert({
-      type: "sop_added",
-      title: `Lesson ${status}: "${id.slice(0, 8)}..."`,
-      description: `Lesson marked as ${status}.`,
-      applied_at: new Date().toISOString(),
-    });
+    // Log to system_updates if status advances
+    if (status === 'approved' || status === 'applied') {
+      await createSystemUpdate({
+        type: 'sop_added',
+        title: `Lesson ${status}`,
+        description: `Lesson ${id.slice(0, 8)}... marked as ${status}.`,
+      })
+    }
+    return true
+  } catch (e) {
+    console.error('updateLessonStatus error:', e)
+    return false
   }
-  return true;
 }
 
 export async function getSystemUpdates(): Promise<SystemUpdate[]> {
-  const supabase = getSupabase();
-  if (!supabase) return [];
-  const { data } = await supabase.from("system_updates").select("*").order("applied_at", { ascending: false });
-  return data || [];
+  try {
+    const res = await fetch('/api/system-updates')
+    if (!res.ok) return []
+    const body = await res.json()
+    return body.data || []
+  } catch {
+    return []
+  }
+}
+
+async function createSystemUpdate(input: {
+  type: string
+  title: string
+  description: string
+  affected_entities?: string[]
+}): Promise<void> {
+  try {
+    await fetch('/api/system-updates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+  } catch (e) {
+    console.error('createSystemUpdate error:', e)
+  }
 }
 
 export async function approveSkillRequest(id: string) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  await supabase.from("skill_requests").update({ status: "installed", updated_at: new Date().toISOString() }).eq("id", id);
-  const { data: req } = await supabase.from("skill_requests").select("*").eq("id", id).single();
-  if (req) {
-    await supabase.from("system_updates").insert({
-      type: "skill_installed",
-      title: `Installed: ${req.title}`,
-      description: req.description,
-      source_approval_id: id,
-      applied_at: new Date().toISOString()
-    });
+  try {
+    // Update skill_requests via anon client (works for writes)
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from("skill_requests").update({ status: "installed", updated_at: new Date().toISOString() }).eq("id", id);
+    const { data: req } = await supabase.from("skill_requests").select("*").eq("id", id).single();
+    if (req) {
+      await createSystemUpdate({
+        type: "skill_installed",
+        title: `Installed: ${req.title}`,
+        description: req.description,
+      });
+    }
+  } catch (e) {
+    console.error('approveSkillRequest error:', e);
   }
 }
 
 export async function rejectSkillRequest(id: string) {
-  const supabase = getSupabase();
-  if (!supabase) return;
-  await supabase.from("skill_requests").update({ status: "rejected", updated_at: new Date().toISOString() }).eq("id", id);
-  await supabase.from("system_updates").insert({
-    type: "workflow_changed",
-    title: `Rejected Skill Request ${id}`,
-    description: "Skill request reviewed and rejected by Yas.",
-    source_approval_id: id,
-    applied_at: new Date().toISOString()
-  });
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.from("skill_requests").update({ status: "rejected", updated_at: new Date().toISOString() }).eq("id", id);
+    await createSystemUpdate({
+      type: "workflow_changed",
+      title: `Rejected Skill Request`,
+      description: `Skill request ${id.slice(0, 8)}... reviewed and rejected by Yas.`,
+    });
+  } catch (e) {
+    console.error('rejectSkillRequest error:', e);
+  }
 }
 
 export async function requestSkill(title: string, description: string, requestedBy: string) {
@@ -206,9 +242,18 @@ export async function requestSkill(title: string, description: string, requested
 }
 
 export async function createLesson(lesson: Omit<Lesson, "id" | "date_detected">) {
-  const supabase = getSupabase();
-  if (!supabase) return null;
-  return await supabase.from("lessons").insert(lesson).select().single();
+  try {
+    const res = await fetch('/api/lessons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lesson),
+    })
+    if (!res.ok) return null
+    const body = await res.json()
+    return body.data || null
+  } catch {
+    return null
+  }
 }
 
 // ─── Typed Approvals ───
@@ -273,26 +318,14 @@ export async function resolveApproval(
   status: "approved" | "rejected" | "revision_requested",
   resolved_by: string = "Yas"
 ): Promise<boolean> {
-  const supabase = getSupabase();
-  if (!supabase) return false;
-  const { error } = await supabase.from("approvals").update({
-    status,
-    resolved_at: new Date().toISOString(),
-    resolved_by,
-  }).eq("id", id);
-  if (error) return false;
-
-  if (status === "approved") {
-    const { data: approval } = await supabase.from("approvals").select("*").eq("id", id).single();
-    if (approval) {
-      const updateType = approval.approval_type === "skill_installation" ? "skill_installed" : "workflow_changed";
-      await supabase.from("system_updates").insert({
-        type: updateType,
-        title: `Approved: ${APPROVAL_LABELS[approval.approval_type as ApprovalType] || approval.approval_type}`,
-        description: approval.description,
-        applied_at: new Date().toISOString(),
-      });
-    }
+  try {
+    const res = await fetch('/api/approvals', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, resolved_by }),
+    })
+    return res.ok
+  } catch {
+    return false
   }
-  return true;
 }

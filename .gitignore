@@ -20,6 +20,10 @@
 # production
 /build
 
+# environment variables — never commit
+.env.local
+.env*.local
+
 # misc
 .DS_Store
 *.pem
