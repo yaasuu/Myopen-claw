@@ -25,6 +25,13 @@ import {
   ThumbsUp,
   ThumbsDown,
   Activity,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Clock,
+  XCircle,
+  TrendingUp,
+  Award,
 } from "lucide-react";
 import { 
   getDailySyncs,
@@ -41,7 +48,6 @@ import {
   createApproval,
   type MeetingSummary,
   type AgentPerformance, 
-  type SkillRequest,
   type Lesson,
   type SystemUpdate,
   type Approval,
@@ -50,17 +56,50 @@ import {
   APPROVAL_LABELS
 } from "@/lib/data/learning";
 import {
+  getSkills,
+  getAgentSkills,
+  analyzeSkillGaps,
+  scanSkillContent,
+  approveSkillRequest as approveSkillRequestFull,
+  rejectSkillRequest as rejectSkillRequestFull,
+  createSkillRequest as createSkillRequestFull,
+} from "@/lib/data/skills";
+import {
   getCapabilityGaps,
   getAuditRuns,
   reviewCapabilityGap,
 } from "@/lib/data/capability-governance";
 import type {
+  Skill,
+  AgentSkill,
+  SkillRequest,
+  SkillScanResult,
   CapabilityGap,
   CapabilityAuditRun,
   GapReviewStatus,
 } from "@/types/dashboard";
+import { getAgents } from "@/lib/data/agents";
+import { getTasks } from "@/lib/data/tasks";
+import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import { EmptyState } from "@/components/ui/empty-state";
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const scanStyles: Record<SkillScanResult, { icon: typeof Shield; color: string; bg: string; label: string }> = {
+  pending: { icon: Clock, color: "text-[var(--text-quiet)]", bg: "bg-gray-50", label: "Pending scan" },
+  clean: { icon: ShieldCheck, color: "text-[var(--success)]", bg: "bg-[rgba(16,185,129,0.08)]", label: "Clean" },
+  suspicious: { icon: ShieldAlert, color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)]", label: "Suspicious" },
+  blocked: { icon: Shield, color: "text-[var(--danger)]", bg: "bg-[rgba(239,68,68,0.08)]", label: "Blocked" },
+};
 
 const TABS = [
   { key: "meeting", label: "Meeting", sub: "Daily sync reports", Icon: Calendar, bg: "bg-blue-500/12", border: "border-blue-500/30", icon: "text-blue-400", text: "text-blue-300" },
@@ -74,6 +113,7 @@ const TABS = [
 type TabKey = typeof TABS[number]["key"];
 
 export default function LearningHubPage() {
+  const canWrite = useCanWrite();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("meeting");
   const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
@@ -90,9 +130,19 @@ export default function LearningHubPage() {
   const [scanMsg, setScanMsg] = useState<string>("");
   const [scanning, setScanning] = useState(false);
 
+  // Skills tab state
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
+  const [gaps, setGaps] = useState<ReturnType<typeof analyzeSkillGaps>>([]);
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [reqAgentId, setReqAgentId] = useState("");
+  const [reqSkillName, setReqSkillName] = useState("");
+  const [reqReason, setReqReason] = useState("");
+
   async function load() {
     setLoading(true);
-    const [meetingsR, skillsR, lessonsR, updatesR, perfR, gapsR, auditsR, approvalsR] = await Promise.all([
+    const [meetingsR, skillsReqR, lessonsR, updatesR, perfR, gapsR, auditsR, approvalsR, skillsListR, agentSkillsR, tasksR] = await Promise.all([
       getDailySyncs(7),
       getSkillRequests(),
       getLessons(lessonFilter === "all" ? undefined : lessonFilter),
@@ -101,15 +151,22 @@ export default function LearningHubPage() {
       getCapabilityGaps(),
       getAuditRuns(),
       getApprovals("pending"),
+      getSkills(),
+      getAgentSkills(),
+      getTasks(),
     ]);
     setMeetings(meetingsR);
-    setSkillRequests(skillsR);
+    setSkillRequests(skillsReqR as unknown as SkillRequest[]);
     setLessons(lessonsR);
     setUpdates(updatesR);
     setAgentPerf(perfR);
     setCapGaps(gapsR.data);
     setAuditRuns(auditsR.data);
     setApprovals(approvalsR);
+    setSkills(skillsListR.data);
+    setAgentSkills(agentSkillsR.data);
+    const agentsList = await getAgents();
+    setGaps(analyzeSkillGaps(tasksR.data, agentsList.data, agentSkillsR.data));
     setLoading(false);
   }
 
@@ -129,6 +186,41 @@ export default function LearningHubPage() {
     await rejectSkillRequest(id);
     load();
   }
+
+  // Skills tab handlers
+  async function handleSkillApprove(requestId: string) {
+    setProcessing(requestId);
+    const { error } = await approveSkillRequestFull(requestId, "Yas");
+    if (error) console.error(error);
+    await load();
+    setProcessing(null);
+  }
+
+  async function handleSkillReject(requestId: string) {
+    setProcessing(requestId);
+    await rejectSkillRequestFull(requestId, "Yas");
+    await load();
+    setProcessing(null);
+  }
+
+  async function handleSkillRequest() {
+    if (!reqAgentId || !reqSkillName.trim() || !reqReason.trim()) return;
+    setProcessing("creating");
+    const { error } = await createSkillRequestFull({
+      agentId: reqAgentId,
+      skillName: reqSkillName.trim(),
+      reason: reqReason.trim(),
+    });
+    if (error) console.error(error);
+    setRequestOpen(false);
+    setReqAgentId("");
+    setReqSkillName("");
+    setReqReason("");
+    setProcessing(null);
+    await load();
+  }
+
+  const pendingRequests = skillRequests.filter((r) => r.status === "pending");
 
   async function handleRequestSkill() {
     const title = prompt("Skill Name:");
@@ -451,11 +543,11 @@ export default function LearningHubPage() {
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">{req.affected_agent ? `${req.affected_agent} Skill` : "System Skill"}</Badge>
-                      <span className="text-sm font-medium">{req.title}</span>
+                      <Badge variant="outline" className="text-[10px]">{req.agent_name ? `${req.agent_name} Skill` : "System Skill"}</Badge>
+                      <span className="text-sm font-medium">{req.skill_name}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{req.description}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">Requested by {req.requested_by}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{req.skill_description}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Requested {timeAgo(req.requested_at)}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--danger)]" onClick={() => handleReject(req.id)}>Reject</Button>
@@ -538,15 +630,185 @@ export default function LearningHubPage() {
         {/* ─── SKILLS ─── */}
         {activeTab === "skills" && (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-3">Installed Skills</h3>
+            {/* Request button */}
+            {canWrite && (
+              <div className="flex justify-end">
+                <Button size="sm" className="gap-1.5" onClick={() => setRequestOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Request Skill
+                </Button>
+              </div>
+            )}
+
+            {/* Pending Requests + Security Scan */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
+                  <Zap className="h-4 w-4 text-[var(--accent)]" />
+                </div>
+                <h2 className="section-title">Skill Requests</h2>
+                {pendingRequests.length > 0 && <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">{pendingRequests.length}</Badge>}
+              </div>
+
+              {pendingRequests.length === 0 ? (
+                <Card className="stat-card">
+                  <CardContent className="flex items-center gap-3 py-6 px-5">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    <div>
+                      <p className="text-sm font-medium">No pending requests</p>
+                      <p className="text-xs text-muted-foreground">All skill requests have been reviewed</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {pendingRequests.map((req) => {
+                    const scan = scanStyles[req.scan_result]
+                    const ScanIcon = scan.icon
+
+                    return (
+                      <Card key={req.id} className={`stat-card border-l-4 ${
+                        req.scan_result === "blocked" ? "border-l-red-500" :
+                        req.scan_result === "suspicious" ? "border-l-amber-500" :
+                        req.scan_result === "clean" ? "border-l-emerald-500" :
+                        "border-l-gray-300"
+                      }`}>
+                        <CardContent className="p-5 space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold">{req.skill_name}</span>
+                                <Badge variant="outline" className="text-[10px]">{req.skill_source}</Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{req.agent_emoji}</span>
+                                <span className="text-xs text-muted-foreground">{req.agent_name}</span>
+                              </div>
+                            </div>
+                            <Badge className={`text-xs ${
+                              req.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                              req.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                              "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
+                            }`}>{req.urgency}</Badge>
+                          </div>
+
+                          <p className="text-sm text-muted-foreground">{req.reason}</p>
+
+                          <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ${scan.bg}`}>
+                            <ScanIcon className={`h-4 w-4 ${scan.color}`} />
+                            <div>
+                              <p className={`text-xs font-medium ${scan.color}`}>{scan.label}</p>
+                              {req.scan_notes && <p className="text-[10px] text-muted-foreground mt-0.5">{req.scan_notes}</p>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span>Requested {timeAgo(req.requested_at)}</span>
+                            {req.evidence_task_ids.length > 0 && (
+                              <>
+                                <span>·</span>
+                                <span>{req.evidence_task_ids.length} evidence task{req.evidence_task_ids.length > 1 ? "s" : ""}</span>
+                              </>
+                            )}
+                          </div>
+
+                          {canWrite && req.scan_result !== "blocked" && (
+                            <div className="flex gap-2 pt-2 border-t">
+                              <Button size="sm" className="gap-1.5 flex-1" disabled={processing === req.id} onClick={() => handleSkillApprove(req.id)}>
+                                {processing === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1.5 flex-1" disabled={processing === req.id} onClick={() => handleSkillReject(req.id)}>
+                                <XCircle className="h-3.5 w-3.5" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                          {req.scan_result === "blocked" && (
+                            <div className="pt-2 border-t">
+                              <p className="text-xs text-[var(--danger)] font-medium">⛔ Auto-blocked — cannot be approved</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* Skill Gap Analysis */}
+            {gaps.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
+                    <TrendingUp className="h-4 w-4 text-[var(--warning)]" />
+                  </div>
+                  <h2 className="section-title">Skill Gaps Detected</h2>
+                  <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{gaps.length}</Badge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {gaps.map((gap, i) => (
+                    <Card key={i} className="stat-card border-l-2 border-l-amber-400">
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{gap.agent.emoji}</span>
+                            <span className="text-sm font-medium">{gap.agent.name}</span>
+                          </div>
+                          <Badge className={`text-[10px] ${
+                            gap.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
+                            gap.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
+                            "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
+                          }`}>{gap.urgency}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Missing: <span className="font-medium text-foreground">{gap.missingSkill}</span></p>
+                        <p className="text-xs text-muted-foreground">{gap.reason}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Agent Skills */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
+                  <Award className="h-4 w-4 text-[var(--success)]" />
+                </div>
+                <h2 className="section-title">Agent Skills</h2>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {agentSkills.map((as) => (
+                  <Card key={as.id} className="stat-card">
+                    <CardContent className="p-3 flex items-center gap-3">
+                      <span className="text-lg">{as.agent_emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{as.skill_name}</p>
+                        <p className="text-[10px] text-muted-foreground">{as.agent_name}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[9px]">{as.month_installed}</Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+
+            {/* Installed Skills */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
+                  <CheckCircle2 className="h-4 w-4 text-[var(--info)]" />
+                </div>
+                <h2 className="section-title">Installed Skills Registry</h2>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {skillRequests.filter(s => s.status === "installed").map(skill => (
+                {skills.filter(s => s.status === "active" || !s.status).map((skill) => (
                   <Card key={skill.id} className="stat-card">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-sm font-semibold">{skill.title}</p>
+                          <p className="text-sm font-semibold">{skill.name}</p>
                           <p className="text-xs text-muted-foreground mt-1">{skill.description}</p>
                         </div>
                         <Badge variant="outline" className="bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20">Active</Badge>
@@ -555,25 +817,7 @@ export default function LearningHubPage() {
                   </Card>
                 ))}
               </div>
-            </div>
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-3">Pending Requests</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {skillRequests.filter(s => s.status !== "installed").map(skill => (
-                  <Card key={skill.id} className="stat-card border-dashed">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-semibold">{skill.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Requested by {skill.requested_by}</p>
-                        </div>
-                        <Badge variant="outline" className="bg-[var(--warning)]/10 text-[var(--warning)] border-[var(--warning)]/20">Pending</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+            </section>
           </div>
         )}
 

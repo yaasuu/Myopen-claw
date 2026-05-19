@@ -170,10 +170,14 @@ export interface Skill {
   category: string;
   description: string;
   installed_at: string;
+  status?: string;
 }
 
 export interface AgentSkill {
+  id?: string;
   agent_id: string;
+  agent_name?: string;
+  agent_emoji?: string;
   skill_id: string;
   skill_name: string;
   skill_category: string;
