@@ -68,13 +68,13 @@ const sections = [
       { title: "Reviews", href: "/reviews", icon: ShieldCheck },
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
       { title: "Hiring", href: "/hiring", icon: UserPlus },
-      { title: "Skills", href: "/skills", icon: GraduationCap },
-      { title: "Learning", href: "/learning", icon: Lightbulb },
+      { title: "Learning", href: "/learning", icon: BookOpen },
     ],
   },
   {
     label: "System",
     items: [
+      { title: "Notes", href: "/notes", icon: BookOpen },
       { title: "Alerts", href: "/alerts", icon: Bell },
       { title: "Team", href: "/org-chart", icon: Network },
       { title: "Settings", href: "/settings", icon: Settings },

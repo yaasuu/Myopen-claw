@@ -366,7 +366,7 @@ export function computeAgentGovernanceSignals(
   const agentGaps = capabilityGaps.filter((g) => g.agent_id === agent.id);
   for (const gap of agentGaps) {
     if (gap.composite_score >= 3.0) {
-      signals.push({ agentId: agent.id, severity: gap.composite_score >= 4.0 ? "critical" : "attention", kind: "skill_gap", label: "Skill gap", detail: `Score: ${gap.composite_score}`, jumpTo: "/skills" });
+      signals.push({ agentId: agent.id, severity: gap.composite_score >= 4.0 ? "critical" : "attention", kind: "skill_gap", label: "Skill gap", detail: `Score: ${gap.composite_score}`, jumpTo: "/learning" });
     }
   }
 
