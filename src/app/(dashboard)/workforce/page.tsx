@@ -43,6 +43,7 @@ import {
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { RelatedContext } from "@/components/ui/related-context";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
+import { buildOrgStructure, getAgentDepartmentId } from "@/lib/org-structure";
 import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -121,29 +122,13 @@ export default function WorkforcePage() {
 
   useEffect(() => { load(); }, []);
 
-  // Agents that sit directly under Yas Claw (not under a department)
-  const DIRECT_AGENTS = ["research-agent", "executive-finance", "qa-agent"];
-
-  // Explicit agent-to-department mapping (avoids fragile domain keyword matching)
-  const AGENT_DEPT_MAP: Record<string, string> = {
-    "export-growth": "export-growth",
-    "ops-improvement": "ops-improvement",
-    "architecture-systems": "architecture-systems",
-    "ui-ux-designer": "architecture-systems",
-    "data-analyst": "ops-improvement",
-  };
-
-  function getAgentDeptId(agentShortId: string): string | undefined {
-    const deptSlug = AGENT_DEPT_MAP[agentShortId];
-    if (!deptSlug) return undefined;
-    return departments.find((d) => d.slug === deptSlug || d.short_id === deptSlug)?.id;
-  }
+  const { directAgents, departmentAgents } = buildOrgStructure(agents, departments);
 
   // Build hierarchy
   const hierarchy: HierarchyItem[] = [
     { id: "yas-claw", type: "orchestrator", name: "Yas Claw", emoji: "🦀", status: "active", meta: "Orchestrator" },
     // Direct agents go under Yas Claw
-    ...agents.filter((a) => DIRECT_AGENTS.includes(a.short_id)).map((a) => ({
+    ...directAgents.map((a) => ({
       id: a.id,
       type: "agent" as UnitType,
       name: a.name,
@@ -159,17 +144,17 @@ export default function WorkforcePage() {
       name: d.name,
       emoji: d.emoji,
       status: d.status,
-      meta: `${agents.filter((a) => !DIRECT_AGENTS.includes(a.short_id) && getAgentDeptId(a.short_id) === d.id).length} agents`,
+      meta: `${departmentAgents.get(d.id)?.length ?? 0} agents`,
     })),
     // Agents (excluding direct agents)
-    ...agents.filter((a) => !DIRECT_AGENTS.includes(a.short_id)).map((a) => ({
+    ...agents.filter((a) => !directAgents.some((direct) => direct.id === a.id)).map((a) => ({
       id: a.id,
       type: "agent" as UnitType,
       name: a.name,
       emoji: a.emoji,
       status: a.status,
       meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
-      parentId: getAgentDeptId(a.short_id),
+      parentId: getAgentDepartmentId(a, departments),
     })),
     ...specialists.map((s) => ({
       id: s.id,
@@ -188,6 +173,19 @@ export default function WorkforcePage() {
     if (filter === "specialists") return item.type === "specialist";
     return true;
   });
+
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setSelectedId(null);
+      setSelectedType(null);
+      return;
+    }
+
+    const stillVisible = filtered.some((item) => item.id === selectedId && item.type === selectedType);
+    if (!stillVisible) {
+      selectItem(filtered[0]);
+    }
+  }, [filtered, selectedId, selectedType]);
 
   function selectItem(item: HierarchyItem) {
     setSelectedId(item.id);
@@ -271,6 +269,7 @@ export default function WorkforcePage() {
   const selectedDept = selectedType === "department"
     ? departments.find((d) => d.id === selectedId) ?? null
     : null;
+  const selectedDeptAgents = selectedDept ? departmentAgents.get(selectedDept.id) ?? [] : [];
   const selectedSpec = selectedType === "specialist"
     ? specialists.find((s) => s.id === selectedId) ?? null
     : null;
@@ -601,7 +600,7 @@ export default function WorkforcePage() {
                   <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Agents</span>
                 </div>
                 <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-                  {agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id).map((agent) => (
+                  {selectedDeptAgents.map((agent) => (
                     <button key={agent.id} onClick={() => selectItem({ id: agent.id, type: "agent", name: agent.name, emoji: agent.emoji, status: agent.status, meta: "" })} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-muted)] transition-colors text-left">
                       <span className="text-lg">{agent.emoji}</span>
                       <div className="flex-1 min-w-0">
@@ -611,7 +610,7 @@ export default function WorkforcePage() {
                       <div className={`h-2 w-2 rounded-full ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} />
                     </button>
                   ))}
-                  {agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id).length === 0 && (
+                  {selectedDeptAgents.length === 0 && (
                     <EmptyState icon={UserPlus} title="No agents assigned" message="Assign agents to this department from the hiring page." className="py-6" />
                   )}
                 </div>
@@ -621,10 +620,7 @@ export default function WorkforcePage() {
               <div className="surface-card p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-quiet)" }}>Related Context</p>
                 <RelatedContext
-                  tasks={tasks.filter((t) => {
-                    const deptAgents = agents.filter((a) => getAgentDeptId(a.short_id) === selectedDept.id);
-                    return deptAgents.some((a) => a.id === t.assigned_agent_id) && t.status !== "done";
-                  })}
+                  tasks={tasks.filter((t) => selectedDeptAgents.some((a) => a.id === t.assigned_agent_id) && t.status !== "done")}
                   lastActivity={selectedDept.created_at}
                   viewAllHref="/tasks"
                 />

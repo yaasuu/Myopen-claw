@@ -1,6 +1,6 @@
 import { getSupabase } from "@/lib/supabase/client";
 import { logFeedEvent, type FeedEventType } from "@/lib/data/feed-events";
-import type { Task, TaskWithAgent, Goal } from "@/types/dashboard";
+import type { Task, TaskWithAgent, Goal, TaskStatus, TaskReviewStatus } from "@/types/dashboard";
 
 const MOCK_AGENT_MAP: Record<string, { name: string; emoji: string }> = {
   "mock-1": { name: "Export-Growth Agent", emoji: "📦" },
@@ -13,7 +13,7 @@ const MOCK_TASKS: Task[] = [
     id: "mock-1",
     title: "Review export documentation",
     description: "Review and update export docs for Q2 shipment",
-    status: "in-progress",
+    status: "submitted",
     priority: "high",
     assigned_agent_id: "mock-1",
     project_id: null,
@@ -43,7 +43,7 @@ const MOCK_TASKS: Task[] = [
     id: "mock-3",
     title: "Weekly workflow review",
     description: "Review operational workflows for bottlenecks",
-    status: "done",
+    status: "approved",
     priority: "medium",
     assigned_agent_id: "mock-2",
     project_id: null,
@@ -73,7 +73,7 @@ const MOCK_TASKS: Task[] = [
     id: "mock-5",
     title: "Data model review",
     description: "Review and finalize data model for Mission Control",
-    status: "in-progress",
+    status: "dispatched",
     priority: "medium",
     assigned_agent_id: "mock-3",
     project_id: null,
@@ -158,7 +158,7 @@ export async function getTasks(options?: { includeArchived?: boolean }): Promise
   return { data: attachAgentNames((data ?? []) as Task[], agentMap, goalMap), error: null };
 }
 
-export async function getTasksByStatus(status: Task["status"]): Promise<{ data: TaskWithAgent[]; error: string | null }> {
+export async function getTasksByStatus(status: TaskStatus): Promise<{ data: TaskWithAgent[]; error: string | null }> {
   const result = await getTasks();
   return { data: result.data.filter((t) => t.status === status), error: result.error };
 }
@@ -177,8 +177,13 @@ export async function getTaskStats() {
   return {
     total: tasks.length,
     pending: tasks.filter((t) => t.status === "pending").length,
+    dispatched: tasks.filter((t) => t.status === "dispatched").length,
     inProgress: tasks.filter((t) => t.status === "in-progress").length,
+    submitted: tasks.filter((t) => t.status === "submitted").length,
+    inReview: tasks.filter((t) => t.status === "in-review").length,
+    approved: tasks.filter((t) => t.status === "approved").length,
     blocked: tasks.filter((t) => t.status === "blocked").length,
+    rework: tasks.filter((t) => t.status === "rework").length,
     done: tasks.filter((t) => t.status === "done").length,
   };
 }
@@ -186,12 +191,15 @@ export async function getTaskStats() {
 export type CreateTaskInput = {
   title: string;
   description?: string;
-  status?: Task["status"];
+  status?: TaskStatus;
   priority?: Task["priority"];
   assigned_agent_id?: string | null;
   goal_id?: string | null;
   blocker?: string | null;
   owner?: string;
+  review_status?: TaskReviewStatus;
+  requires_yas_approval?: boolean;
+  dispatch_notes?: string;
 };
 
 export async function createTask(input: CreateTaskInput): Promise<{ data: Task | null; error: string | null }> {
@@ -209,6 +217,9 @@ export async function createTask(input: CreateTaskInput): Promise<{ data: Task |
       goal_id: input.goal_id ?? null,
       blocker: input.blocker ?? null,
       owner: input.owner ?? "Yas",
+      review_status: input.review_status ?? "pending",
+      requires_yas_approval: input.requires_yas_approval ?? false,
+      dispatch_notes: input.dispatch_notes ?? "",
     })
     .select()
     .single();
@@ -242,14 +253,33 @@ export async function createTask(input: CreateTaskInput): Promise<{ data: Task |
 
 export async function updateTaskStatus(
   id: string,
-  status: Task["status"]
+  status: TaskStatus
 ): Promise<{ data: Task | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
 
+  const reviewStatusMap: Partial<Record<TaskStatus, TaskReviewStatus>> = {
+    pending: "pending",
+    dispatched: "pending",
+    "in-progress": "pending",
+    submitted: "submitted",
+    "in-review": "in_review",
+    approved: "approved",
+    rework: "returned_for_rework",
+  };
+
+  const statusUpdate: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (reviewStatusMap[status]) statusUpdate.review_status = reviewStatusMap[status];
+  if (status === "submitted") statusUpdate.submitted_at = new Date().toISOString();
+  if (status === "in-review" || status === "approved" || status === "rework") statusUpdate.reviewed_at = new Date().toISOString();
+
   const { data, error } = await supabase
     .from("tasks")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(statusUpdate)
     .eq("id", id)
     .select()
     .single();
@@ -274,7 +304,12 @@ export async function updateTaskStatus(
   const eventMap: Record<string, FeedEventType> = {
     done: "task_completed",
     blocked: "blocker_detected",
+    approved: "task_updated",
+    submitted: "task_updated",
+    dispatched: "agent_routed",
+    rework: "task_returned_for_rework",
     "in-progress": "task_updated",
+    "in-review": "task_updated",
     pending: "task_updated",
   };
 
@@ -284,9 +319,17 @@ export async function updateTaskStatus(
     summary:
       status === "done"
         ? `Completed: ${task.title}`
-        : status === "blocked"
-          ? `Blocker detected on '${task.title}'${task.blocker ? ` — ${task.blocker}` : ""}`
-          : `Task '${task.title}' updated to ${status}`,
+        : status === "approved"
+          ? `Task approved: ${task.title}`
+          : status === "submitted"
+            ? `Task submitted for review: ${task.title}`
+            : status === "dispatched"
+              ? `Task dispatched: ${task.title}`
+              : status === "rework"
+                ? `Task returned for rework: ${task.title}`
+                : status === "blocked"
+                  ? `Blocker detected on '${task.title}'${task.blocker ? ` — ${task.blocker}` : ""}`
+                  : `Task '${task.title}' updated to ${status}`,
     related_task_id: task.id,
     related_agent_id: task.assigned_agent_id,
   });
@@ -297,7 +340,7 @@ export async function updateTaskStatus(
 // Specialized unblock function that logs blocker_resolved
 export async function unblockTask(
   id: string,
-  newStatus: Task["status"] = "pending"
+  newStatus: TaskStatus = "pending"
 ): Promise<{ data: Task | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
@@ -326,7 +369,7 @@ export async function unblockTask(
 
 export async function updateTask(
   id: string,
-  updates: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "assigned_agent_id" | "goal_id" | "blocker" | "owner">>
+  updates: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "assigned_agent_id" | "goal_id" | "blocker" | "owner" | "requires_yas_approval" | "dispatch_notes">>
 ): Promise<{ data: Task | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
@@ -351,7 +394,15 @@ export async function updateTaskAssignment(
 
   const { data, error } = await supabase
     .from("tasks")
-    .update({ assigned_agent_id: agentId, updated_at: new Date().toISOString() })
+    .update({
+      assigned_agent_id: agentId,
+      owner_agent_id: agentId,
+      handled_by_agent_id: agentId,
+      status: agentId ? "dispatched" : "pending",
+      review_status: "pending",
+      dispatched_at: agentId ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", taskId)
     .select()
     .single();
@@ -370,7 +421,7 @@ export async function updateTaskAssignment(
   await logFeedEvent({
     event_type: "agent_routed",
     source: "system",
-    summary: `Task '${task.title}' assigned to ${agentName}`,
+    summary: `Hermes orchestrator dispatched '${task.title}' to ${agentName}`,
     related_task_id: task.id,
     related_agent_id: agentId,
   });

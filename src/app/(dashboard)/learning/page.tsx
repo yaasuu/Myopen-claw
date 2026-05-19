@@ -69,6 +69,13 @@ import {
   getAuditRuns,
   reviewCapabilityGap,
 } from "@/lib/data/capability-governance";
+import {
+  getDailyNotes,
+  getKnowledgeEntries,
+  type DailyNote,
+  type KnowledgeEntry,
+  type PARACategory,
+} from "@/lib/data/knowledge";
 import type {
   Skill,
   AgentSkill,
@@ -108,6 +115,7 @@ const TABS = [
   { key: "skills", label: "Skills", sub: "Capabilities & requests", Icon: Lightbulb, bg: "bg-emerald-500/12", border: "border-emerald-500/30", icon: "text-emerald-400", text: "text-emerald-300" },
   { key: "updates", label: "Updates", sub: "Change history", Icon: Zap, bg: "bg-teal-500/12", border: "border-teal-500/30", icon: "text-teal-400", text: "text-teal-300" },
   { key: "governance", label: "Governance", sub: "Gaps & automation", Icon: Target, bg: "bg-rose-500/12", border: "border-rose-500/30", icon: "text-rose-400", text: "text-rose-300" },
+  { key: "knowledge", label: "Knowledge", sub: "PARA knowledge base", Icon: BookOpen, bg: "bg-cyan-500/12", border: "border-cyan-500/30", icon: "text-cyan-400", text: "text-cyan-300" },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -140,9 +148,15 @@ export default function LearningHubPage() {
   const [reqSkillName, setReqSkillName] = useState("");
   const [reqReason, setReqReason] = useState("");
 
+  // Notes & Knowledge tab state
+  const [dailyNotes, setDailyNotes] = useState<DailyNote[]>([]);
+  const [knowledge, setKnowledge] = useState<KnowledgeEntry[]>([]);
+  const [knowledgeFilter, setKnowledgeFilter] = useState<string>("all");
+  const [knowledgeSearch, setKnowledgeSearch] = useState("");
+
   async function load() {
     setLoading(true);
-    const [meetingsR, skillsReqR, lessonsR, updatesR, perfR, gapsR, auditsR, approvalsR, skillsListR, agentSkillsR, tasksR] = await Promise.all([
+    const [meetingsR, skillsReqR, lessonsR, updatesR, perfR, gapsR, auditsR, approvalsR, skillsListR, agentSkillsR, tasksR, dailyNotesR, knowledgeR] = await Promise.all([
       getDailySyncs(7),
       getSkillRequests(),
       getLessons(lessonFilter === "all" ? undefined : lessonFilter),
@@ -154,6 +168,8 @@ export default function LearningHubPage() {
       getSkills(),
       getAgentSkills(),
       getTasks(),
+      getDailyNotes(14),
+      getKnowledgeEntries({ category: knowledgeFilter === "all" ? undefined : (knowledgeFilter as PARACategory), search: knowledgeSearch || undefined }),
     ]);
     setMeetings(meetingsR);
     setSkillRequests(skillsReqR as unknown as SkillRequest[]);
@@ -165,13 +181,15 @@ export default function LearningHubPage() {
     setApprovals(approvalsR);
     setSkills(skillsListR.data);
     setAgentSkills(agentSkillsR.data);
+    setDailyNotes(dailyNotesR.data);
+    setKnowledge(knowledgeR.data);
     const agentsList = await getAgents();
     setGaps(analyzeSkillGaps(tasksR.data, agentsList.data, agentSkillsR.data));
     setLoading(false);
   }
 
-  const loadRef = useCallback(() => load(), [lessonFilter]);
-  useRealtimeMulti(["daily_notes", "skill_requests", "lessons", "system_updates"], loadRef);
+  const loadRef = useCallback(() => load(), [lessonFilter, knowledgeFilter, knowledgeSearch]);
+  useRealtimeMulti(["daily_notes", "skill_requests", "lessons", "system_updates", "knowledge_entries"], loadRef);
 
   useEffect(() => {
     load();
@@ -846,6 +864,233 @@ export default function LearningHubPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ─── KNOWLEDGE ─── */}
+        {activeTab === "knowledge" && (
+          <div className="space-y-6">
+            {/* Search + Filter */}
+            <div className="action-bar">
+              <div className="flex items-center gap-2 flex-1">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input
+                  className="flex-1 bg-transparent border-0 text-sm outline-none placeholder:text-muted-foreground"
+                  placeholder="Search knowledge base..."
+                  value={knowledgeSearch}
+                  onChange={(e) => setKnowledgeSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && load()}
+                />
+              </div>
+              <select
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                value={knowledgeFilter}
+                onChange={(e) => setKnowledgeFilter(e.target.value)}
+              >
+                <option value="all">All Categories</option>
+                <option value="project">Projects</option>
+                <option value="area">Areas</option>
+                <option value="resource">Resources</option>
+                <option value="archive">Archives</option>
+              </select>
+              <Button size="sm" variant="outline" onClick={load} className="h-8 gap-1.5">
+                <RefreshCw className="h-3 w-3" /> Refresh
+              </Button>
+            </div>
+
+            {/* PARA category quick stats */}
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { value: "project", label: "Projects", color: "text-[var(--info)]" },
+                { value: "area", label: "Areas", color: "text-[var(--accent)]" },
+                { value: "resource", label: "Resources", color: "text-[var(--success)]" },
+                { value: "archive", label: "Archives", color: "text-[var(--text-quiet)]" },
+              ].map((cat) => {
+                const count = knowledge.filter((k) => k.category === cat.value).length;
+                return (
+                  <Card
+                    key={cat.value}
+                    className={`stat-card cursor-pointer transition-all ${knowledgeFilter === cat.value ? "ring-2 ring-primary" : ""}`}
+                    onClick={() => setKnowledgeFilter(knowledgeFilter === cat.value ? "all" : cat.value)}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <div className="text-lg font-bold">{count}</div>
+                      <div className={`text-[10px] uppercase tracking-wider ${cat.color}`}>{cat.label}</div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Today's Daily Note */}
+            {dailyNotes.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
+                    <Calendar className="h-4 w-4 text-[var(--success)]" />
+                  </div>
+                  <h2 className="section-title">
+                    {dailyNotes[0].sync_type === "full_sync" ? "Daily Team Sync" : "Daily Note"} — {dailyNotes[0].date}
+                  </h2>
+                </div>
+                <Card className={`stat-card border-l-4 ${dailyNotes[0].sync_type === "full_sync" ? "border-l-[var(--accent)]" : "border-l-emerald-500"}`}>
+                  <CardContent className="p-5 space-y-4">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">A. Executive Summary</h3>
+                      <p className="text-sm">{dailyNotes[0].summary}</p>
+                    </div>
+                    {dailyNotes[0].sync_type === "full_sync" && dailyNotes[0].agent_updates && dailyNotes[0].agent_updates.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">B. Agent / Department Updates</h3>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {dailyNotes[0].agent_updates.map((agent: any) => (
+                            <div key={agent.agent_id} className="rounded-md border p-3 bg-background/50">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">{agent.emoji}</span>
+                                <span className="text-sm font-semibold">{agent.name}</span>
+                                <Badge variant="outline" className="ml-auto text-[10px]">{agent.utilization}</Badge>
+                              </div>
+                              <div className="space-y-1 text-xs text-muted-foreground">
+                                <p>✅ Completed: {agent.workload.completed}</p>
+                                <p>🚧 Active: {agent.workload.in_progress + agent.workload.in_review}</p>
+                                {agent.blockers.length > 0 && <p className="text-[var(--danger)]">⚠️ Blockers: {agent.blockers.length}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {dailyNotes[0].sync_type === "full_sync" && dailyNotes[0].cross_team_summary && (
+                      <div className="rounded-md border p-3 bg-background/50">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">C. Cross-Team Coordination</h3>
+                        <div className="grid grid-cols-3 gap-2 text-center mb-2">
+                          <div className="rounded bg-muted/50 p-2">
+                            <p className="text-lg font-bold text-[var(--danger)]">{dailyNotes[0].cross_team_summary.total_blockers}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase">Blockers</p>
+                          </div>
+                          <div className="rounded bg-muted/50 p-2">
+                            <p className="text-lg font-bold text-[var(--info)]">{dailyNotes[0].cross_team_summary.total_in_review}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase">In Review</p>
+                          </div>
+                          <div className="rounded bg-muted/50 p-2">
+                            <p className="text-lg font-bold text-[var(--warning)]">{dailyNotes[0].cross_team_summary.unassigned_open}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase">Unassigned</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {dailyNotes[0].issues_list && dailyNotes[0].issues_list.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">D. Issues Faced</h3>
+                        {dailyNotes[0].issues_list.map((issue: string, i: number) => (
+                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1">
+                            <AlertTriangle className="h-3 w-3 text-[var(--danger)] mt-0.5 shrink-0" /> {issue}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">E. Tomorrow's Priorities</h3>
+                        {(dailyNotes[0].priorities_tomorrow || []).map((p: string, i: number) => (
+                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <ChevronRight className="h-3 w-3 text-violet-500 mt-0.5 shrink-0" /> {p}
+                          </p>
+                        ))}
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">F. Decisions</h3>
+                        {(dailyNotes[0].yas_decisions || dailyNotes[0].decisions || []).map((d: string, i: number) => (
+                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <CheckCircle2 className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" /> {d}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground pt-2 border-t flex justify-between">
+                      <span>{dailyNotes[0].events_reviewed} events reviewed</span>
+                      <span>Updated {timeAgo(dailyNotes[0].updated_at)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </section>
+            )}
+
+            {/* Previous Daily Notes */}
+            {dailyNotes.length > 1 && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <h2 className="section-title">Previous Days</h2>
+                </div>
+                <div className="space-y-3">
+                  {dailyNotes.slice(1, 8).map((note) => (
+                    <Card key={note.id} className="stat-card">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold">{note.date}</span>
+                              <Badge variant="outline" className="text-[10px]">{note.events_reviewed} events</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-2">{note.summary}</p>
+                          </div>
+                        </div>
+                        {note.decisions.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {note.decisions.slice(0, 3).map((d, i) => (
+                              <Badge key={i} variant="outline" className="text-[10px] truncate max-w-[200px]">{d}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Knowledge Entries */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
+                  <BookOpen className="h-4 w-4 text-[var(--info)]" />
+                </div>
+                <h2 className="section-title">Knowledge Base</h2>
+                <Badge className="bg-[rgba(59,130,246,0.12)] text-[var(--info)] text-xs">{knowledge.length}</Badge>
+              </div>
+              {knowledge.length === 0 ? (
+                <Card className="stat-card">
+                  <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                    No knowledge entries found
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {knowledge.map((entry) => (
+                    <Card key={entry.id} className="stat-card">
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-start justify-between">
+                          <p className="text-sm font-semibold">{entry.title}</p>
+                          <Badge variant="outline" className="text-[10px] shrink-0 ml-2">{entry.category}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-3">{entry.content}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {entry.tags.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
+                          ))}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {entry.source} · {timeAgo(entry.updated_at)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
 

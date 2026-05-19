@@ -21,17 +21,40 @@ export interface Goal {
   updated_at: string;
 }
 
+export type TaskStatus =
+  | "pending"
+  | "dispatched"
+  | "in-progress"
+  | "submitted"
+  | "in-review"
+  | "approved"
+  | "blocked"
+  | "rework"
+  | "done";
+
+export type TaskReviewStatus = "pending" | "submitted" | "in_review" | "approved" | "rejected" | "returned_for_rework";
+
 export interface Task {
   id: string;
   title: string;
   description: string;
-  status: "pending" | "in-progress" | "blocked" | "in-review" | "done";
+  status: TaskStatus;
   priority: "high" | "medium" | "low";
   assigned_agent_id: string | null;
+  owner_agent_id?: string | null;
+  handled_by_agent_id?: string | null;
   project_id: string | null;
   goal_id: string | null;
   blocker: string | null;
   owner: string;
+  review_status?: TaskReviewStatus;
+  review_notes?: string;
+  reviewed_by?: string | null;
+  requires_yas_approval?: boolean;
+  dispatch_notes?: string;
+  dispatched_at?: string | null;
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
@@ -457,5 +480,9 @@ export interface TaskReview {
   outcome: ReviewOutcome;
   notes: string;
   reviewed_by: string;
+  review_stage?: "worker_submission" | "orchestrator" | "yas";
+  evidence?: string;
+  risk_notes?: string;
+  action_required?: string;
   created_at: string;
 }

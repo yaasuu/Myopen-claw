@@ -105,7 +105,7 @@ export async function getAgents(): Promise<{ data: Agent[]; error: string | null
           created_at: new Date().toISOString(),
         },
         {
-          id: "mock-7",
+          id: "mock-8",
           name: "Executive Finance Agent",
           short_id: "executive-finance",
           emoji: "💰",

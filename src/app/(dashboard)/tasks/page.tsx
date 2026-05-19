@@ -80,15 +80,19 @@ import { getTaskComments, addTaskComment } from "@/lib/data/comments";
 import { getTaskReviews, submitReview } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { TaskWithAgent, Agent, TaskComment, Goal } from "@/types/dashboard";
+import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
 
 const statusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
+  dispatched: "bg-[rgba(14,165,233,0.08)] text-sky-600 border-sky-200",
   "in-progress": "bg-[rgba(59,130,246,0.08)] text-[var(--info)] border-blue-200",
-  blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
+  submitted: "bg-[rgba(245,158,11,0.08)] text-amber-700 border-amber-200",
   "in-review": "bg-[rgba(139,92,246,0.08)] text-violet-600 border-violet-200",
-  done: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
+  approved: "bg-[rgba(16,185,129,0.08)] text-emerald-700 border-emerald-200",
+  blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
+  rework: "bg-[rgba(249,115,22,0.08)] text-orange-700 border-orange-200",
+  done: "bg-[rgba(5,150,105,0.08)] text-[var(--success)] border-emerald-300",
 };
 
 const priorityColors: Record<string, { text: string; dot: string }> = {
@@ -97,15 +101,19 @@ const priorityColors: Record<string, { text: string; dot: string }> = {
   low: { text: "text-[var(--text-quiet)]", dot: "bg-gray-400" },
 };
 
-const STATUSES: TaskWithAgent["status"][] = ["pending", "in-progress", "blocked", "in-review", "done"];
-const BOARD_COLUMNS: TaskWithAgent["status"][] = ["pending", "in-progress", "in-review", "done"];
+const STATUSES: TaskStatus[] = ["pending", "dispatched", "in-progress", "submitted", "in-review", "approved", "blocked", "rework", "done"];
+const BOARD_COLUMNS: TaskStatus[] = ["pending", "dispatched", "in-progress", "submitted", "in-review", "approved", "done"];
 
 // Transition rules: from → allowed to
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  pending: ["in-progress"],
-  "in-progress": ["blocked", "in-review"],
-  blocked: ["in-progress"],
-  "in-review": ["done", "in-progress", "blocked"],
+  pending: ["dispatched", "blocked"],
+  dispatched: ["in-progress", "blocked"],
+  "in-progress": ["submitted", "blocked"],
+  submitted: ["in-review", "rework", "blocked"],
+  "in-review": ["approved", "rework", "blocked"],
+  approved: ["done"],
+  blocked: ["pending", "dispatched", "in-progress"],
+  rework: ["in-progress", "submitted", "blocked"],
   done: [],
 };
 
@@ -272,7 +280,13 @@ export default function TasksPage() {
 
   async function handleReview(outcome: "approved" | "rejected" | "returned_for_rework") {
     if (!sidePanelTask) return;
-    const notes = prompt(outcome === "approved" ? "Approval notes (optional):" : "Rejection reason:");
+    const notes = prompt(
+      outcome === "approved"
+        ? "Orchestrator approval notes (optional):"
+        : outcome === "returned_for_rework"
+          ? "Why is this being returned for rework?"
+          : "Why is this rejected?"
+    );
     if (notes === null) return; // cancelled
     const result = await submitReview(sidePanelTask.id, outcome, notes);
     if (result.data) {
@@ -1227,7 +1241,12 @@ export default function TasksPage() {
                     <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Status</p>
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                       sidePanelTask.status === "done" ? "bg-emerald-100 text-emerald-700" :
+                      sidePanelTask.status === "approved" ? "bg-green-100 text-green-700" :
+                      sidePanelTask.status === "in-review" ? "bg-violet-100 text-violet-700" :
+                      sidePanelTask.status === "submitted" ? "bg-amber-100 text-amber-700" :
+                      sidePanelTask.status === "dispatched" ? "bg-sky-100 text-sky-700" :
                       sidePanelTask.status === "in-progress" ? "bg-blue-100 text-blue-700" :
+                      sidePanelTask.status === "rework" ? "bg-orange-100 text-orange-700" :
                       sidePanelTask.status === "blocked" ? "bg-red-100 text-red-700" :
                       "bg-[var(--surface-muted)] text-[var(--text-muted)]"
                     }`}>
@@ -1283,7 +1302,7 @@ export default function TasksPage() {
               {/* Review actions (only for in-review tasks) */}
               {canWrite && sidePanelTask?.status === "in-review" && (
                 <div className="pt-3 border-t space-y-2" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Review Decision</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Orchestrator Review</p>
                   <div className="flex gap-2">
                     <button
                       className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-emerald-300 hover:bg-emerald-50"

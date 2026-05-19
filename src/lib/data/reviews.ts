@@ -35,7 +35,7 @@ export async function submitReview(
   taskId: string,
   outcome: ReviewOutcome,
   notes: string = "",
-  reviewedBy: string = "Yas"
+  reviewedBy: string = "Hermes Orchestrator"
 ): Promise<{ data: TaskReview | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
@@ -57,25 +57,42 @@ export async function submitReview(
   const review = data as TaskReview;
 
   // Update task status based on outcome
-  const statusMap: Record<ReviewOutcome, string> = {
-    approved: "done",
-    rejected: "in-progress",
-    returned_for_rework: "in-progress",
+  const statusMap: Record<ReviewOutcome, "approved" | "blocked" | "rework"> = {
+    approved: "approved",
+    rejected: "blocked",
+    returned_for_rework: "rework",
   };
 
-  await updateTaskStatus(taskId, statusMap[outcome] as any);
+  const taskUpdate = await updateTaskStatus(taskId, statusMap[outcome]);
+  if (taskUpdate.error) return { data: null, error: taskUpdate.error };
+
+  await supabase
+    .from("tasks")
+    .update({
+      reviewed_by: reviewedBy,
+      review_notes: notes,
+      review_status:
+        outcome === "approved"
+          ? "approved"
+          : outcome === "rejected"
+            ? "rejected"
+            : "returned_for_rework",
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId);
 
   // Log feed event
-  const eventMap: Record<ReviewOutcome, string> = {
-    approved: "Task approved and marked done",
-    rejected: "Task rejected — needs rework",
-    returned_for_rework: "Task returned for rework",
+  const eventMap: Record<ReviewOutcome, { event_type: "task_updated" | "task_returned_for_rework"; summary: string }> = {
+    approved: { event_type: "task_updated", summary: "Task approved by orchestrator" },
+    rejected: { event_type: "task_updated", summary: "Task rejected by orchestrator" },
+    returned_for_rework: { event_type: "task_returned_for_rework", summary: "Task returned for rework by orchestrator" },
   };
 
   await logFeedEvent({
-    event_type: outcome === "approved" ? "task_completed" : "task_updated",
+    event_type: eventMap[outcome].event_type,
     source: reviewedBy,
-    summary: `${eventMap[outcome]}: ${notes || "No notes"}`,
+    summary: `${eventMap[outcome].summary}: ${notes || "No notes"}`,
     related_task_id: taskId,
   });
 

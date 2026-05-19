@@ -12,6 +12,7 @@ import { Loader2, AlertTriangle, RefreshCw, ChevronDown, ChevronRight } from "lu
 import { getAgents } from "@/lib/data/agents";
 import { getDepartments } from "@/lib/data/departments";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
+import { buildOrgStructure, getDepartmentShortId } from "@/lib/org-structure";
 import type { Agent, Department } from "@/types/dashboard";
 
 export default function OrgChartPage() {
@@ -49,30 +50,7 @@ export default function OrgChartPage() {
     });
   };
 
-  // Map agents to departments
-  const deptAgents = new Map<string, Agent[]>();
-  for (const dept of departments) {
-    const keyword = dept.name.toLowerCase().split("-")[0];
-    deptAgents.set(
-      dept.id,
-      agents.filter((a) => {
-        if (a.short_id === "research-agent") return false; // Research Agent goes under Yas Claw
-        return a.domain.toLowerCase().includes(keyword) ||
-          a.name.toLowerCase().includes(keyword) ||
-          (a.short_id === "ui-ux-designer" && dept.short_id === "architecture-systems") ||
-          (a.short_id === "data-analyst" && dept.short_id === "ops-improvement");
-      })
-    );
-  }
-
-  // Direct agents under Yas Claw
-  const directAgentShortIds = ["research-agent", "executive-finance", "qa-agent"];
-  const directAgents = agents.filter((a) => directAgentShortIds.includes(a.short_id));
-
-  // Unassigned agents (excluding direct agents)
-  const assignedIds = new Set([...deptAgents.values()].flat().map((a) => a.id));
-  directAgents.forEach((a) => assignedIds.add(a.id));
-  const unassigned = agents.filter((a) => !assignedIds.has(a.id));
+  const { directAgents, departmentAgents: deptAgents, unassignedAgents: unassigned } = buildOrgStructure(agents, departments);
 
   if (loading) {
     return (
@@ -159,7 +137,7 @@ export default function OrgChartPage() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {departments.map((dept) => {
           const deptAgentList = deptAgents.get(dept.id) ?? [];
-          const isExpanded = expanded.has(dept.short_id);
+          const isExpanded = expanded.has(getDepartmentShortId(dept));
 
           return (
             <div key={dept.id} className="space-y-0">
@@ -171,7 +149,7 @@ export default function OrgChartPage() {
               {/* Department card */}
               <div
                 className="surface-card p-4 cursor-pointer"
-                onClick={() => toggleExpand(dept.short_id)}
+                onClick={() => toggleExpand(getDepartmentShortId(dept))}
               >
                 <div className="flex items-center gap-3">
                   <div className="text-2xl">{dept.emoji}</div>

@@ -24,6 +24,9 @@ export async function POST(request: Request) {
         assigned_agent_id: body.assigned_agent_id ?? null,
         goal_id: body.goal_id ?? null,
         owner: body.owner ?? "Yas",
+        review_status: body.review_status ?? "pending",
+        requires_yas_approval: body.requires_yas_approval ?? false,
+        dispatch_notes: body.dispatch_notes ?? "",
       })
       .select()
       .single();
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
     // Log feed event
     await supabase.from("feed_events").insert({
       event_type: "task_created",
-      source: "Yas Claw",
+      source: "Hermes Orchestrator",
       summary: `New task '${data.title}' created`,
       related_task_id: data.id,
       related_agent_id: data.assigned_agent_id,
@@ -54,9 +57,28 @@ export async function POST(request: Request) {
 
   // Update task status
   if (body.action === "update_task_status") {
+    const reviewStatusMap: Record<string, string> = {
+      pending: "pending",
+      dispatched: "pending",
+      "in-progress": "pending",
+      submitted: "submitted",
+      "in-review": "in_review",
+      approved: "approved",
+      rework: "returned_for_rework",
+    };
+
+    const updatePayload: Record<string, unknown> = {
+      status: body.status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (reviewStatusMap[body.status]) updatePayload.review_status = reviewStatusMap[body.status];
+    if (body.status === "submitted") updatePayload.submitted_at = new Date().toISOString();
+    if (["in-review", "approved", "rework"].includes(body.status)) updatePayload.reviewed_at = new Date().toISOString();
+
     const { data, error } = await supabase
       .from("tasks")
-      .update({ status: body.status, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq("id", body.task_id)
       .select()
       .single();
@@ -64,7 +86,12 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
     const eventMap: Record<string, string> = {
+      dispatched: "agent_routed",
       "in-progress": "task_updated",
+      submitted: "task_updated",
+      "in-review": "task_updated",
+      approved: "task_updated",
+      rework: "task_returned_for_rework",
       done: "task_completed",
       blocked: "blocker_detected",
       pending: "task_updated",
@@ -72,16 +99,22 @@ export async function POST(request: Request) {
 
     await supabase.from("feed_events").insert({
       event_type: eventMap[body.status] ?? "task_updated",
-      source: "Yas Claw",
+      source: "Hermes Orchestrator",
       summary: `Task '${data.title}' → ${body.status}`,
       related_task_id: data.id,
       related_agent_id: data.assigned_agent_id,
     });
 
-    // Create notification for status changes
-    const notifSeverity = body.status === "blocked" ? "critical" : body.status === "done" ? "info" : "info";
+    const notifSeverity = body.status === "blocked" ? "critical" : "info";
     await supabase.from("notifications").insert({
-      type: body.status === "blocked" ? "blocker_detected" : body.status === "done" ? "task_completed" : "task_reassigned",
+      type:
+        body.status === "blocked"
+          ? "blocker_detected"
+          : body.status === "done"
+            ? "task_completed"
+            : body.status === "approved"
+              ? "task_completed"
+              : "task_reassigned",
       severity: notifSeverity,
       title: `Task ${body.status}: ${data.title}`,
       message: `Status changed to ${body.status}${body.status === "blocked" && data.blocker ? ` — ${data.blocker}` : ""}`,
@@ -98,7 +131,7 @@ export async function POST(request: Request) {
       .from("feed_events")
       .insert({
         event_type: body.event_type,
-        source: body.source ?? "Yas Claw",
+        source: body.source ?? "Hermes Orchestrator",
         summary: body.summary,
         related_task_id: body.related_task_id ?? null,
         related_agent_id: body.related_agent_id ?? null,
@@ -228,7 +261,7 @@ export async function POST(request: Request) {
       .from("feed_events")
       .insert({
         event_type: body.event_type,
-        source: body.source ?? "Yas Claw",
+        source: body.source ?? "Hermes Orchestrator",
         summary: body.summary,
         related_task_id: body.related_task_id ?? null,
         related_agent_id: body.related_agent_id ?? null,
