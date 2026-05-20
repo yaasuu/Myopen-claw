@@ -828,25 +828,37 @@ export default function TasksPage() {
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
             {BOARD_COLUMNS.map((status) => {
               const columnTasks = filtered.filter((t) => t.status === status);
-              const dotColor: Record<string, string> = {
+              const dotColor: Record<TaskStatus, string> = {
                 pending: "dot-gray",
+                dispatched: "dot-blue",
                 "in-progress": "dot-blue",
-                blocked: "dot-red",
+                submitted: "dot-amber",
                 "in-review": "bg-violet-500",
+                approved: "dot-green",
+                blocked: "dot-red",
+                rework: "dot-amber",
                 done: "dot-green",
               };
-              const statusLabel: Record<string, string> = {
+              const statusLabel: Record<TaskStatus, string> = {
                 pending: "Pending",
+                dispatched: "Dispatched",
                 "in-progress": "In Progress",
-                blocked: "Blocked",
+                submitted: "Submitted",
                 "in-review": "In Review",
+                approved: "Approved",
+                blocked: "Blocked",
+                rework: "Rework",
                 done: "Done",
               };
-              const laneAccent: Record<string, string> = {
+              const laneAccent: Record<TaskStatus, string> = {
                 pending: "rgba(148, 163, 184, 0.06)",
+                dispatched: "rgba(14, 165, 233, 0.04)",
                 "in-progress": "rgba(59, 130, 246, 0.04)",
-                blocked: "rgba(220, 38, 38, 0.04)",
+                submitted: "rgba(245, 158, 11, 0.04)",
                 "in-review": "rgba(139, 92, 246, 0.04)",
+                approved: "rgba(22, 163, 74, 0.04)",
+                blocked: "rgba(220, 38, 38, 0.04)",
+                rework: "rgba(249, 115, 22, 0.04)",
                 done: "rgba(22, 163, 74, 0.04)",
               };
 

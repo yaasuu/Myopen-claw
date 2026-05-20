@@ -287,7 +287,7 @@ export const APPROVAL_LABELS: Record<ApprovalType, string> = {
   skill_installation: "Skill Installation",
 };
 
-export async function getApprovals(status?: ApprovalStatus): Promise<Approval[]> {
+export async function getApprovals(status?: ApprovalStatus | 'all'): Promise<Approval[]> {
   try {
     const params = new URLSearchParams()
     if (status && status !== 'all') params.set('status', status)
