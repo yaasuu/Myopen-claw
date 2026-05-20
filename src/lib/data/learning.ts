@@ -137,12 +137,16 @@ export async function getSkillRequests(): Promise<SkillRequest[]> {
 }
 
 export async function getLessons(status?: string): Promise<Lesson[]> {
-  const supabase = getSupabase();
-  if (!supabase) return [];
-  let query = supabase.from("lessons").select("*").order("date_detected", { ascending: false });
-  if (status) query = query.eq("status", status);
-  const { data } = await query;
-  return data || [];
+  try {
+    const params = new URLSearchParams()
+    if (status && status !== 'all') params.set('status', status)
+    const res = await fetch(`/api/lessons?${params.toString()}`)
+    if (!res.ok) return []
+    const body = await res.json()
+    return body.data || []
+  } catch {
+    return []
+  }
 }
 
 export async function updateLessonStatus(id: string, status: Lesson["status"], approved_by?: string): Promise<boolean> {
@@ -284,12 +288,16 @@ export const APPROVAL_LABELS: Record<ApprovalType, string> = {
 };
 
 export async function getApprovals(status?: ApprovalStatus): Promise<Approval[]> {
-  const supabase = getSupabase();
-  if (!supabase) return [];
-  let query = supabase.from("approvals").select("*").order("created_at", { ascending: false });
-  if (status) query = query.eq("status", status);
-  const { data } = await query;
-  return (data || []).map((r: any) => ({ ...r, payload: r.payload ?? {} }));
+  try {
+    const params = new URLSearchParams()
+    if (status && status !== 'all') params.set('status', status)
+    const res = await fetch(`/api/approvals?${params.toString()}`)
+    if (!res.ok) return []
+    const body = await res.json()
+    return (body.data || []).map((r: any) => ({ ...r, payload: r.payload ?? {} }))
+  } catch {
+    return []
+  }
 }
 
 export async function createApproval(input: {

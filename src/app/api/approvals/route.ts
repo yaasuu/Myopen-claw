@@ -81,3 +81,24 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
+
+// GET /api/approvals — list approvals (bypasses RLS via service role)
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const status = searchParams.get('status') || undefined
+
+    const supabase = getSupabaseAdmin()
+    let query = supabase.from('approvals').select('*').order('created_at', { ascending: false })
+    if (status && status !== 'all') query = query.eq('status', status)
+    const { data, error } = await query
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json({ data: data || [] })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
