@@ -1,21 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/server'
 
-// GET /api/lessons — list lessons (bypasses RLS via service role)
-export async function GET(req: NextRequest) {
+// POST /api/lessons — create a new lesson
+export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') || undefined
+    const body = await req.json()
+    const { title, lesson_statement, pattern, affected_agents, proposed_fix, confidence, source_type, pattern_type, proposed_fix_type } = body
+
+    if (!title) {
+      return NextResponse.json({ error: 'Missing title' }, { status: 400 })
+    }
 
     const supabase = getSupabaseAdmin()
-    let query = supabase.from('lessons').select('*').order('date_detected', { ascending: false })
-    if (status && status !== 'all') query = query.eq('status', status)
-    const { data, error } = await query
+
+    const { data, error } = await supabase
+      .from('lessons')
+      .insert({
+        title,
+        lesson_statement: lesson_statement || '',
+        pattern: pattern || '',
+        affected_agents: affected_agents || [],
+        proposed_fix: proposed_fix || '',
+        confidence: confidence || 'medium',
+        source_type: source_type || 'manual',
+        pattern_type: pattern_type || 'observation',
+        proposed_fix_type: proposed_fix_type || 'process_change',
+        status: 'pending',
+        date_detected: new Date().toISOString(),
+      })
+      .select()
+      .single()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-    return NextResponse.json({ data: data || [] })
+
+    return NextResponse.json({ data })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -64,41 +84,20 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// POST /api/lessons — create a new lesson
-export async function POST(req: NextRequest) {
+// GET /api/lessons — list lessons (bypasses RLS via service role)
+export async function GET() {
   try {
-    const body = await req.json()
-    const { title, lesson_statement, pattern, affected_agents, proposed_fix, confidence, source_type, pattern_type, proposed_fix_type } = body
-
-    if (!title) {
-      return NextResponse.json({ error: 'Missing title' }, { status: 400 })
-    }
-
     const supabase = getSupabaseAdmin()
 
     const { data, error } = await supabase
       .from('lessons')
-      .insert({
-        title,
-        lesson_statement: lesson_statement || '',
-        pattern: pattern || '',
-        affected_agents: affected_agents || [],
-        proposed_fix: proposed_fix || '',
-        confidence: confidence || 'medium',
-        source_type: source_type || 'manual',
-        pattern_type: pattern_type || 'observation',
-        proposed_fix_type: proposed_fix_type || 'process_change',
-        status: 'pending',
-        date_detected: new Date().toISOString(),
-      })
-      .select()
-      .single()
+      .select('*')
+      .order('date_detected', { ascending: false })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: data || [] })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     return NextResponse.json({ error: msg }, { status: 500 })
