@@ -184,7 +184,7 @@ export default function PortfolioPage() {
     setReviewExpanded(true);
     await logFeedEvent({
       event_type: "portfolio_review_run",
-      source: "Yas Claw",
+      source: "Hermes Orchestrator",
       summary: `Portfolio review: ${r.topRisks.length} risks, ${r.bottlenecks.length} bottlenecks`,
     });
     setRunningReview(false);
@@ -426,6 +426,7 @@ export default function PortfolioPage() {
                     <th className="px-4 py-3 text-left font-semibold">Priority</th>
                     <th className="px-4 py-3 text-left font-semibold">Department</th>
                     <th className="px-4 py-3 text-center font-semibold">Tasks</th>
+                    <th className="px-4 py-3 text-center font-semibold">Reviews</th>
                     <th className="px-4 py-3 text-center font-semibold">Health</th>
                     <th className="px-4 py-3 text-left font-semibold">Progress</th>
                   </tr>
@@ -433,7 +434,7 @@ export default function PortfolioPage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      <td colSpan={8} className="px-4 py-12 text-center text-sm text-muted-foreground">
                         {projects.length === 0
                           ? "No projects yet — create one to get started"
                           : "No projects match the current filters"}
@@ -478,6 +479,12 @@ export default function PortfolioPage() {
                                 {project.open_tasks}
                               </span>
                               <span
+                                className={project.submitted_tasks > 0 ? "text-[var(--warning)] font-medium" : "text-muted-foreground"}
+                                title="Submitted / In review"
+                              >
+                                {project.submitted_tasks}
+                              </span>
+                              <span
                                 className={project.blocked_tasks > 0 ? "text-[var(--danger)] font-medium" : "text-muted-foreground"}
                                 title="Blocked"
                               >
@@ -485,9 +492,17 @@ export default function PortfolioPage() {
                               </span>
                               <span
                                 className="text-[var(--success)] font-medium"
-                                title="Done"
+                                title="Approved / Done"
                               >
                                 {project.completed_tasks}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col items-center justify-center gap-0.5 text-xs">
+                              <span className="font-medium">{project.review_count}</span>
+                              <span className="text-muted-foreground">
+                                {project.last_review_at ? new Date(project.last_review_at).toLocaleDateString() : "none"}
                               </span>
                             </div>
                           </td>

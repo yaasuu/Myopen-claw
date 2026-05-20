@@ -376,6 +376,10 @@ export interface ProjectWithStats extends Project {
   open_tasks: number;
   blocked_tasks: number;
   completed_tasks: number;
+  submitted_tasks: number;
+  approved_tasks: number;
+  review_count: number;
+  last_review_at: string | null;
 }
 
 export type MilestoneStatus = "pending" | "in_progress" | "done" | "missed";

@@ -80,7 +80,12 @@ const statusColors: Record<string, string> = {
 
 const taskStatusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
+  dispatched: "bg-[rgba(14,165,233,0.08)] text-sky-600 border-sky-200",
   "in-progress": "bg-[rgba(59,130,246,0.08)] text-[var(--info)] border-blue-200",
+  submitted: "bg-[rgba(245,158,11,0.08)] text-[var(--warning)] border-amber-200",
+  "in-review": "bg-[rgba(139,92,246,0.08)] text-[var(--accent)] border-violet-200",
+  approved: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
+  rework: "bg-[rgba(249,115,22,0.08)] text-orange-700 border-orange-200",
   blocked: "bg-[rgba(239,68,68,0.08)] text-[var(--danger)] border-red-200",
   done: "bg-[rgba(16,185,129,0.08)] text-[var(--success)] border-emerald-200",
 };
@@ -173,7 +178,7 @@ export default function ProjectDetailPage() {
         }
 
         // Recalculate health with milestones
-        setHealth(calculateProjectHealth(result.data, result.tasks, msResult.data));
+        setHealth(calculateProjectHealth(result.data, result.tasks, msResult.data, rvResult.data));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -232,7 +237,9 @@ export default function ProjectDetailPage() {
 
   const openTasks = tasks.filter((t) => t.status !== "done");
   const blockedTasks = tasks.filter((t) => t.status === "blocked");
-  const completedTasks = tasks.filter((t) => t.status === "done");
+  const reviewQueueTasks = tasks.filter((t) => t.status === "submitted" || t.status === "in-review");
+  const approvedTasks = tasks.filter((t) => t.status === "approved");
+  const completedTasks = tasks.filter((t) => t.status === "done" || t.status === "approved");
 
   return (
     <PageShell title={`${project.project_code} — ${project.title}`} description="Project brief and execution tracking">
@@ -298,7 +305,7 @@ export default function ProjectDetailPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-5">
         <Card className="stat-card"><CardContent className="p-5">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Open Tasks</p>
           <div className="text-2xl font-bold">{openTasks.length}</div>
@@ -308,12 +315,16 @@ export default function ProjectDetailPage() {
           <div className={`text-2xl font-bold ${blockedTasks.length > 0 ? "text-[var(--danger)]" : ""}`}>{blockedTasks.length}</div>
         </CardContent></Card>
         <Card className="stat-card"><CardContent className="p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Completed</p>
-          <div className="text-2xl font-bold text-[var(--success)]">{completedTasks.length}</div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">In Review</p>
+          <div className={`text-2xl font-bold ${reviewQueueTasks.length > 0 ? "text-[var(--warning)]" : ""}`}>{reviewQueueTasks.length}</div>
         </CardContent></Card>
         <Card className="stat-card"><CardContent className="p-5">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total</p>
-          <div className="text-2xl font-bold">{tasks.length}</div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Approved</p>
+          <div className="text-2xl font-bold text-[var(--success)]">{approvedTasks.length}</div>
+        </CardContent></Card>
+        <Card className="stat-card"><CardContent className="p-5">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Completed</p>
+          <div className="text-2xl font-bold text-[var(--success)]">{completedTasks.length}</div>
         </CardContent></Card>
       </div>
 

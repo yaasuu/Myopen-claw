@@ -18,25 +18,51 @@ import type {
 export function calculateProjectHealth(
   project: Project,
   tasks: TaskWithAgent[],
-  milestones: ProjectMilestone[]
+  milestones: ProjectMilestone[],
+  reviews: ProjectReview[] = []
 ): ProjectHealthScore {
   let score = 100;
   const factors: ProjectHealthScore["factors"] = [];
 
-  // Task completion ratio
+  // Task execution quality
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.status === "done").length;
+  const approvedTasks = tasks.filter((t) => t.status === "approved").length;
+  const submittedTasks = tasks.filter((t) => t.status === "submitted" || t.status === "in-review").length;
   const blockedTasks = tasks.filter((t) => t.status === "blocked").length;
-  const completionRatio = totalTasks > 0 ? completedTasks / totalTasks : 1;
+  const executionScore = totalTasks > 0
+    ? tasks.reduce((sum, task) => {
+        const weights: Record<string, number> = {
+          done: 1,
+          approved: 0.9,
+          "in-review": 0.75,
+          submitted: 0.65,
+          "in-progress": 0.45,
+          dispatched: 0.25,
+          pending: 0.15,
+          rework: 0.1,
+          blocked: 0,
+        };
+        return sum + (weights[task.status] ?? 0);
+      }, 0) / totalTasks
+    : 1;
 
-  if (completionRatio >= 0.75) {
-    factors.push({ label: "Task completion", impact: `${Math.round(completionRatio * 100)}% complete`, severity: "good" });
-  } else if (completionRatio >= 0.4) {
-    factors.push({ label: "Task completion", impact: `${Math.round(completionRatio * 100)}% complete`, severity: "warn" });
+  if (executionScore >= 0.75) {
+    factors.push({ label: "Execution", impact: `${Math.round(executionScore * 100)}% workflow progress`, severity: "good" });
+  } else if (executionScore >= 0.4) {
+    factors.push({ label: "Execution", impact: `${Math.round(executionScore * 100)}% workflow progress`, severity: "warn" });
     score -= 15;
   } else {
-    factors.push({ label: "Task completion", impact: `Only ${Math.round(completionRatio * 100)}% complete`, severity: "bad" });
+    factors.push({ label: "Execution", impact: `Only ${Math.round(executionScore * 100)}% workflow progress`, severity: "bad" });
     score -= 30;
+  }
+
+  if (submittedTasks > 0 || approvedTasks > 0) {
+    factors.push({
+      label: "Review flow",
+      impact: `${submittedTasks} submitted · ${approvedTasks} approved`,
+      severity: approvedTasks > 0 ? "good" : submittedTasks > 0 ? "warn" : "good",
+    });
   }
 
   // Blocked tasks
@@ -86,6 +112,32 @@ export function calculateProjectHealth(
     }
   }
 
+  // Review freshness
+  const latestReview = reviews[0] ?? null;
+  if (project.status === "active") {
+    if (!latestReview) {
+      factors.push({ label: "Governance", impact: "No project review logged yet", severity: "warn" });
+      score -= 8;
+    } else {
+      const reviewAgeHours = (now.getTime() - new Date(latestReview.created_at).getTime()) / 3600000;
+      const reviewBlockers = latestReview.blockers?.length ?? 0;
+      if (reviewBlockers > 0) {
+        factors.push({ label: "Latest review", impact: `${reviewBlockers} blocker(s) flagged`, severity: reviewBlockers >= 2 ? "bad" : "warn" });
+        score -= reviewBlockers >= 2 ? 12 : 6;
+      } else if (reviewAgeHours <= 168) {
+        factors.push({ label: "Latest review", impact: "Recent review with no blockers", severity: "good" });
+      }
+
+      if (reviewAgeHours > 336) {
+        factors.push({ label: "Review freshness", impact: `No review for ${Math.round(reviewAgeHours / 24)} days`, severity: "bad" });
+        score -= 10;
+      } else if (reviewAgeHours > 168) {
+        factors.push({ label: "Review freshness", impact: `Last review ${Math.round(reviewAgeHours / 24)} days ago`, severity: "warn" });
+        score -= 4;
+      }
+    }
+  }
+
   // Inactivity
   const lastUpdate = new Date(project.updated_at);
   const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / 3600000;
@@ -98,7 +150,7 @@ export function calculateProjectHealth(
   }
 
   // Progress alignment
-  const expectedProgress = completionRatio * 100;
+  const expectedProgress = executionScore * 100;
   const progressGap = project.progress - expectedProgress;
   if (progressGap < -20) {
     factors.push({ label: "Progress tracking", impact: "Reported progress behind actual completion", severity: "warn" });
@@ -113,7 +165,7 @@ export function calculateProjectHealth(
   else if (score >= 25) status = "at_risk";
   else status = "critical";
 
-  const escalationNeeded = status === "critical" || missedMilestones.length > 0 || (blockedTasks >= 3 && completionRatio < 0.3);
+  const escalationNeeded = status === "critical" || missedMilestones.length > 0 || (blockedTasks >= 3 && executionScore < 0.3);
   const escalationReason = escalationNeeded
     ? (status === "critical" ? "Project health is critical" :
        missedMilestones.length > 0 ? `${missedMilestones.length} milestone(s) missed` :
@@ -248,8 +300,8 @@ export async function createProjectReview(input: {
 
   await logFeedEvent({
     event_type: "governance_weekly_run",
-    source: "system",
-    summary: `${input.reviewType} review generated for project`,
+    source: "Hermes Orchestrator",
+    summary: `${input.reviewType} review generated for project ${input.projectId}`,
   });
 
   return { data: data as ProjectReview, error: null };

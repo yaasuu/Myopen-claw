@@ -54,6 +54,10 @@ const MOCK_PROJECTS: Project[] = [
   },
 ];
 
+function isProjectCompletedTask(status: string): boolean {
+  return status === "done" || status === "approved";
+}
+
 // ── CRUD ─────────────────────────────────────────────
 
 export async function getProjects(): Promise<{ data: ProjectWithStats[]; error: string | null }> {
@@ -65,28 +69,39 @@ export async function getProjects(): Promise<{ data: ProjectWithStats[]; error: 
         open_tasks: Math.floor(Math.random() * 5) + 1,
         blocked_tasks: Math.floor(Math.random() * 2),
         completed_tasks: Math.floor(Math.random() * 3),
+        submitted_tasks: 0,
+        approved_tasks: 0,
+        review_count: 0,
+        last_review_at: null,
       })),
       error: null,
     };
   }
 
-  const [projectsResult, tasksResult] = await Promise.all([
+  const [projectsResult, tasksResult, reviewsResult] = await Promise.all([
     supabase.from("projects").select("*").order("created_at", { ascending: false }),
     supabase.from("tasks").select("id, status, project_id").not("project_id", "is", null),
+    supabase.from("project_reviews").select("project_id, created_at").order("created_at", { ascending: false }),
   ]);
 
   if (projectsResult.error) return { data: [], error: projectsResult.error.message };
 
   const tasks = tasksResult.data ?? [];
+  const reviews = reviewsResult.data ?? [];
   const projects = (projectsResult.data ?? []) as Project[];
 
   const data: ProjectWithStats[] = projects.map((p) => {
     const projTasks = tasks.filter((t) => t.project_id === p.id);
+    const projReviews = reviews.filter((r) => r.project_id === p.id);
     return {
       ...p,
       open_tasks: projTasks.filter((t) => t.status !== "done").length,
       blocked_tasks: projTasks.filter((t) => t.status === "blocked").length,
-      completed_tasks: projTasks.filter((t) => t.status === "done").length,
+      completed_tasks: projTasks.filter((t) => isProjectCompletedTask(t.status)).length,
+      submitted_tasks: projTasks.filter((t) => t.status === "submitted" || t.status === "in-review").length,
+      approved_tasks: projTasks.filter((t) => t.status === "approved").length,
+      review_count: projReviews.length,
+      last_review_at: projReviews[0]?.created_at ?? null,
     };
   });
 
@@ -108,7 +123,7 @@ export async function getProjectById(id: string): Promise<{
   const [projResult, tasksResult, eventsResult] = await Promise.all([
     supabase.from("projects").select("*").eq("id", id).maybeSingle(),
     supabase.from("tasks").select("*, agents(name, emoji)").eq("project_id", id).order("created_at", { ascending: false }),
-    supabase.from("feed_events").select("*").order("created_at", { ascending: false }).limit(10),
+    supabase.from("feed_events").select("*").order("created_at", { ascending: false }).limit(50),
   ]);
 
   if (projResult.error) return { data: null, tasks: [], events: [], error: projResult.error.message };
@@ -120,10 +135,15 @@ export async function getProjectById(id: string): Promise<{
     assigned_agent_emoji: (t.agents as Record<string, unknown>)?.emoji ?? null,
   })) as TaskWithAgent[];
 
+  const taskIds = new Set(tasks.map((t) => t.id));
+  const events = ((eventsResult.data ?? []) as FeedEvent[])
+    .filter((event) => event.related_task_id && taskIds.has(event.related_task_id))
+    .slice(0, 10);
+
   return {
     data: projResult.data as Project,
     tasks,
-    events: (eventsResult.data ?? []) as FeedEvent[],
+    events,
     error: null,
   };
 }
