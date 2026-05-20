@@ -156,36 +156,57 @@ export default function LearningHubPage() {
 
   async function load() {
     setLoading(true);
-    const [meetingsR, skillsReqR, lessonsR, updatesR, perfR, gapsR, auditsR, approvalsR, skillsListR, agentSkillsR, tasksR, dailyNotesR, knowledgeR] = await Promise.all([
-      getDailySyncs(7),
-      getSkillRequests(),
-      getLessons(lessonFilter === "all" ? undefined : lessonFilter),
-      getSystemUpdates(),
-      getAgentPerformance(),
-      getCapabilityGaps(),
-      getAuditRuns(),
-      getApprovals("pending"),
-      getSkills(),
-      getAgentSkills(),
-      getTasks(),
-      getDailyNotes(14),
-      getKnowledgeEntries({ category: knowledgeFilter === "all" ? undefined : (knowledgeFilter as PARACategory), search: knowledgeSearch || undefined }),
-    ]);
-    setMeetings(meetingsR);
-    setSkillRequests(skillsReqR as unknown as SkillRequest[]);
-    setLessons(lessonsR);
-    setUpdates(updatesR);
-    setAgentPerf(perfR);
-    setCapGaps(gapsR.data);
-    setAuditRuns(auditsR.data);
-    setApprovals(approvalsR);
-    setSkills(skillsListR.data);
-    setAgentSkills(agentSkillsR.data);
-    setDailyNotes(dailyNotesR.data);
-    setKnowledge(knowledgeR.data);
-    const agentsList = await getAgents();
-    setGaps(analyzeSkillGaps(tasksR.data, agentsList.data, agentSkillsR.data));
-    setLoading(false);
+    try {
+      const results = await Promise.allSettled([
+        getDailySyncs(7),
+        getSkillRequests(),
+        getLessons(lessonFilter === "all" ? undefined : lessonFilter),
+        getSystemUpdates(),
+        getAgentPerformance(),
+        getCapabilityGaps(),
+        getAuditRuns(),
+        getApprovals("pending"),
+        getSkills(),
+        getAgentSkills(),
+        getTasks(),
+        getDailyNotes(14),
+        getKnowledgeEntries({ category: knowledgeFilter === "all" ? undefined : (knowledgeFilter as PARACategory), search: knowledgeSearch || undefined }),
+      ]);
+      
+      const meetingsR = results[0].status === "fulfilled" ? results[0].value : [];
+      const skillsReqR = results[1].status === "fulfilled" ? results[1].value : [];
+      const lessonsR = results[2].status === "fulfilled" ? results[2].value : [];
+      const updatesR = results[3].status === "fulfilled" ? results[3].value : [];
+      const perfR = results[4].status === "fulfilled" ? results[4].value : [];
+      const gapsR = results[5].status === "fulfilled" ? results[5].value : { data: [], error: null };
+      const auditsR = results[6].status === "fulfilled" ? results[6].value : { data: [], error: null };
+      const approvalsR = results[7].status === "fulfilled" ? results[7].value : [];
+      const skillsListR = results[8].status === "fulfilled" ? results[8].value : { data: [], error: null };
+      const agentSkillsR = results[9].status === "fulfilled" ? results[9].value : { data: [], error: null };
+      const tasksR = results[10].status === "fulfilled" ? results[10].value : { data: [], error: null };
+      const dailyNotesR = results[11].status === "fulfilled" ? results[11].value : { data: [], error: null };
+      const knowledgeR = results[12].status === "fulfilled" ? results[12].value : { data: [], error: null };
+      
+      setMeetings(meetingsR);
+      setSkillRequests(skillsReqR as unknown as SkillRequest[]);
+      setLessons(lessonsR);
+      setUpdates(updatesR);
+      setAgentPerf(perfR);
+      setCapGaps(gapsR.data ?? []);
+      setAuditRuns(auditsR.data ?? []);
+      setApprovals(approvalsR);
+      setSkills(skillsListR.data ?? []);
+      setAgentSkills(agentSkillsR.data ?? []);
+      setDailyNotes(dailyNotesR.data ?? []);
+      setKnowledge(knowledgeR.data ?? []);
+      
+      const agentsList = await getAgents();
+      setGaps(analyzeSkillGaps(tasksR.data ?? [], agentsList.data, agentSkillsR.data ?? []));
+    } catch (err) {
+      console.error("Learning Hub load error:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const loadRef = useCallback(() => load(), [lessonFilter, knowledgeFilter, knowledgeSearch]);
