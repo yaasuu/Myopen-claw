@@ -132,6 +132,30 @@ function timeAgo(iso: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 }
+
+function formatDueDate(iso?: string | null): string {
+  if (!iso) return "No due date";
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function getSlaState(task: TaskWithAgent): { label: string; tone: "danger" | "warning" | "muted" | "ok" } {
+  if (task.status === "done" || task.status === "approved") return { label: "Complete", tone: "ok" };
+  if (task.sla_breached) return { label: "SLA breached", tone: "danger" };
+  if (!task.due_date) return { label: "No SLA", tone: "muted" };
+
+  const dueAt = new Date(task.due_date).getTime();
+  const diffHours = (dueAt - Date.now()) / 36e5;
+  if (diffHours < 0) return { label: "Overdue", tone: "danger" };
+  if (diffHours <= 24) return { label: "Due <24h", tone: "warning" };
+  return { label: "On track", tone: "ok" };
+}
+
+function slaBadgeClass(tone: ReturnType<typeof getSlaState>["tone"]): string {
+  if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
+  if (tone === "warning") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (tone === "ok") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  return "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-quiet)]";
+}
 const PRIORITIES: TaskWithAgent["priority"][] = ["high", "medium", "low"];
 
 export default function TasksPage() {
@@ -891,6 +915,15 @@ export default function TasksPage() {
                                   Unassigned
                                 </div>
                               )}
+                              {(task.due_date || task.sla_hours || task.sla_breached) && (() => {
+                                const sla = getSlaState(task);
+                                return (
+                                  <div className={`inline-flex w-fit items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${slaBadgeClass(sla.tone)}`}>
+                                    <Clock className="h-3 w-3" />
+                                    {sla.label} · {formatDueDate(task.due_date)}
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <span
                               className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
@@ -980,6 +1013,7 @@ export default function TasksPage() {
                   <TableHead className="w-20">Priority</TableHead>
                   <TableHead className="w-48">Agent</TableHead>
                   <TableHead className="w-24">Owner</TableHead>
+                  <TableHead className="w-40">SLA</TableHead>
                   <TableHead className="w-32">Updated</TableHead>
                   <TableHead>Blocker</TableHead>
                   <TableHead className="w-16" />
@@ -1050,6 +1084,23 @@ export default function TasksPage() {
                       </Select>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{task.owner}</TableCell>
+                    <TableCell className="text-xs">
+                      {(() => {
+                        const sla = getSlaState(task);
+                        return (
+                          <div className="space-y-1">
+                            <Badge variant="outline" className={`text-[10px] ${slaBadgeClass(sla.tone)}`}>
+                              {sla.label}
+                            </Badge>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              <span>{formatDueDate(task.due_date)}</span>
+                              {task.sla_hours ? <span>· {task.sla_hours}h</span> : null}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(task.updated_at).toLocaleDateString()}
                     </TableCell>
@@ -1277,7 +1328,35 @@ export default function TasksPage() {
                     <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Owner</p>
                     <p className="text-sm" style={{ color: "var(--text)" }}>{sidePanelTask.owner}</p>
                   </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Due date</p>
+                    <p className="text-sm flex items-center gap-1.5" style={{ color: "var(--text)" }}>
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDueDate(sidePanelTask.due_date)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>SLA</p>
+                    {(() => {
+                      const sla = getSlaState(sidePanelTask);
+                      return (
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${slaBadgeClass(sla.tone)}`}>
+                          <Clock className="h-3 w-3" />
+                          {sla.label}{sidePanelTask.sla_hours ? ` · ${sidePanelTask.sla_hours}h` : ""}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
+
+                {sidePanelTask.sla_breached && (
+                  <div className="rounded-lg p-3" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--danger)" }}>SLA breach</p>
+                    <p className="text-sm" style={{ color: "var(--danger)" }}>
+                      This task has crossed its SLA limit{sidePanelTask.sla_breached_at ? ` since ${new Date(sidePanelTask.sla_breached_at).toLocaleString()}` : ""}.
+                    </p>
+                  </div>
+                )}
 
                 {sidePanelTask.blocker && (
                   <div className="rounded-lg p-3" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
