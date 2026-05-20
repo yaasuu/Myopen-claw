@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/server'
 
+// GET /api/lessons — list lessons (bypasses RLS via service role)
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const status = searchParams.get('status') || undefined
+
+    const supabase = getSupabaseAdmin()
+    let query = supabase.from('lessons').select('*').order('date_detected', { ascending: false })
+    if (status && status !== 'all') query = query.eq('status', status)
+    const { data, error } = await query
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json({ data: data || [] })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
 // PATCH /api/lessons — update lesson status
 export async function PATCH(req: NextRequest) {
   try {
@@ -78,27 +99,6 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ data })
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Unknown error'
-    return NextResponse.json({ error: msg }, { status: 500 })
-  }
-}
-
-// GET /api/lessons — list lessons (bypasses RLS via service role)
-export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') || undefined
-
-    const supabase = getSupabaseAdmin()
-    let query = supabase.from('lessons').select('*').order('date_detected', { ascending: false })
-    if (status && status !== 'all') query = query.eq('status', status)
-    const { data, error } = await query
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-    return NextResponse.json({ data: data || [] })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     return NextResponse.json({ error: msg }, { status: 500 })
