@@ -82,6 +82,7 @@ import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
+import { timeAgo } from "@/lib/utils";
 
 const statusColors: Record<string, string> = {
   pending: "bg-transparent text-[var(--text-quiet)] border-[var(--border)]",
@@ -122,16 +123,6 @@ const priorityBadgeStyle: Record<string, React.CSSProperties> = {
   medium: { background: "rgba(217,119,6,0.08)", color: "#d97706" },
   low: { background: "rgba(22,163,74,0.08)", color: "#16a34a" },
 };
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function formatDueDate(iso?: string | null): string {
   if (!iso) return "No due date";

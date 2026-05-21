@@ -46,17 +46,7 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import { buildOrgStructure, getAgentDepartmentId } from "@/lib/org-structure";
 import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { timeAgo } from "@/lib/utils";
 
 
 type UnitType = "orchestrator" | "department" | "agent" | "specialist";
