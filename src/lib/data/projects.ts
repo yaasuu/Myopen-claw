@@ -1,6 +1,30 @@
 import { getSupabase } from "@/lib/supabase/client";
 import type { Project, ProjectWithStats, TaskWithAgent, FeedEvent } from "@/types/dashboard";
 
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    } catch {
+      return value
+        .split(/\r?\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function normalizeProject(project: Record<string, unknown>): Project {
+  return {
+    ...(project as Project),
+    deliverables: normalizeStringArray(project.deliverables),
+    success_criteria: normalizeStringArray(project.success_criteria),
+  };
+}
+
 // ── Mock Data ────────────────────────────────────────
 
 const MOCK_PROJECTS: Project[] = [
@@ -88,7 +112,7 @@ export async function getProjects(): Promise<{ data: ProjectWithStats[]; error: 
 
   const tasks = tasksResult.data ?? [];
   const reviews = reviewsResult.data ?? [];
-  const projects = (projectsResult.data ?? []) as Project[];
+  const projects = (projectsResult.data ?? []).map((project) => normalizeProject(project as Record<string, unknown>));
 
   const data: ProjectWithStats[] = projects.map((p) => {
     const projTasks = tasks.filter((t) => t.project_id === p.id);
@@ -141,7 +165,7 @@ export async function getProjectById(id: string): Promise<{
     .slice(0, 10);
 
   return {
-    data: projResult.data as Project,
+    data: normalizeProject(projResult.data as Record<string, unknown>),
     tasks,
     events,
     error: null,

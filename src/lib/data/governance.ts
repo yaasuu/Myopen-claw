@@ -13,6 +13,31 @@ import type {
   ReviewType,
 } from "@/types/dashboard";
 
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+    } catch {
+      return value
+        .split(/\r?\n|,/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function normalizeReview(review: Record<string, unknown>): ProjectReview {
+  return {
+    ...(review as ProjectReview),
+    blockers: normalizeStringArray(review.blockers),
+    decisions: normalizeStringArray(review.decisions),
+    recommended_actions: normalizeStringArray(review.recommended_actions),
+  };
+}
+
 // ── Health Score Calculator ──────────────────────────
 
 export function calculateProjectHealth(
@@ -269,7 +294,7 @@ export async function getProjectReviews(projectId: string): Promise<{ data: Proj
     .order("created_at", { ascending: false });
 
   if (error) return { data: [], error: error.message };
-  return { data: (data ?? []) as ProjectReview[], error: null };
+  return { data: (data ?? []).map((review) => normalizeReview(review as Record<string, unknown>)), error: null };
 }
 
 export async function createProjectReview(input: {
