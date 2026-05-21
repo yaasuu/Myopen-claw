@@ -28,6 +28,7 @@ import {
   Brain,
   ShieldCheck,
   CalendarIcon,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -56,12 +57,14 @@ const sections = [
     items: [
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Projects", href: "/projects", icon: BarChart3 },
+      { title: "Goals", href: "/goals", icon: Target },
     ],
   },
   {
     label: "Workforce",
     items: [
       { title: "Workforce", href: "/workforce", icon: Users },
+      { title: "Departments", href: "/departments", icon: Building2 },
       { title: "Office", href: "/office", icon: Monitor },
     ],
   },
@@ -80,6 +83,8 @@ const sections = [
     items: [
       { title: "Alerts", href: "/alerts", icon: Bell },
       { title: "Hermes", href: "/hermes", icon: Zap },
+      { title: "Skills", href: "/skills", icon: Brain },
+      { title: "Memory", href: "/memory", icon: Lightbulb },
       { title: "Team", href: "/org-chart", icon: Network },
       { title: "Settings", href: "/settings", icon: Settings },
     ],

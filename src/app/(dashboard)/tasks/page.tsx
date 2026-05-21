@@ -81,7 +81,7 @@ import { getTaskComments, addTaskComment } from "@/lib/data/comments";
 import { getTaskReviews, submitReview } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus } from "@/types/dashboard";
+import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus, TaskReview } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { timeAgo } from "@/lib/utils";
 
@@ -193,7 +193,7 @@ export default function TasksPage() {
   // Side panel (task detail + comments)
   const [sidePanelTask, setSidePanelTask] = useState<TaskWithAgent | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<TaskReview[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -1507,7 +1507,7 @@ export default function TasksPage() {
                 <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
                   <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-quiet)" }}>Review History</p>
                   <div className="space-y-2">
-                    {reviews.map((review: any) => (
+                    {reviews.map((review) => (
                       <div key={review.id} className="rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
                         <div className="flex items-center justify-between mb-1">
                           <Badge className={`text-[10px] ${
@@ -1518,6 +1518,7 @@ export default function TasksPage() {
                           <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(review.created_at)}</span>
                         </div>
                         {review.notes && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{review.notes}</p>}
+                        {review.evidence && <p className="text-[10px] mt-1 italic" style={{ color: "var(--text-quiet)" }}>Evidence: {review.evidence}</p>}
                         <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>by {review.reviewed_by}</p>
                       </div>
                     ))}
