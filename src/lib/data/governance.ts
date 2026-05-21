@@ -31,10 +31,14 @@ function normalizeStringArray(value: unknown): string[] {
 
 function normalizeReview(review: Record<string, unknown>): ProjectReview {
   return {
-    ...(review as ProjectReview),
+    id: String(review.id ?? ""),
+    project_id: String(review.project_id ?? ""),
+    review_type: (review.review_type as ProjectReview["review_type"]) ?? "weekly",
+    summary: String(review.summary ?? ""),
     blockers: normalizeStringArray(review.blockers),
     decisions: normalizeStringArray(review.decisions),
     recommended_actions: normalizeStringArray(review.recommended_actions),
+    created_at: String(review.created_at ?? new Date().toISOString()),
   };
 }
 
