@@ -416,6 +416,15 @@ export default function ProjectDetailPage() {
     if (res.data) setProject(res.data);
   }
 
+  // ── Memoized lead agent (must be above any early returns — Hooks rules) ──
+  const lead = useMemo(() => {
+    if (!project) return null;
+    const counts = new Map<string, number>();
+    for (const t of tasks) if (t.assigned_agent_id) counts.set(t.assigned_agent_id, (counts.get(t.assigned_agent_id) ?? 0) + 1);
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return top ? agents.find((a) => a.id === top[0]) ?? null : null;
+  }, [tasks, agents, project]);
+
   // ── Loading / error states ─────────────────────────
   if (loading) {
     return (
@@ -449,12 +458,6 @@ export default function ProjectDetailPage() {
   const overdue         = days !== null && days < 0 && project.status !== "completed";
   const fifteenMinAgo   = Date.now() - 15 * 60 * 1000;
   const activeAgents    = agents.filter((a) => tasks.some((t) => t.assigned_agent_id === a.id && new Date(t.updated_at).getTime() >= fifteenMinAgo));
-  const lead            = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const t of tasks) if (t.assigned_agent_id) counts.set(t.assigned_agent_id, (counts.get(t.assigned_agent_id) ?? 0) + 1);
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
-    return top ? agents.find((a) => a.id === top[0]) ?? null : null;
-  }, [tasks, agents]);
 
   const openTasks       = tasks.filter((t) => t.status !== "done" && t.status !== "approved");
   const blockedTasks    = tasks.filter((t) => t.status === "blocked");
