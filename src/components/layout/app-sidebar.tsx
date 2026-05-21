@@ -65,7 +65,6 @@ const sections = [
     label: "Workforce",
     items: [
       { title: "Workforce", href: "/workforce", icon: Users },
-      { title: "Departments", href: "/departments", icon: Building2 },
       { title: "Office", href: "/office", icon: Monitor },
     ],
   },
