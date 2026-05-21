@@ -366,12 +366,17 @@ export interface Project {
   objective: string;
   scope: string;
   deliverables: string[];
+  deliverables_done: string[];
   success_criteria: string[];
+  criteria_done: string[];
   owner_department: string;
   status: "planning" | "active" | "on-hold" | "completed" | "cancelled";
   priority: "high" | "medium" | "low";
   progress: number;
   due_date: string | null;
+  status_narrative?: string | null;
+  status_narrative_at?: string | null;
+  status_narrative_by?: string | null;
   created_at: string;
   updated_at: string;
 }

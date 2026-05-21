@@ -33,12 +33,17 @@ function normalizeProject(project: Record<string, unknown>): Project {
     objective: String(project.objective ?? ""),
     scope: String(project.scope ?? ""),
     deliverables: normalizeStringArray(project.deliverables),
+    deliverables_done: normalizeStringArray(project.deliverables_done),
     success_criteria: normalizeStringArray(project.success_criteria),
+    criteria_done: normalizeStringArray(project.criteria_done),
     owner_department: String(project.owner_department ?? ""),
     status: isProjectStatus(project.status) ? project.status : "planning",
     priority: isProjectPriority(project.priority) ? project.priority : "medium",
     progress: typeof project.progress === "number" ? project.progress : Number(project.progress ?? 0) || 0,
     due_date: project.due_date == null ? null : String(project.due_date),
+    status_narrative:    typeof project.status_narrative === "string"    ? project.status_narrative    : null,
+    status_narrative_at: typeof project.status_narrative_at === "string" ? project.status_narrative_at : null,
+    status_narrative_by: typeof project.status_narrative_by === "string" ? project.status_narrative_by : null,
     created_at: String(project.created_at ?? new Date().toISOString()),
     updated_at: String(project.updated_at ?? new Date().toISOString()),
   };
@@ -60,12 +65,14 @@ const MOCK_PROJECTS: Project[] = [
       "Supplier volume tracker",
       "Management decision log",
     ],
+    deliverables_done: [],
     success_criteria: [
       "Weekly COO report generated from live data",
       "Shipment readiness can be reviewed before dispatch",
       "Buyer and supplier risks are visible in one place",
       "Export team can act without manual spreadsheet reconciliation",
     ],
+    criteria_done: [],
     owner_department: "Export-Growth",
     status: "active",
     priority: "high",
@@ -87,11 +94,13 @@ const MOCK_PROJECTS: Project[] = [
       "Phase 4 dispatch and customs",
       "Phase 5 Moyale handover",
     ],
+    deliverables_done: [],
     success_criteria: [
       "All five phases are tracked as tasks",
       "Advance payment and documents are explicitly confirmed",
       "Shipment can be handed over at Moyale with a clear acceptance trail",
     ],
+    criteria_done: [],
     owner_department: "Shipment Readiness",
     status: "active",
     priority: "high",
@@ -115,11 +124,13 @@ const MOCK_PROJECTS: Project[] = [
       "System health metrics",
       "Monthly research and self-assessment",
     ],
+    deliverables_done: [],
     success_criteria: [
       "At least one system improvement task ships each week",
       "Recurring friction is surfaced and addressed",
       "Dashboard and automation work stay aligned with live ops",
     ],
+    criteria_done: [],
     owner_department: "Operations",
     status: "active",
     priority: "medium",
@@ -264,7 +275,7 @@ export async function createProject(input: {
 
 export async function updateProject(
   id: string,
-  updates: Partial<Pick<Project, "title" | "objective" | "scope" | "status" | "priority" | "progress" | "due_date" | "deliverables" | "success_criteria" | "owner_department">>
+  updates: Partial<Pick<Project, "title" | "objective" | "scope" | "status" | "priority" | "progress" | "due_date" | "deliverables" | "deliverables_done" | "success_criteria" | "criteria_done" | "owner_department">>
 ): Promise<{ data: Project | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };
@@ -273,6 +284,89 @@ export async function updateProject(
     .from("projects")
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Project, error: null };
+}
+
+export async function toggleProjectDeliverable(
+  projectId: string,
+  deliverableText: string,
+  done: boolean
+): Promise<{ data: Project | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data: current, error: getErr } = await supabase
+    .from("projects")
+    .select("deliverables_done")
+    .eq("id", projectId)
+    .single();
+  if (getErr) return { data: null, error: getErr.message };
+
+  const prev = ((current?.deliverables_done as string[]) ?? []).filter((t) => t !== deliverableText);
+  const next = done ? [...prev, deliverableText] : prev;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ deliverables_done: next, updated_at: new Date().toISOString() })
+    .eq("id", projectId)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Project, error: null };
+}
+
+export async function toggleProjectCriterion(
+  projectId: string,
+  criterionText: string,
+  done: boolean
+): Promise<{ data: Project | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data: current, error: getErr } = await supabase
+    .from("projects")
+    .select("criteria_done")
+    .eq("id", projectId)
+    .single();
+  if (getErr) return { data: null, error: getErr.message };
+
+  const prev = ((current?.criteria_done as string[]) ?? []).filter((t) => t !== criterionText);
+  const next = done ? [...prev, criterionText] : prev;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ criteria_done: next, updated_at: new Date().toISOString() })
+    .eq("id", projectId)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+  return { data: data as Project, error: null };
+}
+
+export async function setProjectStatusNarrative(
+  projectId: string,
+  narrative: string,
+  by: string
+): Promise<{ data: Project | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("projects")
+    .update({
+      status_narrative: narrative.trim() || null,
+      status_narrative_at: narrative.trim() ? now : null,
+      status_narrative_by: narrative.trim() ? by : null,
+      updated_at: now,
+    })
+    .eq("id", projectId)
     .select()
     .single();
 
