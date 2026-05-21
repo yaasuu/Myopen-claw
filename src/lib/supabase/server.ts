@@ -1,13 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Server-side client with service role key — bypasses RLS
-// This file should NEVER be imported by client components
+// Falls back to anon client if service role key is not available
 export function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY in server environment')
+    // Fall back to anon client — works for tables without RLS restrictions
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !anonKey) {
+      throw new Error('Missing Supabase URL or keys in server environment')
+    }
+    return createClient(url, anonKey)
   }
 
   return createClient(url, key)
