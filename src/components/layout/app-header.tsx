@@ -32,6 +32,7 @@ const pageTitles: Record<string, string> = {
   "/learning": "Learning Hub",
   "/specialists": "Specialists",
   "/projects": "Projects",
+  "/outputs": "Outputs",
 };
 
 const statusConfig: Record<string, { label: string; dot: string; border: string; bg: string; color: string }> = {

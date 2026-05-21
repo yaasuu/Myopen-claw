@@ -78,7 +78,7 @@ import {
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
 import { getTaskComments, addTaskComment } from "@/lib/data/comments";
-import { getTaskReviews, submitReview } from "@/lib/data/reviews";
+import { getTaskReviews, submitReview, submitDeliverable } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus, TaskReview } from "@/types/dashboard";
@@ -364,10 +364,10 @@ export default function TasksPage() {
   }
 
   async function handleEvidenceSubmit() {
-    if (!evidenceTaskId) return;
+    if (!evidenceTaskId || !evidenceText.trim()) return;
     setSubmittingEvidence(true);
-    await updateTask(evidenceTaskId, { dispatch_notes: evidenceText.trim() || undefined });
-    await updateTaskStatus(evidenceTaskId, "submitted");
+    // Create a proper deliverable record (worker_submission review with evidence)
+    await submitDeliverable(evidenceTaskId, evidenceText.trim(), "Yas");
     await load();
     setSubmittingEvidence(false);
     setEvidenceDialogOpen(false);
@@ -429,6 +429,15 @@ export default function TasksPage() {
     if (newStatusVal === "submitted") {
       requestEvidence(taskId);
       return;
+    }
+    // Block done without a deliverable
+    if (newStatusVal === "done") {
+      const reviewsResult = await getTaskReviews(taskId);
+      const hasDeliverable = reviewsResult.data.some((r) => r.evidence && r.evidence.trim() !== "");
+      if (!hasDeliverable) {
+        setError("Cannot mark task done — no deliverable on file. Submit a deliverable (evidence) first.");
+        return;
+      }
     }
     setUpdatingId(taskId);
     try {
@@ -1498,6 +1507,29 @@ export default function TasksPage() {
                     >
                       ✕ Reject
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Deliverables (worker submissions with evidence) */}
+              {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").length > 0 && (
+                <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: "var(--accent)" }}>
+                    📦 Deliverables ({reviews.filter((r) => r.evidence && r.evidence.trim() !== "").length})
+                  </p>
+                  <div className="space-y-2">
+                    {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").map((r) => (
+                      <div key={r.id} className="rounded-lg p-3" style={{ background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
+                            {r.review_stage === "worker_submission" ? "Worker Submission" : r.review_stage ?? "Deliverable"}
+                          </span>
+                          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(r.created_at)}</span>
+                        </div>
+                        <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text)" }}>{r.evidence}</p>
+                        <p className="text-[10px] mt-1.5" style={{ color: "var(--text-quiet)" }}>by {r.reviewed_by}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
