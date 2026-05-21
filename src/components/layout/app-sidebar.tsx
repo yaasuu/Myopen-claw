@@ -57,6 +57,7 @@ const sections = [
     items: [
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Projects", href: "/projects", icon: BarChart3 },
+      { title: "Outputs", href: "/outputs", icon: FolderKanban },
       { title: "Goals", href: "/goals", icon: Target },
     ],
   },
