@@ -55,12 +55,9 @@ import {
   Archive,
   ArchiveRestore,
   CheckCircle2,
-  LayoutGrid,
   List,
   Clock,
-  Repeat,
   Calendar,
-  Zap,
   Eye,
   UserCheck,
 } from "lucide-react";
@@ -197,6 +194,12 @@ export default function TasksPage() {
   const [sendingComment, setSendingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
 
+  // Review dialog (replaces browser prompt())
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewOutcome, setReviewOutcome] = useState<"approved" | "rejected" | "returned_for_rework" | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   // Inline updates
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -293,22 +296,24 @@ export default function TasksPage() {
     setLoadingComments(false);
   }
 
-  async function handleReview(outcome: "approved" | "rejected" | "returned_for_rework") {
-    if (!sidePanelTask) return;
-    const notes = prompt(
-      outcome === "approved"
-        ? "Orchestrator approval notes (optional):"
-        : outcome === "returned_for_rework"
-          ? "Why is this being returned for rework?"
-          : "Why is this rejected?"
-    );
-    if (notes === null) return; // cancelled
-    const result = await submitReview(sidePanelTask.id, outcome, notes);
+  function handleReview(outcome: "approved" | "rejected" | "returned_for_rework") {
+    setReviewOutcome(outcome);
+    setReviewNotes("");
+    setReviewDialogOpen(true);
+  }
+
+  async function handleReviewSubmit() {
+    if (!sidePanelTask || !reviewOutcome) return;
+    setSubmittingReview(true);
+    const result = await submitReview(sidePanelTask.id, reviewOutcome, reviewNotes);
     if (result.data) {
       setReviews((prev) => [result.data!, ...prev]);
-      // Reload to update task status
       await load();
     }
+    setSubmittingReview(false);
+    setReviewDialogOpen(false);
+    setReviewOutcome(null);
+    setReviewNotes("");
   }
 
   async function handleSendComment() {
@@ -787,32 +792,6 @@ export default function TasksPage() {
           </DialogContent>
         </Dialog>
 
-      {/* Scheduled Routines Strip */}
-      <div className="surface-card px-4 py-3">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Repeat className="h-4 w-4" style={{ color: "var(--accent)" }} />
-            <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Scheduled Routines</span>
-          </div>
-          <div className="divider" />
-          {[
-            { name: "Daily Autonomy", schedule: "Every hour", status: "active", icon: Zap },
-            { name: "Nightly Summary", schedule: "23:00 UTC", status: "active", icon: Calendar },
-            { name: "Weekly Review", schedule: "Mondays", status: "upcoming", icon: Clock },
-          ].map((routine) => (
-            <div key={routine.name} className="flex items-center gap-2 text-xs">
-              <routine.icon className="h-3.5 w-3.5" style={{ color: routine.status === "active" ? "var(--success)" : "var(--text-quiet)" }} />
-              <span style={{ color: "var(--text)" }}>{routine.name}</span>
-              <span style={{ color: "var(--text-quiet)" }}>{routine.schedule}</span>
-              <div className={`h-1.5 w-1.5 rounded-full ${routine.status === "active" ? "dot-green" : "dot-gray"}`} />
-            </div>
-          ))}
-          <div className="flex-1" />
-          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
-            {3} active
-          </span>
-        </div>
-      </div>
 
       {/* Board View — Kanban lanes */}
       {viewMode === "board" && (
@@ -1495,6 +1474,56 @@ export default function TasksPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Review Dialog — replaces browser prompt() */}
+      <Dialog open={reviewDialogOpen} onOpenChange={(open) => { if (!open) { setReviewDialogOpen(false); setReviewOutcome(null); setReviewNotes(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {reviewOutcome === "approved" && "Approve Task"}
+              {reviewOutcome === "returned_for_rework" && "Return for Rework"}
+              {reviewOutcome === "rejected" && "Reject Task"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {reviewOutcome === "approved" && "Add any optional notes for this approval."}
+              {reviewOutcome === "returned_for_rework" && "Explain what needs to be changed before this can be approved."}
+              {reviewOutcome === "rejected" && "Explain why this task is being rejected."}
+            </p>
+            <textarea
+              className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+              rows={4}
+              placeholder={
+                reviewOutcome === "approved" ? "Notes (optional)..." :
+                reviewOutcome === "returned_for_rework" ? "What needs to be fixed..." :
+                "Reason for rejection..."
+              }
+              value={reviewNotes}
+              onChange={(e) => setReviewNotes(e.target.value)}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => { setReviewDialogOpen(false); setReviewOutcome(null); setReviewNotes(""); }} disabled={submittingReview}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReviewSubmit}
+                disabled={submittingReview || (reviewOutcome !== "approved" && !reviewNotes.trim())}
+                style={{
+                  background: reviewOutcome === "approved" ? "var(--success)" : reviewOutcome === "rejected" ? "var(--danger)" : "var(--warning)",
+                  color: "#fff",
+                }}
+              >
+                {submittingReview ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {reviewOutcome === "approved" && "Approve"}
+                {reviewOutcome === "returned_for_rework" && "Return for Rework"}
+                {reviewOutcome === "rejected" && "Reject"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </PageShell>
   );
