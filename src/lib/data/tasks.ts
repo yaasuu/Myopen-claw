@@ -455,6 +455,47 @@ export async function archiveTask(id: string): Promise<{ data: Task | null; erro
   return { data: task, error: null };
 }
 
+export async function dispatchTaskToHermes(
+  taskId: string,
+  agentId: string,
+  dispatchNotes: string
+): Promise<{ data: Task | null; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: "Supabase not connected" };
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({
+      owner_agent_id: agentId,
+      handled_by_agent_id: agentId,
+      assigned_agent_id: agentId,
+      dispatch_notes: dispatchNotes.trim() || null,
+      status: "dispatched",
+      review_status: "pending",
+      dispatched_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+    .select()
+    .single();
+
+  if (error) return { data: null, error: error.message };
+
+  const task = data as Task;
+  const agentMap = await buildAgentMap(supabase);
+  const agentName = agentMap[agentId]?.name ?? agentId;
+
+  await logFeedEvent({
+    event_type: "agent_routed",
+    source: "system",
+    summary: `Dispatched to Hermes → ${agentName}: ${task.title}${dispatchNotes ? ` — "${dispatchNotes}"` : ""}`,
+    related_task_id: task.id,
+    related_agent_id: agentId,
+  });
+
+  return { data: task, error: null };
+}
+
 export async function unarchiveTask(id: string): Promise<{ data: Task | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) return { data: null, error: "Supabase not connected" };

@@ -79,6 +79,7 @@ const sections = [
     label: "System",
     items: [
       { title: "Alerts", href: "/alerts", icon: Bell },
+      { title: "Hermes", href: "/hermes", icon: Zap },
       { title: "Team", href: "/org-chart", icon: Network },
       { title: "Settings", href: "/settings", icon: Settings },
     ],
