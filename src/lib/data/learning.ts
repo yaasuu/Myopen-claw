@@ -220,34 +220,37 @@ async function createSystemUpdate(input: {
 
 export async function approveSkillRequest(id: string) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    await supabase.from("skill_requests").update({ status: "approved", updated_at: new Date().toISOString() }).eq("id", id);
-    const { data: req } = await supabase.from("skill_requests").select("*").eq("id", id).single();
-    if (req) {
-      await createSystemUpdate({
-        type: "skill_installed",
-        title: `Installed: ${req.title}`,
-        description: req.description,
-      });
+    const res = await fetch('/api/skill-requests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'approved', reviewed_by: 'Yas' }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
     }
+    return true
   } catch (e) {
-    console.error('approveSkillRequest error:', e);
+    console.error('approveSkillRequest error:', e)
+    return false
   }
 }
 
 export async function rejectSkillRequest(id: string) {
   try {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    await supabase.from("skill_requests").update({ status: "rejected", updated_at: new Date().toISOString() }).eq("id", id);
-    await createSystemUpdate({
-      type: "workflow_changed",
-      title: `Rejected Skill Request`,
-      description: `Skill request ${id.slice(0, 8)}... reviewed and rejected by Yas.`,
-    });
+    const res = await fetch('/api/skill-requests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'rejected', reviewed_by: 'Yas' }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    return true
   } catch (e) {
-    console.error('rejectSkillRequest error:', e);
+    console.error('rejectSkillRequest error:', e)
+    return false
   }
 }
 
