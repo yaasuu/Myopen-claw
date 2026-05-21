@@ -20,6 +20,9 @@ import {
   ShieldAlert,
   Activity,
   TrendingUp,
+  Zap,
+  Target,
+  BarChart3,
 } from "lucide-react";
 import { getSystemStatus } from "@/lib/data/system";
 import { getTaskStats, getBlockedTasks, getTasks } from "@/lib/data/tasks";
@@ -36,6 +39,135 @@ function StatusIcon({ children, color }: { children: React.ReactNode; color: str
   return (
     <div className="icon-box" style={{ background: `${color}12` }}>
       {children}
+    </div>
+  );
+}
+
+// ─── Command Strip (P6 + P7) ───
+
+function ReadyCircle({ pct }: { pct: number }) {
+  const r = 20;
+  const circ = 2 * Math.PI * r;
+  const filled = circ * (pct / 100);
+  const color = pct >= 80 ? "var(--success)" : pct >= 50 ? "var(--warning)" : "var(--danger)";
+  return (
+    <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
+      <circle cx="26" cy="26" r={r} fill="none" stroke="var(--surface-muted)" strokeWidth="5" />
+      <circle
+        cx="26" cy="26" r={r} fill="none"
+        stroke={color} strokeWidth="5"
+        strokeDasharray={`${filled} ${circ}`}
+        strokeLinecap="round"
+        transform="rotate(-90 26 26)"
+        style={{ transition: "stroke-dasharray 0.6s ease" }}
+      />
+      <text x="26" y="30" textAnchor="middle" fontSize="11" fontWeight="700" fill={color}>{pct}%</text>
+    </svg>
+  );
+}
+
+function CommandStrip({ readyPct, needsApproval, inProgress, doneToday, signals }: {
+  readyPct: number;
+  needsApproval: number;
+  inProgress: number;
+  doneToday: number;
+  signals: number;
+}) {
+  const lanes = [
+    { label: "Needs Approval", value: needsApproval, href: "/reviews",  color: needsApproval > 0 ? "var(--warning)" : "var(--text-quiet)", icon: Clock },
+    { label: "In Progress",    value: inProgress,    href: "/tasks",    color: inProgress > 0 ? "var(--info)" : "var(--text-quiet)",    icon: Zap },
+    { label: "Done Today",     value: doneToday,     href: "/tasks",    color: doneToday > 0 ? "var(--success)" : "var(--text-quiet)",  icon: CheckCircle2 },
+    { label: "Signals",        value: signals,       href: "/alerts",   color: signals > 0 ? "var(--danger)" : "var(--text-quiet)",     icon: Bell },
+  ];
+  return (
+    <div className="surface-card px-5 py-4">
+      <div className="flex items-center gap-6 flex-wrap">
+        {/* Ready to operate circle */}
+        <div className="flex items-center gap-3 pr-6" style={{ borderRight: "1px solid var(--border)" }}>
+          <ReadyCircle pct={readyPct} />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Ready</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>to operate</p>
+          </div>
+        </div>
+        {/* Lane stats */}
+        {lanes.map((lane) => (
+          <Link key={lane.label} href={lane.href} className="flex flex-col gap-1 min-w-[90px] hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-1.5">
+              <lane.icon className="h-3.5 w-3.5" style={{ color: lane.color }} />
+              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{lane.label}</span>
+            </div>
+            <span className="text-2xl font-bold tabular-nums leading-none" style={{ color: lane.color }}>
+              {lane.value}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Department Row (P8) ───
+
+const DEPT_CONFIG = [
+  { name: "Export-Growth",       emoji: "📦", agentShortId: "export-growth",       href: "/departments" },
+  { name: "Ops-Improvement",     emoji: "⚙️",  agentShortId: "ops-improvement",     href: "/departments" },
+  { name: "Architecture-Systems",emoji: "🏗️", agentShortId: "architecture-systems", href: "/departments" },
+];
+
+function DepartmentRow({ tasks, agents }: { tasks: TaskWithAgent[]; agents: Agent[] }) {
+  const today = new Date();
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 3600 * 1000).toISOString();
+
+  return (
+    <div className="surface-card px-5 py-4">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="icon-box-sm" style={{ background: "var(--accent-soft)" }}>
+          <BarChart3 className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+        </div>
+        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Department Output</span>
+        <span className="text-[10px] ml-1" style={{ color: "var(--text-quiet)" }}>— tasks completed this week</span>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {DEPT_CONFIG.map((dept) => {
+          const agent = agents.find((a) => a.short_id === dept.agentShortId);
+          const deptTasks = tasks.filter((t) => t.assigned_agent_id === agent?.id);
+          const doneThisWeek = deptTasks.filter((t) => t.status === "done" && t.updated_at >= weekAgo).length;
+          const inProgress = deptTasks.filter((t) => t.status === "in-progress" || t.status === "dispatched").length;
+          const total = deptTasks.length;
+          const pct = total > 0 ? Math.round((doneThisWeek / Math.max(total, 1)) * 100) : 0;
+
+          return (
+            <Link key={dept.name} href={dept.href}>
+              <div className="rounded-lg p-4 hover-surface transition-colors" style={{ border: "1px solid var(--border)" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">{dept.emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold truncate" style={{ color: "var(--text)" }}>{dept.name}</p>
+                    <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>
+                      {agent ? agent.name : "No agent"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--accent)" }}>{doneThisWeek}</div>
+                    <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: "var(--text-quiet)" }}>done this week</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold" style={{ color: inProgress > 0 ? "var(--info)" : "var(--text-quiet)" }}>{inProgress}</div>
+                    <div className="text-[10px]" style={{ color: "var(--text-quiet)" }}>in progress</div>
+                  </div>
+                </div>
+                <div className="mt-3 progress-track">
+                  <div className="progress-fill" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-[10px] mt-1 text-right" style={{ color: "var(--text-quiet)" }}>{pct}% completion rate</p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -257,6 +389,20 @@ export default function OverviewPage() {
 
   const needsAttention = taskStats.blocked > 0 || pausedAgents.length > 0;
 
+  // ── Command strip derived values (P6 + P7) ──
+  const today = new Date().toISOString().slice(0, 10);
+  const activeAgents = allAgents.filter((a) => a.status === "active").length;
+  const readyPct = allAgents.length > 0 ? Math.round((activeAgents / allAgents.length) * 100) : 0;
+  const needsApproval = tasks.filter((t) => t.status === "in-review").length;
+  const inProgressCount = tasks.filter((t) => t.status === "in-progress" || t.status === "dispatched").length;
+  const doneToday = tasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === today).length;
+  const signals = taskStats.blocked + pausedAgents.length;
+
+  // ── Summary cards (P9: skill coverage fix) ──
+  const agentsWithSkills = allAgents.length > 0
+    ? Math.min(skillCoverage.installed, allAgents.length)
+    : 0;
+
   const summaryCards = [
     {
       label: "System Health",
@@ -267,15 +413,15 @@ export default function OverviewPage() {
     },
     {
       label: "Active Agents",
-      value: String(status?.active_agents ?? 0),
-      sub: status?.active_agents ? "Operational" : "None active",
+      value: `${activeAgents} / ${allAgents.length}`,
+      sub: allAgents.length > 0 ? `${readyPct}% operational` : "No agents",
       icon: Bot,
       color: "var(--accent)",
     },
     {
-      label: "Skill Coverage",
-      value: skillCoverage.total > 0 ? `${Math.round((skillCoverage.installed / skillCoverage.total) * 100)}%` : "0%",
-      sub: `${skillCoverage.installed} of ${skillCoverage.total} skills`,
+      label: "Skills Installed",
+      value: String(skillCoverage.installed),
+      sub: agentsWithSkills > 0 ? `Across ${agentsWithSkills} agent${agentsWithSkills !== 1 ? "s" : ""}` : "No skills yet",
       icon: TrendingUp,
       color: "var(--info)",
     },
@@ -299,6 +445,15 @@ export default function OverviewPage() {
         </div>
       )}
 
+      {/* Command Strip — P6 + P7 */}
+      <CommandStrip
+        readyPct={readyPct}
+        needsApproval={needsApproval}
+        inProgress={inProgressCount}
+        doneToday={doneToday}
+        signals={signals}
+      />
+
       {/* CEO Morning Briefing */}
       <MorningBriefing
         agents={allAgents}
@@ -310,7 +465,12 @@ export default function OverviewPage() {
         taskStats={taskStats}
       />
 
-      {/* Summary cards */}
+      {/* Department Output Row — P8 */}
+      {allAgents.length > 0 && (
+        <DepartmentRow tasks={tasks} agents={allAgents} />
+      )}
+
+      {/* Summary cards — P9 skill coverage fixed */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
           <div key={card.label} className="surface-card p-5">
