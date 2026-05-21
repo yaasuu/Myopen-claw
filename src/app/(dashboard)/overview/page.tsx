@@ -30,16 +30,7 @@ import { getProjects } from "@/lib/data/projects";
 import { getPausedAgents } from "@/lib/data/alerts";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { SystemStatus, TaskWithAgent, FeedEvent, Agent } from "@/types/dashboard";
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { timeAgo } from "@/lib/utils";
 
 function StatusIcon({ children, color }: { children: React.ReactNode; color: string }) {
   return (

@@ -25,22 +25,13 @@ import { getPausedAgents } from "@/lib/data/alerts";
 import { getSystemStatus } from "@/lib/data/system";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, FeedEvent, Agent, SystemStatus } from "@/types/dashboard";
+import { timeAgo } from "@/lib/utils";
 
 const prioritySeverity: Record<string, { label: string; color: string; dot: string }> = {
   high: { label: "High", color: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)] border-red-200", dot: "dot-red" },
   medium: { label: "Medium", color: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)] border-amber-200", dot: "dot-amber" },
   low: { label: "Low", color: "bg-transparent text-[var(--text-muted)] border-[var(--border)]", dot: "bg-gray-400" },
 };
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 export default function AlertsPage() {
   const [loading, setLoading] = useState(true);

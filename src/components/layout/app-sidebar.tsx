@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getSystemStatus } from "@/lib/data/system";
+import { useRealtime } from "@/lib/realtime/use-realtime";
+import type { SystemStatus } from "@/types/dashboard";
 import {
   LayoutDashboard,
   Bot,
@@ -83,6 +87,18 @@ const sections = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+
+  const loadStatus = useCallback(async () => {
+    const result = await getSystemStatus();
+    if (!result.error) setSystemStatus(result.data);
+  }, []);
+
+  useRealtime("system_status", loadStatus);
+
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   return (
     <Sidebar className="border-r" style={{ borderColor: "var(--border)", background: "var(--sidebar-bg)" }}>
@@ -145,9 +161,15 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t px-5 py-4" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center gap-2.5">
-          <div className="h-2 w-2 rounded-full dot-green" />
+          <div className={`h-2 w-2 rounded-full ${
+            systemStatus?.status === "down" ? "dot-red" :
+            systemStatus?.status === "degraded" ? "dot-amber" :
+            "dot-green"
+          }`} />
           <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-            System operational
+            {systemStatus?.status === "down" ? "System down" :
+             systemStatus?.status === "degraded" ? "System degraded" :
+             "System operational"}
           </span>
         </div>
       </SidebarFooter>
