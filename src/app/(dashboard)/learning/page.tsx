@@ -441,7 +441,7 @@ export default function LearningHubPage() {
                         <div>
                           <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--text)] mb-2">B. Agent Updates</h4>
                           <div className="grid sm:grid-cols-2 gap-2">
-                            {day.agent_updates && day.agent_updates.map((agent: any, i: number) => (
+                            {Array.isArray(day.agent_updates) && day.agent_updates.map((agent: any, i: number) => (
                               <div key={i} className="rounded border bg-background/50 p-2 text-xs space-y-1">
                                 <div className="flex items-center justify-between font-medium">
                                   <span>{agent.emoji} {agent.name}</span>
@@ -960,7 +960,7 @@ export default function LearningHubPage() {
                       <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">A. Executive Summary</h3>
                       <p className="text-sm">{dailyNotes[0].summary}</p>
                     </div>
-                    {dailyNotes[0].sync_type === "full_sync" && dailyNotes[0].agent_updates && dailyNotes[0].agent_updates.length > 0 && (
+                    {dailyNotes[0].sync_type === "full_sync" && Array.isArray(dailyNotes[0].agent_updates) && dailyNotes[0].agent_updates.length > 0 && (
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">B. Agent / Department Updates</h3>
                         <div className="grid gap-3 sm:grid-cols-2">

@@ -133,9 +133,17 @@ export async function getSkills(): Promise<{ data: Skill[]; error: string | null
   const supabase = getSupabase();
   if (!supabase) return { data: MOCK_SKILLS, error: null };
 
-  const { data, error } = await supabase.from("skills").select("*").order("installed_at", { ascending: false });
+  const { data, error } = await supabase.from("skills").select("*");
   if (error) return { data: [], error: error.message };
-  return { data: (data ?? []) as Skill[], error: null };
+
+  const rows = (data ?? []) as Skill[];
+  rows.sort((a, b) => {
+    const aTime = new Date((a as any).installed_at ?? 0).getTime();
+    const bTime = new Date((b as any).installed_at ?? 0).getTime();
+    return bTime - aTime;
+  });
+
+  return { data: rows, error: null };
 }
 
 export async function getAgentSkills(agentId?: string): Promise<{ data: AgentSkill[]; error: string | null }> {

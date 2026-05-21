@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase/server'
+import { getSupabaseAdmin, getSupabaseReadOnly } from '@/lib/supabase/server'
 
 // POST /api/lessons — create a new lesson
 export async function POST(req: NextRequest) {
@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest) {
 // GET /api/lessons — list lessons (bypasses RLS via service role)
 export async function GET() {
   try {
-    const supabase = getSupabaseAdmin()
+    const supabase = getSupabaseReadOnly() ?? getSupabaseAdmin()
 
     const { data, error } = await supabase
       .from('lessons')
@@ -95,11 +95,11 @@ export async function GET() {
       .order('date_detected', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ data: [], error: error.message }, { status: 200 })
     }
     return NextResponse.json({ data: data || [] })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ data: [], error: msg }, { status: 200 })
   }
 }

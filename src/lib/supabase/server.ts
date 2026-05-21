@@ -12,3 +12,15 @@ export function getSupabaseAdmin() {
 
   return createClient(url, key)
 }
+
+// Read-only server client for GET routes and safe fallbacks.
+export function getSupabaseReadOnly() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    return null
+  }
+
+  return createClient(url, key)
+}

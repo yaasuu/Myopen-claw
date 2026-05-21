@@ -16,6 +16,7 @@ export interface DailyNote {
   decisions: string[];
   blockers: string[];
   priorities_tomorrow: string[];
+  wins?: string[];
   // Full sync fields (A-G report)
   agent_updates?: any[];
   cross_team_summary?: any;
@@ -39,6 +40,35 @@ export interface KnowledgeEntry {
   source: string;
   created_at: string;
   updated_at: string;
+}
+
+function normalizeArray<T = unknown>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeDailyNote(note: Partial<DailyNote> & Record<string, unknown>): DailyNote {
+  return {
+    ...(note as DailyNote),
+    decisions: normalizeArray<string>(note.decisions),
+    blockers: normalizeArray<string>(note.blockers),
+    priorities_tomorrow: normalizeArray<string>(note.priorities_tomorrow),
+    agent_updates: normalizeArray(note.agent_updates),
+    skill_gaps: normalizeArray(note.skill_gaps),
+    issues_list: normalizeArray<string>(note.issues_list),
+    yas_decisions: normalizeArray<string>(note.yas_decisions),
+    wins: normalizeArray<string>(note.wins),
+    cross_team_summary: note.cross_team_summary && typeof note.cross_team_summary === 'object' ? note.cross_team_summary : {},
+    sync_type: (note.sync_type as DailyNote['sync_type']) ?? 'basic',
+  };
 }
 
 // ── Mock Data ────────────────────────────────────────
@@ -144,7 +174,7 @@ const MOCK_KNOWLEDGE: KnowledgeEntry[] = [
 
 export async function getDailyNotes(limit = 30): Promise<{ data: DailyNote[]; error: string | null }> {
   const supabase = getSupabase();
-  if (!supabase) return { data: MOCK_DAILY_NOTES, error: null };
+  if (!supabase) return { data: MOCK_DAILY_NOTES.map((note) => normalizeDailyNote(note as Partial<DailyNote> & Record<string, unknown>)), error: null };
 
   const { data, error } = await supabase
     .from("daily_notes")
@@ -153,14 +183,14 @@ export async function getDailyNotes(limit = 30): Promise<{ data: DailyNote[]; er
     .limit(limit);
 
   if (error) return { data: [], error: error.message };
-  return { data: (data ?? []) as DailyNote[], error: null };
+  return { data: (data ?? []).map(normalizeDailyNote) as DailyNote[], error: null };
 }
 
 export async function getDailyNote(date: string): Promise<{ data: DailyNote | null; error: string | null }> {
   const supabase = getSupabase();
   if (!supabase) {
     const note = MOCK_DAILY_NOTES.find((n) => n.date === date);
-    return { data: note ?? null, error: null };
+    return { data: note ? normalizeDailyNote(note as Partial<DailyNote> & Record<string, unknown>) : null, error: null };
   }
 
   const { data, error } = await supabase
@@ -170,7 +200,7 @@ export async function getDailyNote(date: string): Promise<{ data: DailyNote | nu
     .maybeSingle();
 
   if (error) return { data: null, error: error.message };
-  return { data: (data as DailyNote) ?? null, error: null };
+  return { data: data ? normalizeDailyNote(data) : null, error: null };
 }
 
 export async function generateDailySummary(date?: string): Promise<{ data: DailyNote | null; error: string | null }> {

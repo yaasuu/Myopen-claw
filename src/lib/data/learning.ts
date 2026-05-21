@@ -1,5 +1,18 @@
 import { getSupabase } from "@/lib/supabase/client";
 
+function normalizeMaybeArray<T = any>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export interface AgentUpdate {
   name: string;
   emoji: string;
@@ -78,21 +91,21 @@ export async function getDailySyncs(limit = 10): Promise<MeetingSummary[]> {
   if (error || !data) return [];
 
   return data.map((note: any) => {
-    const blockers = note.blockers || [];
+    const blockers = normalizeMaybeArray<string>(note.blockers);
     const inReview = note.cross_team_summary?.total_in_review || 0;
     return {
       id: note.id,
       date: note.date,
       summary: note.summary,
       health: blockers.length > 0 || inReview > 5 ? "needs_attention" : "healthy",
-      wins: note.yas_decisions || [],
+      wins: normalizeMaybeArray<string>(note.yas_decisions),
       difficulties: blockers,
-      findings: note.issues_list || [],
-      assigned_actions: note.priorities_tomorrow || [],
+      findings: normalizeMaybeArray<string>(note.issues_list),
+      assigned_actions: normalizeMaybeArray<string>(note.priorities_tomorrow),
       event_count: note.events_reviewed || 0,
-      agent_updates: note.agent_updates || [],
+      agent_updates: normalizeMaybeArray(note.agent_updates),
       cross_team: note.cross_team_summary || {},
-      skill_gaps: note.skill_gaps || [],
+      skill_gaps: normalizeMaybeArray<string>(note.skill_gaps),
     };
   });
 }
