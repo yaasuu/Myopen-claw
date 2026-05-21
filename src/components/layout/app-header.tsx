@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getUnreadCount } from "@/lib/data/notifications";
+import { getSystemStatus } from "@/lib/data/system";
 import { useRealtime } from "@/lib/realtime/use-realtime";
 import { Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import type { SystemStatus } from "@/types/dashboard";
 
 const pageTitles: Record<string, string> = {
   "/overview": "Overview",
@@ -28,21 +30,35 @@ const pageTitles: Record<string, string> = {
   "/projects": "Projects",
 };
 
+const statusConfig: Record<string, { label: string; dot: string; border: string; bg: string; color: string }> = {
+  healthy:  { label: "Healthy",  dot: "dot-green", border: "rgba(16,185,129,0.2)",  bg: "rgba(16,185,129,0.08)",  color: "var(--success)" },
+  degraded: { label: "Degraded", dot: "dot-amber", border: "rgba(245,158,11,0.2)",  bg: "rgba(245,158,11,0.08)",  color: "var(--warning)" },
+  down:     { label: "Down",     dot: "dot-red",   border: "rgba(239,68,68,0.2)",   bg: "rgba(239,68,68,0.08)",   color: "var(--danger)"  },
+};
+
 export function AppHeader() {
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? "Mission Control";
   const [unread, setUnread] = useState(0);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
 
   const loadCount = useCallback(async () => {
     const result = await getUnreadCount();
     if (!result.error) setUnread(result.count);
   }, []);
 
+  const loadStatus = useCallback(async () => {
+    const result = await getSystemStatus();
+    if (!result.error) setSystemStatus(result.data);
+  }, []);
+
   useRealtime("notifications", loadCount);
+  useRealtime("system_status", loadStatus);
 
   useEffect(() => {
     loadCount();
-  }, [loadCount]);
+    loadStatus();
+  }, [loadCount, loadStatus]);
 
   return (
     <header
@@ -87,18 +103,19 @@ export function AppHeader() {
 
         <div className="divider" />
 
-        <Badge
-          variant="outline"
-          className="gap-1.5 text-[11px] font-medium"
-          style={{
-            borderColor: "rgba(16, 185, 129, 0.2)",
-            background: "rgba(16, 185, 129, 0.08)",
-            color: "var(--success)",
-          }}
-        >
-          <div className="h-1.5 w-1.5 rounded-full dot-green" />
-          Healthy
-        </Badge>
+        {(() => {
+          const s = statusConfig[systemStatus?.status ?? "healthy"];
+          return (
+            <Badge
+              variant="outline"
+              className="gap-1.5 text-[11px] font-medium"
+              style={{ borderColor: s.border, background: s.bg, color: s.color }}
+            >
+              <div className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+              {s.label}
+            </Badge>
+          );
+        })()}
       </div>
     </header>
   );
