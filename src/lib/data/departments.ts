@@ -98,6 +98,7 @@ export async function getDepartments(): Promise<{ data: Department[]; error: str
   const { data, error } = await supabase
     .from("departments")
     .select("*")
+    .eq("status", "active")
     .order("created_at", { ascending: true });
 
   if (error) return { data: [], error: error.message };
