@@ -17,11 +17,30 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+function isProjectStatus(value: unknown): value is Project["status"] {
+  return value === "planning" || value === "active" || value === "on-hold" || value === "completed" || value === "cancelled";
+}
+
+function isProjectPriority(value: unknown): value is Project["priority"] {
+  return value === "high" || value === "medium" || value === "low";
+}
+
 function normalizeProject(project: Record<string, unknown>): Project {
   return {
-    ...(project as Project),
+    id: String(project.id ?? ""),
+    project_code: String(project.project_code ?? ""),
+    title: String(project.title ?? ""),
+    objective: String(project.objective ?? ""),
+    scope: String(project.scope ?? ""),
     deliverables: normalizeStringArray(project.deliverables),
     success_criteria: normalizeStringArray(project.success_criteria),
+    owner_department: String(project.owner_department ?? ""),
+    status: isProjectStatus(project.status) ? project.status : "planning",
+    priority: isProjectPriority(project.priority) ? project.priority : "medium",
+    progress: typeof project.progress === "number" ? project.progress : Number(project.progress ?? 0) || 0,
+    due_date: project.due_date == null ? null : String(project.due_date),
+    created_at: String(project.created_at ?? new Date().toISOString()),
+    updated_at: String(project.updated_at ?? new Date().toISOString()),
   };
 }
 
