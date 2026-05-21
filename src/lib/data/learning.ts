@@ -220,10 +220,9 @@ async function createSystemUpdate(input: {
 
 export async function approveSkillRequest(id: string) {
   try {
-    // Update skill_requests via anon client (works for writes)
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from("skill_requests").update({ status: "installed", updated_at: new Date().toISOString() }).eq("id", id);
+    await supabase.from("skill_requests").update({ status: "approved", updated_at: new Date().toISOString() }).eq("id", id);
     const { data: req } = await supabase.from("skill_requests").select("*").eq("id", id).single();
     if (req) {
       await createSystemUpdate({
