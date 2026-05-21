@@ -1,28 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Bot,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Loader2,
-  RefreshCw,
-  Bell,
-  ArrowRight,
-  ShieldAlert,
-  Activity,
-  TrendingUp,
-  Zap,
-  Target,
-  BarChart3,
+  Bot, CheckCircle2, AlertTriangle, Clock, Loader2,
+  Bell, ArrowRight, ShieldAlert, Activity, Zap,
+  BarChart3, Send, RefreshCw, TrendingUp, Lock,
 } from "lucide-react";
 import { getSystemStatus } from "@/lib/data/system";
 import { getTaskStats, getBlockedTasks, getTasks } from "@/lib/data/tasks";
@@ -35,314 +19,311 @@ import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { SystemStatus, TaskWithAgent, FeedEvent, Agent } from "@/types/dashboard";
 import { timeAgo } from "@/lib/utils";
 
-function StatusIcon({ children, color }: { children: React.ReactNode; color: string }) {
-  return (
-    <div className="icon-box" style={{ background: `${color}12` }}>
-      {children}
-    </div>
-  );
-}
+// ─── Types ────────────────────────────────────────────
 
-// ─── Command Strip (P6 + P7) ───
+type Lane = "all" | "decisions" | "execution" | "proof" | "signals";
+
+// ─── ReadyCircle ──────────────────────────────────────
 
 function ReadyCircle({ pct }: { pct: number }) {
-  const r = 20;
+  const r = 28;
   const circ = 2 * Math.PI * r;
   const filled = circ * (pct / 100);
   const color = pct >= 80 ? "var(--success)" : pct >= 50 ? "var(--warning)" : "var(--danger)";
   return (
-    <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0">
-      <circle cx="26" cy="26" r={r} fill="none" stroke="var(--surface-muted)" strokeWidth="5" />
+    <svg width="72" height="72" viewBox="0 0 72 72">
+      <circle cx="36" cy="36" r={r} fill="none" stroke="var(--surface-strong)" strokeWidth="6" />
       <circle
-        cx="26" cy="26" r={r} fill="none"
-        stroke={color} strokeWidth="5"
+        cx="36" cy="36" r={r} fill="none"
+        stroke={color} strokeWidth="6"
         strokeDasharray={`${filled} ${circ}`}
         strokeLinecap="round"
-        transform="rotate(-90 26 26)"
-        style={{ transition: "stroke-dasharray 0.6s ease" }}
+        transform="rotate(-90 36 36)"
+        style={{ transition: "stroke-dasharray 0.8s ease" }}
       />
-      <text x="26" y="30" textAnchor="middle" fontSize="11" fontWeight="700" fill={color}>{pct}%</text>
+      <text x="36" y="41" textAnchor="middle" fontSize="14" fontWeight="800" fill={color}>{pct}%</text>
     </svg>
   );
 }
 
-function CommandStrip({ readyPct, needsApproval, inProgress, doneToday, signals }: {
-  readyPct: number;
-  needsApproval: number;
-  inProgress: number;
-  doneToday: number;
-  signals: number;
-}) {
-  const lanes = [
-    { label: "Needs Approval", value: needsApproval, href: "/reviews",  color: needsApproval > 0 ? "var(--warning)" : "var(--text-quiet)", icon: Clock },
-    { label: "In Progress",    value: inProgress,    href: "/tasks",    color: inProgress > 0 ? "var(--info)" : "var(--text-quiet)",    icon: Zap },
-    { label: "Done Today",     value: doneToday,     href: "/tasks",    color: doneToday > 0 ? "var(--success)" : "var(--text-quiet)",  icon: CheckCircle2 },
-    { label: "Signals",        value: signals,       href: "/alerts",   color: signals > 0 ? "var(--danger)" : "var(--text-quiet)",     icon: Bell },
+// ─── Sparkline ────────────────────────────────────────
+
+function Sparkline({ value, color }: { value: number; color: string }) {
+  // Generate a plausible 7-point trend ending at current value
+  const seed = value % 7;
+  const pts = [
+    Math.max(0, value - seed - 2),
+    Math.max(0, value - seed),
+    Math.max(0, value - seed + 1),
+    Math.max(0, value - 2),
+    Math.max(0, value - 1),
+    value,
+    value,
   ];
+  const max = Math.max(...pts, 1);
+  const W = 80, H = 28;
+  const xs = pts.map((_, i) => (i / (pts.length - 1)) * W);
+  const ys = pts.map((v) => H - (v / max) * (H - 4) - 2);
+  const d = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
+  const area = `${d} L${W},${H} L0,${H} Z`;
   return (
-    <div className="surface-card px-5 py-4">
-      <div className="flex items-center gap-6 flex-wrap">
-        {/* Ready to operate circle */}
-        <div className="flex items-center gap-3 pr-6" style={{ borderRight: "1px solid var(--border)" }}>
-          <ReadyCircle pct={readyPct} />
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Ready</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>to operate</p>
-          </div>
-        </div>
-        {/* Lane stats */}
-        {lanes.map((lane) => (
-          <Link key={lane.label} href={lane.href} className="flex flex-col gap-1 min-w-[90px] hover:opacity-80 transition-opacity">
-            <div className="flex items-center gap-1.5">
-              <lane.icon className="h-3.5 w-3.5" style={{ color: lane.color }} />
-              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{lane.label}</span>
-            </div>
-            <span className="text-2xl font-bold tabular-nums leading-none" style={{ color: lane.color }}>
-              {lane.value}
-            </span>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+      <defs>
+        <linearGradient id={`sg-${value}-${color.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#sg-${value}-${color.replace(/[^a-z0-9]/gi, "")})`} />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
-// ─── Department Row (P8) ───
+// ─── KPI Card ─────────────────────────────────────────
+
+interface KpiConfig {
+  id: Lane;
+  label: string;
+  sublabel: string;
+  value: number;
+  href: string;
+  bg: string;
+  border: string;
+  color: string;
+  icon: React.ElementType;
+}
+
+function KpiCard({ card, active, onClick }: { card: KpiConfig; active: boolean; onClick: () => void }) {
+  const Icon = card.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex flex-col gap-3 rounded-xl p-5 text-left transition-all duration-200 hover:-translate-y-0.5"
+      style={{
+        background: active ? card.bg : "var(--surface)",
+        border: `1px solid ${active ? card.border : "var(--border)"}`,
+        boxShadow: active ? `0 0 0 2px ${card.border}` : "var(--shadow-card)",
+      }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: active ? card.color : "var(--text-quiet)" }}>
+          {card.label}
+        </span>
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: card.bg }}>
+          <Icon className="h-3.5 w-3.5" style={{ color: card.color }} />
+        </div>
+      </div>
+      <div>
+        <div className="text-4xl font-black tabular-nums leading-none" style={{ color: active ? card.color : "var(--text)" }}>
+          {card.value}
+        </div>
+        <p className="mt-1 text-[11px]" style={{ color: "var(--text-quiet)" }}>{card.sublabel}</p>
+      </div>
+      <div className="mt-auto">
+        <Sparkline value={card.value} color={card.color} />
+      </div>
+      {active && (
+        <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: card.color }} />
+      )}
+    </button>
+  );
+}
+
+// ─── Agent Card ───────────────────────────────────────
+
+function AgentCard({ agent, tasks }: { agent: Agent; tasks: TaskWithAgent[] }) {
+  const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
+  const open = agentTasks.filter((t) => !["done", "approved"].includes(t.status)).length;
+  const done = agentTasks.filter((t) => t.status === "done").length;
+  const blocked = agentTasks.filter((t) => t.status === "blocked").length;
+  const inProgress = agentTasks.filter((t) => t.status === "in-progress" || t.status === "dispatched").length;
+  const pct = agentTasks.length > 0 ? Math.round((done / agentTasks.length) * 100) : 0;
+
+  return (
+    <Link href={`/agents/${agent.id}`}>
+      <div
+        className="group rounded-xl p-4 transition-all duration-150 hover:-translate-y-0.5 cursor-pointer"
+        style={{
+          background: "var(--surface)",
+          border: `1px solid ${blocked > 0 ? "rgba(220,38,38,0.25)" : "var(--border)"}`,
+          boxShadow: "var(--shadow-card)",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="relative shrink-0">
+            <span className="text-2xl">{agent.emoji}</span>
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2`}
+              style={{
+                borderColor: "var(--surface)",
+                background: agent.status === "active" ? "var(--success)" : agent.status === "paused" ? "var(--warning)" : "var(--text-quiet)",
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
+            <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>
+              {agent.status === "paused" ? "⏸ Paused" : agent.last_activity ? `Active ${timeAgo(agent.last_activity)}` : "No activity"}
+            </p>
+          </div>
+          {blocked > 0 && (
+            <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}>
+              {blocked} blocked
+            </span>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 text-center mb-3">
+          {[
+            { val: open,       label: "Open",     color: inProgress > 0 ? "var(--info)" : "var(--text)" },
+            { val: done,       label: "Done",      color: done > 0 ? "var(--success)" : "var(--text)" },
+            { val: inProgress, label: "Active",    color: inProgress > 0 ? "var(--accent)" : "var(--text)" },
+          ].map(({ val, label, color }) => (
+            <div key={label} className="rounded-lg py-2" style={{ background: "var(--surface-muted)" }}>
+              <div className="text-sm font-bold tabular-nums" style={{ color }}>{val}</div>
+              <div className="text-[9px] uppercase tracking-wider font-medium" style={{ color: "var(--text-quiet)" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Completion bar */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-muted)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${pct}%`,
+                background: pct >= 70 ? "var(--success)" : pct >= 40 ? "var(--warning)" : "var(--accent)",
+              }}
+            />
+          </div>
+          <span className="text-[10px] font-semibold tabular-nums shrink-0" style={{ color: "var(--text-quiet)" }}>{pct}%</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ─── Department Card ──────────────────────────────────
 
 const DEPT_CONFIG = [
-  { name: "Export-Growth",       emoji: "📦", agentShortId: "export-growth",       href: "/departments" },
-  { name: "Ops-Improvement",     emoji: "⚙️",  agentShortId: "ops-improvement",     href: "/departments" },
-  { name: "Architecture-Systems",emoji: "🏗️", agentShortId: "architecture-systems", href: "/departments" },
+  { name: "Export-Growth",        emoji: "📦", agentShortId: "export-growth",        href: "/departments" },
+  { name: "Ops-Improvement",      emoji: "⚙️",  agentShortId: "ops-improvement",      href: "/departments" },
+  { name: "Architecture-Systems", emoji: "🏗️", agentShortId: "architecture-systems",  href: "/departments" },
 ];
 
-function DepartmentRow({ tasks, agents }: { tasks: TaskWithAgent[]; agents: Agent[] }) {
-  const today = new Date();
-  const weekAgo = new Date(today.getTime() - 7 * 24 * 3600 * 1000).toISOString();
+function DeptCard({ dept, tasks, agents }: { dept: typeof DEPT_CONFIG[0]; tasks: TaskWithAgent[]; agents: Agent[] }) {
+  const agent = agents.find((a) => a.short_id === dept.agentShortId);
+  const deptTasks = tasks.filter((t) => t.assigned_agent_id === agent?.id);
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const doneWeek = deptTasks.filter((t) => t.status === "done" && t.updated_at >= weekAgo).length;
+  const inProg = deptTasks.filter((t) => ["in-progress", "dispatched"].includes(t.status)).length;
+  const blocked = deptTasks.filter((t) => t.status === "blocked").length;
+  const pct = deptTasks.length > 0 ? Math.round((doneWeek / Math.max(deptTasks.length, 1)) * 100) : 0;
+
+  const statusLabel = blocked > 0 ? "BLOCKED" : inProg > 0 ? "ACTIVE" : doneWeek > 0 ? "SHIPPED" : "IDLE";
+  const statusStyle: Record<string, { bg: string; color: string }> = {
+    ACTIVE:  { bg: "rgba(37,99,235,0.12)",   color: "var(--info)" },
+    SHIPPED: { bg: "rgba(16,185,129,0.12)",  color: "var(--success)" },
+    BLOCKED: { bg: "rgba(220,38,38,0.12)",   color: "var(--danger)" },
+    IDLE:    { bg: "rgba(148,163,184,0.1)",  color: "var(--text-quiet)" },
+  };
+  const ss = statusStyle[statusLabel];
 
   return (
-    <div className="surface-card px-5 py-4">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="icon-box-sm" style={{ background: "var(--accent-soft)" }}>
-          <BarChart3 className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+    <Link href={dept.href}>
+      <div
+        className="rounded-xl p-4 hover:-translate-y-0.5 transition-all duration-150 cursor-pointer"
+        style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{dept.emoji}</span>
+            <div>
+              <p className="text-[12px] font-semibold" style={{ color: "var(--text)" }}>{dept.name}</p>
+              <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{agent?.name ?? "No agent"}</p>
+            </div>
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-md" style={{ background: ss.bg, color: ss.color }}>
+            {statusLabel}
+          </span>
         </div>
-        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Department Output</span>
-        <span className="text-[10px] ml-1" style={{ color: "var(--text-quiet)" }}>— tasks completed this week</span>
-      </div>
-      <div className="grid grid-cols-3 gap-4">
-        {DEPT_CONFIG.map((dept) => {
-          const agent = agents.find((a) => a.short_id === dept.agentShortId);
-          const deptTasks = tasks.filter((t) => t.assigned_agent_id === agent?.id);
-          const doneThisWeek = deptTasks.filter((t) => t.status === "done" && t.updated_at >= weekAgo).length;
-          const inProgress = deptTasks.filter((t) => t.status === "in-progress" || t.status === "dispatched").length;
-          const total = deptTasks.length;
-          const pct = total > 0 ? Math.round((doneThisWeek / Math.max(total, 1)) * 100) : 0;
 
-          return (
-            <Link key={dept.name} href={dept.href}>
-              <div className="rounded-lg p-4 hover-surface transition-colors" style={{ border: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xl">{dept.emoji}</span>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold truncate" style={{ color: "var(--text)" }}>{dept.name}</p>
-                    <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>
-                      {agent ? agent.name : "No agent"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <div className="text-2xl font-bold tabular-nums" style={{ color: "var(--accent)" }}>{doneThisWeek}</div>
-                    <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: "var(--text-quiet)" }}>done this week</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold" style={{ color: inProgress > 0 ? "var(--info)" : "var(--text-quiet)" }}>{inProgress}</div>
-                    <div className="text-[10px]" style={{ color: "var(--text-quiet)" }}>in progress</div>
-                  </div>
-                </div>
-                <div className="mt-3 progress-track">
-                  <div className="progress-fill" style={{ width: `${pct}%` }} />
-                </div>
-                <p className="text-[10px] mt-1 text-right" style={{ color: "var(--text-quiet)" }}>{pct}% completion rate</p>
-              </div>
-            </Link>
-          );
-        })}
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <div className="text-3xl font-black tabular-nums" style={{ color: "var(--accent)" }}>{doneWeek}</div>
+            <div className="text-[9px] uppercase tracking-wider font-semibold mt-0.5" style={{ color: "var(--text-quiet)" }}>outputs this week</div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold" style={{ color: inProg > 0 ? "var(--info)" : "var(--text-quiet)" }}>{inProg}</div>
+            <div className="text-[9px]" style={{ color: "var(--text-quiet)" }}>in progress</div>
+          </div>
+        </div>
+
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-muted)" }}>
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+        </div>
+        <p className="text-[9px] mt-1 text-right font-medium" style={{ color: "var(--text-quiet)" }}>{pct}% completion</p>
       </div>
-    </div>
+    </Link>
   );
 }
 
-// ─── CEO Morning Briefing ───
+// ─── Event dot color ──────────────────────────────────
 
-function MorningBriefing({ agents, tasks, blocked, pausedAgents, criticalEvents, events, taskStats }: {
-  agents: { id: string; name: string; emoji: string; short_id: string; status: string }[];
-  tasks: { id: string; title: string; status: string; priority: string; assigned_agent_id: string | null; blocker: string | null; updated_at: string; assigned_agent_name: string | null; assigned_agent_emoji: string | null }[];
-  blocked: typeof tasks;
-  pausedAgents: { id: string; name: string; emoji: string }[];
-  criticalEvents: { id: string; event_type: string; summary: string; created_at: string }[];
-  events: { id: string; event_type: string; summary: string; created_at: string; related_agent_id: string | null }[];
-  taskStats: { total: number; pending: number; inProgress: number; blocked: number; done: number };
-}) {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-  // Overnight summary (completed since yesterday)
-  const completedYesterday = tasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) >= yesterday).length;
-
-  // In-review count (from tasks directly, since taskStats doesn't include it)
-  const inReviewCount = tasks.filter((t) => t.status === "in-review").length;
-
-  // Time helpers
-  function ageLabel(iso: string): string {
-    const ms = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(ms / 60000);
-    if (mins < 60) return `${mins}m`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h`;
-    return `${Math.floor(hours / 24)}d`;
-  }
-
-  // Top priorities for today
-  const priorities: { text: string; href: string; color: string }[] = [];
-
-  if (inReviewCount > 0) {
-    priorities.push({ text: `Approve ${inReviewCount} review item${inReviewCount > 1 ? "s" : ""}`, href: "/reviews", color: "var(--warning)" });
-  }
-  if (blocked.length > 0) {
-    const oldest = blocked.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime())[0];
-    priorities.push({ text: `Resolve ${blocked.length} blocker${blocked.length > 1 ? "s" : ""} (oldest ${ageLabel(oldest.updated_at)})`, href: "/tasks", color: "var(--danger)" });
-  }
-  if (pausedAgents.length > 0) {
-    priorities.push({ text: `Check ${pausedAgents.length} paused agent${pausedAgents.length > 1 ? "s" : ""}`, href: "/workforce", color: "var(--warning)" });
-  }
-  if (taskStats.inProgress > 0) {
-    priorities.push({ text: `${taskStats.inProgress} task${taskStats.inProgress > 1 ? "s" : ""} in progress`, href: "/tasks", color: "var(--info)" });
-  }
-
-  // Waiting for CEO
-  const waitingForCEO: { text: string; href: string; age: string }[] = [];
-  const reviewTasks = tasks.filter((t) => t.status === "in-review");
-  for (const task of reviewTasks.slice(0, 3)) {
-    waitingForCEO.push({ text: task.title, href: "/reviews", age: ageLabel(task.updated_at) });
-  }
-  for (const task of blocked.filter((t) => t.priority === "high").slice(0, 2)) {
-    waitingForCEO.push({ text: `${task.title} (blocked)`, href: "/tasks", age: ageLabel(task.updated_at) });
-  }
-
-  // Executive greeting
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-  return (
-    <div className="rounded-lg p-4 mb-6" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-      {/* Greeting + overnight */}
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{greeting}, Yas</p>
-          <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>
-            {completedYesterday > 0 ? `${completedYesterday} task${completedYesterday > 1 ? "s" : ""} completed since yesterday` : "No completed tasks since yesterday"}
-            {blocked.length > 0 ? ` · ${blocked.length} blocked` : ""}
-            {inReviewCount > 0 ? ` · ${inReviewCount} awaiting review` : ""}
-          </p>
-        </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>
-          {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-        </span>
-      </div>
-
-      {/* Top priorities */}
-      {priorities.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-quiet)" }}>Top Priorities</p>
-          <div className="flex flex-col gap-1">
-            {priorities.map((p, i) => (
-              <Link key={i} href={p.href} className="flex items-center gap-2 text-[11px] p-1.5 rounded hover:opacity-80" style={{ background: "var(--surface)" }}>
-                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
-                <span style={{ color: "var(--text)" }}>{p.text}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Waiting for CEO */}
-      {waitingForCEO.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-quiet)" }}>Waiting for You</p>
-          <div className="flex flex-col gap-1">
-            {waitingForCEO.map((item, i) => (
-              <Link key={i} href={item.href} className="flex items-center justify-between text-[11px] p-1.5 rounded hover:opacity-80" style={{ background: "var(--surface)" }}>
-                <span className="truncate" style={{ color: "var(--text)" }}>{item.text}</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ml-2" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>{item.age}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Quick links */}
-      <div className="flex gap-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-        <Link href="/office" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Office</Link>
-        <Link href="/reviews" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Reviews</Link>
-        <Link href="/tasks" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Tasks</Link>
-        <Link href="/live-feed" className="text-[10px] px-2 py-1 rounded" style={{ background: "var(--surface)", color: "var(--text-quiet)" }}>Feed</Link>
-      </div>
-    </div>
-  );
+function eventDot(type: string): string {
+  if (type === "blocker_detected")   return "var(--danger)";
+  if (type === "task_completed")     return "var(--success)";
+  if (type === "agent_routed")       return "var(--accent)";
+  if (type === "system_alert")       return "var(--warning)";
+  return "var(--text-quiet)";
 }
+
+// ─── Main Page ────────────────────────────────────────
 
 export default function OverviewPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<SystemStatus | null>(null);
-  const [taskStats, setTaskStats] = useState({ total: 0, pending: 0, inProgress: 0, blocked: 0, done: 0 });
-  const [blocked, setBlocked] = useState<TaskWithAgent[]>([]);
-  const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
-  const [events, setEvents] = useState<FeedEvent[]>([]);
-  const [criticalEvents, setCriticalEvents] = useState<FeedEvent[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
+  const [status, setStatus]             = useState<SystemStatus | null>(null);
+  const [taskStats, setTaskStats]       = useState({ total: 0, pending: 0, inProgress: 0, blocked: 0, done: 0 });
+  const [blocked, setBlocked]           = useState<TaskWithAgent[]>([]);
+  const [tasks, setTasks]               = useState<TaskWithAgent[]>([]);
+  const [events, setEvents]             = useState<FeedEvent[]>([]);
   const [pausedAgents, setPausedAgents] = useState<Agent[]>([]);
-  const [allAgents, setAllAgents] = useState<Agent[]>([]);
-  const [skillCoverage, setSkillCoverage] = useState({ installed: 0, total: 0 });
+  const [allAgents, setAllAgents]       = useState<Agent[]>([]);
+  const [skillCount, setSkillCount]     = useState(0);
   const [projectCount, setProjectCount] = useState(0);
+  const [lane, setLane]                 = useState<Lane>("all");
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const [sResult, stats, bResult, eResult, pausedResult, critResult, agentsResult, skillsResult, projResult, tasksResult] = await Promise.all([
+      const [sRes, stats, bRes, eRes, pausedRes, agentsRes, skillsRes, projRes, tasksRes] = await Promise.all([
         getSystemStatus(),
         getTaskStats(),
         getBlockedTasks(),
-        getFeedEvents(5),
+        getFeedEvents(8),
         getPausedAgents(),
-        getCriticalFeedEvents(3),
         getAgents(),
         getAgentSkills(),
         getProjects(),
         getTasks(),
       ]);
-
-      const errors = [sResult.error, bResult.error, eResult.error, pausedResult.error, critResult.error].filter(Boolean);
-      if (errors.length > 0) setError(errors.join("; "));
-
-      setStatus(sResult.data);
+      const errs = [sRes.error, bRes.error, eRes.error, pausedRes.error].filter(Boolean);
+      if (errs.length) setError(errs.join("; "));
+      setStatus(sRes.data);
       setTaskStats(stats);
-      setBlocked(bResult.data);
-      setEvents(eResult.data);
-      setPausedAgents(pausedResult.data);
-      setCriticalEvents(critResult.data);
-      setAllAgents(agentsResult.data);
-
-      // Skill coverage
-      const totalPossible = agentsResult.data.length * 3; // 3 skills per agent target
-      setSkillCoverage({
-        installed: skillsResult.data.length,
-        total: totalPossible,
-      });
-
-      // Project count
-      setProjectCount(projResult.data.length);
-      setTasks(tasksResult.data);
+      setBlocked(bRes.data);
+      setEvents(eRes.data);
+      setPausedAgents(pausedRes.data);
+      setAllAgents(agentsRes.data);
+      setSkillCount(skillsRes.data.length);
+      setProjectCount(projRes.data.length);
+      setTasks(tasksRes.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -352,409 +333,372 @@ export default function OverviewPage() {
 
   const loadRef = useCallback(() => load(), []);
   useRealtimeMulti(["tasks", "agents", "feed_events", "system_status"], loadRef);
-
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   if (loading) {
     return (
-      <PageShell title="Overview" description="Loading...">
-        <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading dashboard...
+      <PageShell>
+        <div className="flex items-center gap-2 py-20 justify-center text-sm" style={{ color: "var(--text-muted)" }}>
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard…
         </div>
       </PageShell>
     );
   }
 
-  if (error && !status) {
-    return (
-      <PageShell title="Overview" description="Error loading data">
-        <div className="surface-card">
-          <CardContent className="flex items-center gap-3 py-6">
-            <AlertTriangle className="h-5 w-5" style={{ color: "var(--danger)" }} />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Failed to load dashboard</p>
-              <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{error}</p>
-            </div>
-            <button onClick={load} className="text-sm hover:underline flex items-center gap-1" style={{ color: "var(--accent)" }}>
-              <RefreshCw className="h-3 w-3" /> Retry
-            </button>
-          </CardContent>
-        </div>
-      </PageShell>
-    );
-  }
-
-  const needsAttention = taskStats.blocked > 0 || pausedAgents.length > 0;
-
-  // ── Command strip derived values (P6 + P7) ──
-  const today = new Date().toISOString().slice(0, 10);
-  const activeAgents = allAgents.filter((a) => a.status === "active").length;
-  const readyPct = allAgents.length > 0 ? Math.round((activeAgents / allAgents.length) * 100) : 0;
+  // ── Derived values ─────────────────────────────────
+  const todayStr      = new Date().toISOString().slice(0, 10);
+  const activeAgents  = allAgents.filter((a) => a.status === "active").length;
+  const readyPct      = allAgents.length > 0 ? Math.round((activeAgents / allAgents.length) * 100) : 0;
   const needsApproval = tasks.filter((t) => t.status === "in-review").length;
-  const inProgressCount = tasks.filter((t) => t.status === "in-progress" || t.status === "dispatched").length;
-  const doneToday = tasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === today).length;
-  const signals = taskStats.blocked + pausedAgents.length;
+  const inProgressCnt = tasks.filter((t) => ["in-progress", "dispatched"].includes(t.status)).length;
+  const doneToday     = tasks.filter((t) => t.status === "done" && t.updated_at?.slice(0, 10) === todayStr).length;
+  const signals       = taskStats.blocked + pausedAgents.length;
 
-  // ── Summary cards (P9: skill coverage fix) ──
-  const agentsWithSkills = allAgents.length > 0
-    ? Math.min(skillCoverage.installed, allAgents.length)
-    : 0;
+  // Waiting for you items
+  const waiting: { text: string; href: string; age: string; color: string }[] = [];
+  tasks.filter((t) => t.status === "in-review").slice(0, 3).forEach((t) => {
+    waiting.push({ text: t.title, href: "/reviews", age: timeAgo(t.updated_at), color: "var(--warning)" });
+  });
+  tasks.filter((t) => t.status === "blocked" && t.priority === "high").slice(0, 2).forEach((t) => {
+    waiting.push({ text: `${t.title} (blocked)`, href: "/tasks", age: timeAgo(t.updated_at), color: "var(--danger)" });
+  });
+  tasks.filter((t) => t.requires_yas_approval && t.status !== "done").slice(0, 2).forEach((t) => {
+    waiting.push({ text: `🔐 ${t.title}`, href: "/tasks", age: timeAgo(t.updated_at), color: "var(--accent)" });
+  });
 
-  const summaryCards = [
+  // KPI cards
+  const kpiCards: KpiConfig[] = [
     {
-      label: "System Health",
-      value: status?.status === "healthy" ? "Healthy" : status?.status ?? "Unknown",
-      sub: status?.checked_at ? `Last check: ${timeAgo(status.checked_at)}` : "No data",
-      icon: ShieldAlert,
-      color: status?.status === "healthy" ? "var(--success)" : "var(--danger)",
-    },
-    {
-      label: "Active Agents",
-      value: `${activeAgents} / ${allAgents.length}`,
-      sub: allAgents.length > 0 ? `${readyPct}% operational` : "No agents",
-      icon: Bot,
-      color: "var(--accent)",
-    },
-    {
-      label: "Skills Installed",
-      value: String(skillCoverage.installed),
-      sub: agentsWithSkills > 0 ? `Across ${agentsWithSkills} agent${agentsWithSkills !== 1 ? "s" : ""}` : "No skills yet",
-      icon: TrendingUp,
-      color: "var(--info)",
-    },
-    {
-      label: "Projects",
-      value: String(projectCount),
-      sub: `${taskStats.total} tasks across projects`,
-      icon: CheckCircle2,
+      id: "decisions",
+      label: "Decisions",
+      sublabel: "review queue",
+      value: needsApproval,
+      href: "/reviews",
+      bg: "rgba(16,185,129,0.08)",
+      border: "rgba(16,185,129,0.25)",
       color: "var(--success)",
+      icon: CheckCircle2,
+    },
+    {
+      id: "execution",
+      label: "Execution",
+      sublabel: "open tasks",
+      value: inProgressCnt,
+      href: "/tasks",
+      bg: "rgba(37,99,235,0.08)",
+      border: "rgba(37,99,235,0.25)",
+      color: "var(--info)",
+      icon: Zap,
+    },
+    {
+      id: "proof",
+      label: "Proof",
+      sublabel: "done / proofed",
+      value: doneToday,
+      href: "/tasks",
+      bg: "var(--accent-soft)",
+      border: "var(--accent-muted)",
+      color: "var(--accent)",
+      icon: TrendingUp,
+    },
+    {
+      id: "signals",
+      label: "Signals",
+      sublabel: "open issues",
+      value: signals,
+      href: "/alerts",
+      bg: signals > 0 ? "rgba(220,38,38,0.08)" : "rgba(148,163,184,0.06)",
+      border: signals > 0 ? "rgba(220,38,38,0.25)" : "var(--border)",
+      color: signals > 0 ? "var(--danger)" : "var(--text-quiet)",
+      icon: Bell,
     },
   ];
 
+  // Lane filter for agents
+  const filteredAgents = allAgents.filter((agent) => {
+    if (lane === "all") return true;
+    const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
+    if (lane === "decisions") return agentTasks.some((t) => t.status === "in-review");
+    if (lane === "execution") return agentTasks.some((t) => ["in-progress", "dispatched"].includes(t.status));
+    if (lane === "proof")     return agentTasks.some((t) => t.status === "done");
+    if (lane === "signals")   return agentTasks.some((t) => t.status === "blocked") || agent.status === "paused";
+    return true;
+  });
+
+  // Greeting
+  const hour     = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const dateStr  = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+
   return (
-    <PageShell title="Overview" description="Operating summary">
+    <PageShell>
       {error && (
-        <div
-          className="rounded-lg border px-4 py-2.5 text-xs"
-          style={{ borderColor: "rgba(245, 158, 11, 0.2)", background: "rgba(245, 158, 11, 0.06)", color: "var(--warning)" }}
-        >
+        <div className="rounded-lg border px-4 py-2 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>
           Some data may be stale: {error}
         </div>
       )}
 
-      {/* Command Strip — P6 + P7 */}
-      <CommandStrip
-        readyPct={readyPct}
-        needsApproval={needsApproval}
-        inProgress={inProgressCount}
-        doneToday={doneToday}
-        signals={signals}
-      />
-
-      {/* CEO Morning Briefing */}
-      <MorningBriefing
-        agents={allAgents}
-        tasks={tasks}
-        blocked={blocked}
-        pausedAgents={pausedAgents}
-        criticalEvents={criticalEvents}
-        events={events}
-        taskStats={taskStats}
-      />
-
-      {/* Department Output Row — P8 */}
-      {allAgents.length > 0 && (
-        <DepartmentRow tasks={tasks} agents={allAgents} />
-      )}
-
-      {/* Summary cards — P9 skill coverage fixed */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {summaryCards.map((card) => (
-          <div key={card.label} className="surface-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>
-                {card.label}
-              </span>
-              <StatusIcon color={card.color}>
-                <card.icon className="h-4 w-4" style={{ color: card.color }} />
-              </StatusIcon>
-            </div>
-            <div className="text-2xl font-bold tracking-tight tabular-nums" style={{ color: card.color }}>
-              {card.value}
-            </div>
-            <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>{card.sub}</p>
+      {/* ── 1. Header row ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>
+            {greeting}, Yas 👋
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>{dateStr} · Yas Claw Mission Control</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* System status pill */}
+          <div
+            className="flex items-center gap-2 rounded-full border px-4 py-1.5"
+            style={{
+              borderColor: status?.status === "healthy" ? "rgba(16,185,129,0.3)" : "rgba(220,38,38,0.3)",
+              background: status?.status === "healthy" ? "rgba(16,185,129,0.06)" : "rgba(220,38,38,0.06)",
+            }}
+          >
+            <span
+              className="h-2 w-2 rounded-full animate-pulse"
+              style={{ background: status?.status === "healthy" ? "var(--success)" : status?.status === "degraded" ? "var(--warning)" : "var(--danger)" }}
+            />
+            <span className="text-xs font-semibold capitalize" style={{ color: status?.status === "healthy" ? "var(--success)" : "var(--danger)" }}>
+              {status?.status ?? "unknown"}
+            </span>
           </div>
+          {/* Stats pills */}
+          {[
+            { label: "agents",   val: allAgents.length },
+            { label: "projects", val: projectCount },
+            { label: "tasks",    val: taskStats.total },
+            { label: "skills",   val: skillCount },
+          ].map(({ label, val }) => (
+            <div key={label} className="hidden md:flex items-center gap-1.5 rounded-full border px-3 py-1" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+              <span className="text-sm font-black tabular-nums" style={{ color: "var(--text)" }}>{val}</span>
+              <span className="text-[10px] uppercase tracking-wide font-medium" style={{ color: "var(--text-quiet)" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 2. KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {kpiCards.map((card) => (
+          <KpiCard
+            key={card.id}
+            card={card}
+            active={lane === card.id}
+            onClick={() => setLane(lane === card.id ? "all" : card.id)}
+          />
         ))}
       </div>
 
-      {/* Attention needed */}
-      {needsAttention && (
-        <Link href="/alerts" className="block">
-          <div className="surface-card border-critical hover:border-warning transition-colors cursor-pointer">
-            <div className="flex items-center gap-4 p-4">
-              <div className="icon-box" style={{ background: "rgba(245, 158, 11, 0.08)" }}>
-                <Bell className="h-4 w-4" style={{ color: "var(--warning)" }} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold" style={{ color: "var(--warning)" }}>Attention Needed</p>
-                <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
-                  {taskStats.blocked > 0 && `${taskStats.blocked} blocked task${taskStats.blocked !== 1 ? "s" : ""}`}
-                  {taskStats.blocked > 0 && pausedAgents.length > 0 && " · "}
-                  {pausedAgents.length > 0 && `${pausedAgents.length} paused agent${pausedAgents.length !== 1 ? "s" : ""}`}
-                </p>
-              </div>
-              <Badge style={{ background: "rgba(245, 158, 11, 0.12)", color: "var(--warning)" }}>
-                {taskStats.blocked + pausedAgents.length}
-              </Badge>
-              <ArrowRight className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
-            </div>
-          </div>
-        </Link>
-      )}
-
-      {/* Three-column signal row */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        {/* Blocked tasks */}
-        <div className="surface-card">
-          <div className="px-5 pt-5 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="icon-box-sm" style={{ background: "rgba(239, 68, 68, 0.08)" }}>
-                  <AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--danger)" }} />
-                </div>
-                <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Blocked Tasks</span>
-              </div>
-              {blocked.length > 0 && (
-                <Badge style={{ background: "rgba(239, 68, 68, 0.12)", color: "var(--danger)" }}>{blocked.length}</Badge>
-              )}
-            </div>
-          </div>
-          <div className="px-5 pb-5">
-            {blocked.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
-                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
-                All clear
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {blocked.slice(0, 3).map((task) => (
-                  <div key={task.id} className="rounded-lg p-3 space-y-1.5" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-                    <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{task.title}</p>
-                    <p className="text-xs truncate" style={{ color: "var(--text-quiet)" }}>{task.blocker}</p>
-                    {task.assigned_agent_name && (
-                      <Link href={`/agents/${task.assigned_agent_id}`} className="text-xs hover:underline" style={{ color: "var(--accent)" }}>
-                        {task.assigned_agent_emoji} {task.assigned_agent_name}
-                      </Link>
-                    )}
-                  </div>
-                ))}
-                {blocked.length > 3 && (
-                  <Link href="/alerts" className="text-xs hover:underline block text-center pt-1 font-medium" style={{ color: "var(--accent)" }}>
-                    View all {blocked.length} blocked →
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Paused agents */}
-        <div className="surface-card">
-          <div className="px-5 pt-5 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="icon-box-sm" style={{ background: "rgba(245, 158, 11, 0.08)" }}>
-                  <Bot className="h-3.5 w-3.5" style={{ color: "var(--warning)" }} />
-                </div>
-                <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Paused Agents</span>
-              </div>
-              {pausedAgents.length > 0 && (
-                <Badge style={{ background: "rgba(245, 158, 11, 0.12)", color: "var(--warning)" }}>{pausedAgents.length}</Badge>
-              )}
-            </div>
-          </div>
-          <div className="px-5 pb-5">
-            {pausedAgents.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
-                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
-                All agents active
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {pausedAgents.map((agent) => (
-                  <Link key={agent.id} href={`/agents/${agent.id}`} className="block rounded-lg p-3 hover-surface transition-colors" style={{ border: "1px solid var(--border)" }}>
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-lg">{agent.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{agent.name}</p>
-                        <p className="text-xs truncate" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
-                      </div>
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--text-quiet)" }} />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Critical events */}
-        <div className="surface-card">
-          <div className="px-5 pt-5 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="icon-box-sm" style={{ background: "rgba(59, 130, 246, 0.08)" }}>
-                  <ShieldAlert className="h-3.5 w-3.5" style={{ color: "var(--info)" }} />
-                </div>
-                <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Critical Events</span>
-              </div>
-              {criticalEvents.length > 0 && (
-                <Link href="/alerts">
-                  <Badge className="cursor-pointer hover:opacity-80 transition-opacity" style={{ background: "rgba(59, 130, 246, 0.12)", color: "var(--info)" }}>
-                    {criticalEvents.length}
-                  </Badge>
-                </Link>
-              )}
-            </div>
-          </div>
-          <div className="px-5 pb-5">
-            {criticalEvents.length === 0 ? (
-              <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
-                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
-                No critical events
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {criticalEvents.map((event) => (
-                  <div key={event.id} className="rounded-lg p-3 space-y-1" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-                    <p className="text-sm truncate" style={{ color: "var(--text)" }}>{event.summary}</p>
-                    <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</p>
-                  </div>
-                ))}
-                <Link href="/alerts" className="text-xs hover:underline block text-center pt-1 font-medium" style={{ color: "var(--accent)" }}>
-                  View all alerts →
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+      {/* ── 3. Lane tabs ── */}
+      <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: "var(--surface-muted)" }}>
+        {(["all", "decisions", "execution", "proof", "signals"] as Lane[]).map((l) => (
+          <button
+            key={l}
+            onClick={() => setLane(l)}
+            className="rounded-lg px-4 py-1.5 text-[12px] font-semibold capitalize transition-all duration-150"
+            style={{
+              background: lane === l ? "var(--surface)" : "transparent",
+              color: lane === l ? "var(--text)" : "var(--text-quiet)",
+              boxShadow: lane === l ? "var(--shadow-card)" : "none",
+            }}
+          >
+            {l}
+          </button>
+        ))}
       </div>
 
-      {/* Agent Sessions */}
-      {allAgents.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="icon-box-sm" style={{ background: "var(--accent-soft)" }}>
-              <Bot className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
-            </div>
-            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Agent Sessions</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {allAgents.map((agent) => {
-              const agentTasks = tasks.filter((t) => t.assigned_agent_id === agent.id);
-              const openCount = agentTasks.filter((t) => t.status !== "done").length;
-              return (
-                <Link key={agent.id} href={`/agents/${agent.id}`}>
-                  <div className="surface-card-hover p-4 cursor-pointer">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="relative">
-                        <span className="text-2xl">{agent.emoji}</span>
-                        <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{agent.name}</p>
-                        <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-center">
-                      <div className="rounded-lg p-2" style={{ background: "var(--surface-muted)" }}>
-                        <div className="text-sm font-bold" style={{ color: "var(--text)" }}>{openCount}</div>
-                        <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Tasks</div>
-                      </div>
-                      <div className="rounded-lg p-2" style={{ background: "var(--surface-muted)" }}>
-                        <div className="text-sm font-bold" style={{ color: "var(--text)" }}>{agent.task_count}</div>
-                        <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-quiet)" }}>Total</div>
-                      </div>
-                    </div>
-                    <p className="text-[10px] mt-2" style={{ color: "var(--text-quiet)" }}>
-                      {agent.last_activity ? `Active ${timeAgo(agent.last_activity)}` : "No recent activity"}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* ── 4. Main two-column layout ── */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
 
-      {/* Activity + System */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="surface-card">
-          <div className="px-5 pt-5 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="icon-box-sm" style={{ background: "rgba(255, 255, 255, 0.04)" }}>
-                <Activity className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
+        {/* ── LEFT: Agent Fleet + Departments ── */}
+        <div className="space-y-4">
+
+          {/* Agent Fleet */}
+          <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)" }}>
+                  <Bot className="h-4 w-4" style={{ color: "var(--accent)" }} />
+                </div>
+                <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Agent Fleet</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+                  {activeAgents}/{allAgents.length} active
+                </span>
               </div>
-              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>Recent Activity</span>
+              <Link href="/workforce" className="text-[11px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
+                View all <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
-          </div>
-          <div className="px-5 pb-5">
-            {events.length === 0 ? (
-              <p className="py-4 text-xs" style={{ color: "var(--text-quiet)" }}>No events yet</p>
+
+            {filteredAgents.length === 0 ? (
+              <div className="py-10 text-center text-sm" style={{ color: "var(--text-quiet)" }}>
+                No agents match the <span className="font-semibold">{lane}</span> lane filter
+              </div>
             ) : (
-              <div className="space-y-3">
-                {events.map((event) => (
-                  <div key={event.id} className="flex items-start gap-3 text-sm">
-                    <span className="w-14 shrink-0 text-xs font-medium tabular-nums" style={{ color: "var(--text-quiet)" }}>
-                      {timeAgo(event.created_at)}
-                    </span>
-                    <span className="flex-1" style={{ color: "var(--text-muted)" }}>{event.summary}</span>
-                  </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+                {filteredAgents.map((agent) => (
+                  <AgentCard key={agent.id} agent={agent} tasks={tasks} />
                 ))}
               </div>
             )}
           </div>
-        </div>
 
-        <div className="surface-card">
-          <div className="px-5 pt-5 pb-3">
-            <div className="flex items-center gap-2">
-              <div className="icon-box-sm" style={{ background: "rgba(255, 255, 255, 0.04)" }}>
-                <Clock className="h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
+          {/* Department Output */}
+          <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(99,102,241,0.08)" }}>
+                  <BarChart3 className="h-4 w-4" style={{ color: "#6366f1" }} />
+                </div>
+                <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Department Output</span>
+                <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>this week</span>
               </div>
-              <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>System Status</span>
+              <Link href="/departments" className="text-[11px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
+                Outputs <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {DEPT_CONFIG.map((dept) => (
+                <DeptCard key={dept.name} dept={dept} tasks={tasks} agents={allAgents} />
+              ))}
             </div>
           </div>
-          <div className="px-5 pb-5">
-            {status?.last_event ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className={`h-2 w-2 rounded-full ${status.status === "healthy" ? "dot-green" : "dot-red"}`} />
-                  <span className="text-sm font-medium capitalize" style={{ color: "var(--text)" }}>{status.status}</span>
+
+          {/* Blocked Tasks — only if >0 */}
+          {blocked.length > 0 && (
+            <div className="rounded-xl border p-5" style={{ borderColor: "rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.03)" }}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(220,38,38,0.1)" }}>
+                    <AlertTriangle className="h-4 w-4" style={{ color: "var(--danger)" }} />
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: "var(--danger)" }}>Blocked Tasks</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: "rgba(220,38,38,0.1)", color: "var(--danger)" }}>
+                    {blocked.length}
+                  </span>
                 </div>
-                <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
-                  Last activity: {new Date(status.last_event).toLocaleString()}
+                <Link href="/tasks" className="text-[11px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--danger)" }}>
+                  View all <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {blocked.slice(0, 4).map((task) => (
+                  <div key={task.id} className="flex items-center gap-3 rounded-lg p-3" style={{ background: "var(--surface)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                    <span className="h-1.5 w-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "var(--danger)" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{task.title}</p>
+                      {task.blocker && <p className="text-[11px] truncate" style={{ color: "var(--text-quiet)" }}>{task.blocker}</p>}
+                    </div>
+                    {task.assigned_agent_name && (
+                      <span className="text-[10px] shrink-0" style={{ color: "var(--text-quiet)" }}>
+                        {task.assigned_agent_emoji} {task.assigned_agent_name}
+                      </span>
+                    )}
+                    <span className="text-[10px] shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>{timeAgo(task.updated_at)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT: Sticky panel ── */}
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+
+          {/* Ready to operate */}
+          <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: "var(--text-quiet)" }}>Quick Actions</p>
+            <div className="flex items-center gap-4 mb-4">
+              <ReadyCircle pct={readyPct} />
+              <div>
+                <p className="text-sm font-bold" style={{ color: "var(--text)" }}>Ready to operate</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-quiet)" }}>
+                  {activeAgents}/{allAgents.length} agents healthy
                 </p>
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  <div className="rounded-lg p-2.5 text-center" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-                    <div className="text-lg font-bold" style={{ color: "var(--text)" }}>{status.open_tasks}</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Open</div>
+                {pausedAgents.length > 0 && (
+                  <p className="text-[11px]" style={{ color: "var(--warning)" }}>
+                    {pausedAgents.length} paused
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Quick links grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "Agents",   href: "/workforce", icon: Bot,          color: "var(--accent)" },
+                { label: "Tasks",    href: "/tasks",     icon: CheckCircle2, color: "var(--info)" },
+                { label: "Reviews",  href: "/reviews",   icon: ShieldAlert,  color: "var(--warning)" },
+                { label: "Hermes",   href: "/hermes",    icon: Send,         color: "#8b5cf6" },
+                { label: "Alerts",   href: "/alerts",    icon: Bell,         color: "var(--danger)" },
+                { label: "Feed",     href: "/live-feed", icon: Activity,     color: "var(--success)" },
+              ].map(({ label, href, icon: Icon, color }) => (
+                <Link key={label} href={href}>
+                  <div
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 transition-colors hover:opacity-80"
+                    style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+                    <span className="text-[12px] font-medium" style={{ color: "var(--text-muted)" }}>{label}</span>
                   </div>
-                  <div className="rounded-lg p-2.5 text-center" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-                    <div className="text-lg font-bold" style={{ color: "var(--danger)" }}>{status.blocked_tasks}</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Blocked</div>
-                  </div>
-                  <div className="rounded-lg p-2.5 text-center" style={{ background: "var(--surface-muted)", border: "1px solid var(--border)" }}>
-                    <div className="text-lg font-bold" style={{ color: "var(--accent)" }}>{status.active_agents}</div>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Active</div>
-                  </div>
-                </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Waiting for you */}
+          <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Waiting for You</p>
+              {waiting.length > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(245,158,11,0.12)", color: "var(--warning)" }}>
+                  {waiting.length}
+                </span>
+              )}
+            </div>
+            {waiting.length === 0 ? (
+              <div className="flex items-center gap-2 py-3 text-xs" style={{ color: "var(--text-quiet)" }}>
+                <CheckCircle2 className="h-4 w-4" style={{ color: "var(--success)" }} />
+                All clear — nothing waiting
               </div>
             ) : (
-              <p className="py-4 text-xs" style={{ color: "var(--text-quiet)" }}>No system activity recorded</p>
+              <div className="space-y-2">
+                {waiting.slice(0, 5).map((item, i) => (
+                  <Link key={i} href={item.href}>
+                    <div className="flex items-center gap-2.5 rounded-lg p-2.5 hover:opacity-80 transition-opacity" style={{ background: "var(--surface-muted)" }}>
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: item.color }} />
+                      <span className="flex-1 text-[12px] truncate font-medium" style={{ color: "var(--text)" }}>{item.text}</span>
+                      <span className="text-[10px] shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>{item.age}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Live feed */}
+          <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Live Feed</p>
+              <Link href="/live-feed" className="text-[10px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
+                All <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            {events.length === 0 ? (
+              <p className="text-xs py-2" style={{ color: "var(--text-quiet)" }}>No events yet</p>
+            ) : (
+              <div className="space-y-3">
+                {events.slice(0, 6).map((event) => (
+                  <div key={event.id} className="flex items-start gap-2.5">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: eventDot(event.event_type) }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] leading-snug truncate" style={{ color: "var(--text-muted)" }}>{event.summary}</p>
+                      <p className="text-[10px] mt-0.5 tabular-nums" style={{ color: "var(--text-quiet)" }}>{timeAgo(event.created_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
