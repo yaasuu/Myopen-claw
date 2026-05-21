@@ -18,14 +18,17 @@ import {
   Bot,
   ArrowRight,
   Clock,
+  TrendingDown,
 } from "lucide-react";
-import { getBlockedTasks } from "@/lib/data/tasks";
+import { getBlockedTasks, getTasks } from "@/lib/data/tasks";
 import { getCriticalFeedEvents } from "@/lib/data/feed";
 import { getPausedAgents } from "@/lib/data/alerts";
 import { getSystemStatus } from "@/lib/data/system";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import type { TaskWithAgent, FeedEvent, Agent, SystemStatus } from "@/types/dashboard";
 import { timeAgo } from "@/lib/utils";
+
+const DRIFT_HOURS = 48;
 
 const prioritySeverity: Record<string, { label: string; color: string; dot: string }> = {
   high: { label: "High", color: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)] border-red-200", dot: "dot-red" },
@@ -38,6 +41,7 @@ export default function AlertsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [blocked, setBlocked] = useState<TaskWithAgent[]>([]);
+  const [driftTasks, setDriftTasks] = useState<TaskWithAgent[]>([]);
   const [criticalEvents, setCriticalEvents] = useState<FeedEvent[]>([]);
   const [pausedAgents, setPausedAgents] = useState<Agent[]>([]);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
@@ -46,11 +50,12 @@ export default function AlertsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [blockedResult, eventsResult, pausedResult, statusResult] = await Promise.all([
+      const [blockedResult, eventsResult, pausedResult, statusResult, allTasksResult] = await Promise.all([
         getBlockedTasks(),
         getCriticalFeedEvents(10),
         getPausedAgents(),
         getSystemStatus(),
+        getTasks({ includeArchived: false }),
       ]);
 
       const errors = [blockedResult.error, eventsResult.error, pausedResult.error, statusResult.error].filter(Boolean);
@@ -60,6 +65,16 @@ export default function AlertsPage() {
       setCriticalEvents(eventsResult.data);
       setPausedAgents(pausedResult.data);
       setSystemStatus(statusResult.data);
+
+      // Drift detection: tasks stuck in an active status for > DRIFT_HOURS
+      const driftCutoff = Date.now() - DRIFT_HOURS * 3600 * 1000;
+      setDriftTasks(
+        allTasksResult.data.filter(
+          (t) =>
+            !["done", "pending", "approved", "blocked"].includes(t.status) &&
+            new Date(t.updated_at).getTime() < driftCutoff
+        )
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load alerts");
     } finally {
@@ -74,7 +89,7 @@ export default function AlertsPage() {
     load();
   }, []);
 
-  const totalAlerts = blocked.length + pausedAgents.length + (systemStatus && systemStatus.status !== "healthy" ? 1 : 0);
+  const totalAlerts = blocked.length + driftTasks.length + pausedAgents.length + (systemStatus && systemStatus.status !== "healthy" ? 1 : 0);
 
   if (loading) {
     return (
@@ -189,7 +204,61 @@ export default function AlertsPage() {
         )}
       </section>
 
-      {/* Section 2: System & Agent Warnings */}
+      {/* Section 2: Drift Detection */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <TrendingDown className="h-4 w-4" style={{ color: "var(--warning)" }} />
+          <h2 className="text-sm font-semibold">Drift Detection</h2>
+          <span className="text-[10px] font-medium rounded-full px-2 py-0.5" style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}>
+            stale &gt;{DRIFT_HOURS}h
+          </span>
+          {driftTasks.length > 0 && <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{driftTasks.length}</Badge>}
+        </div>
+        {driftTasks.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-sm text-muted-foreground">
+              No drifting tasks — all active work has moved recently
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {driftTasks.map((task) => {
+              const staleHours = Math.round((Date.now() - new Date(task.updated_at).getTime()) / 3600000);
+              return (
+                <Card key={task.id} className="border-l-4 border-l-amber-400">
+                  <CardContent className="flex items-center gap-3 py-3">
+                    <TrendingDown className="h-4 w-4 shrink-0" style={{ color: "var(--warning)" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{task.title}</p>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+                        <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={{ background: "rgba(245,158,11,0.08)", color: "var(--warning)" }}>
+                          {task.status}
+                        </span>
+                        {task.assigned_agent_name && (
+                          <Link href={`/agents/${task.assigned_agent_id}`} className="hover:underline flex items-center gap-1">
+                            {task.assigned_agent_emoji} {task.assigned_agent_name}
+                          </Link>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          No update for {staleHours}h
+                        </span>
+                      </div>
+                    </div>
+                    <Link href="/tasks">
+                      <Button variant="outline" size="sm" className="gap-1 shrink-0">
+                        Review <ArrowRight className="h-3 w-3" />
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Section 3: System & Agent Warnings */}
       <section>
         <div className="flex items-center gap-2 mb-3">
           <Bot className="h-4 w-4 text-yellow-500" />
@@ -249,7 +318,7 @@ export default function AlertsPage() {
         </div>
       </section>
 
-      {/* Section 3: Recent Critical Events */}
+      {/* Section 4: Recent Critical Events */}
       <section>
         <div className="flex items-center gap-2 mb-3">
           <ShieldAlert className="h-4 w-4 text-orange-500" />

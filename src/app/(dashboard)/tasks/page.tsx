@@ -60,6 +60,9 @@ import {
   Calendar,
   Eye,
   UserCheck,
+  Send,
+  Lock,
+  FileCheck,
 } from "lucide-react";
 import {
   getTasks,
@@ -68,6 +71,7 @@ import {
   updateTaskStatus,
   unblockTask,
   updateTaskAssignment,
+  dispatchTaskToHermes,
   archiveTask,
   unarchiveTask,
   getGoals,
@@ -77,7 +81,7 @@ import { getTaskComments, addTaskComment } from "@/lib/data/comments";
 import { getTaskReviews, submitReview } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus } from "@/types/dashboard";
+import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus, TaskReview } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { timeAgo } from "@/lib/utils";
 
@@ -189,7 +193,7 @@ export default function TasksPage() {
   // Side panel (task detail + comments)
   const [sidePanelTask, setSidePanelTask] = useState<TaskWithAgent | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<TaskReview[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -199,6 +203,19 @@ export default function TasksPage() {
   const [reviewOutcome, setReviewOutcome] = useState<"approved" | "rejected" | "returned_for_rework" | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Dispatch dialog (P11 — Hermes dispatch)
+  const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
+  const [dispatchTargetTask, setDispatchTargetTask] = useState<TaskWithAgent | null>(null);
+  const [dispatchAgentId, setDispatchAgentId] = useState<string>("none");
+  const [dispatchNotes, setDispatchNotes] = useState("");
+  const [dispatching, setDispatching] = useState(false);
+
+  // Evidence gate (P12 — require evidence before submit-for-review)
+  const [evidenceDialogOpen, setEvidenceDialogOpen] = useState(false);
+  const [evidenceTaskId, setEvidenceTaskId] = useState<string | null>(null);
+  const [evidenceText, setEvidenceText] = useState("");
+  const [submittingEvidence, setSubmittingEvidence] = useState(false);
 
   // Inline updates
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -316,6 +333,48 @@ export default function TasksPage() {
     setReviewNotes("");
   }
 
+  // ── Hermes dispatch (P11) ────────────────────────────
+  function openDispatchDialog(task: TaskWithAgent) {
+    setDispatchTargetTask(task);
+    setDispatchAgentId(task.assigned_agent_id ?? "none");
+    setDispatchNotes("");
+    setDispatchDialogOpen(true);
+  }
+
+  async function handleDispatchSubmit() {
+    if (!dispatchTargetTask || dispatchAgentId === "none") return;
+    setDispatching(true);
+    const result = await dispatchTaskToHermes(dispatchTargetTask.id, dispatchAgentId, dispatchNotes);
+    if (!result.error) {
+      await load();
+      if (sidePanelTask?.id === dispatchTargetTask.id) {
+        setSidePanelTask((prev) => prev ? { ...prev, status: "dispatched", assigned_agent_id: dispatchAgentId } : null);
+      }
+    }
+    setDispatching(false);
+    setDispatchDialogOpen(false);
+    setDispatchTargetTask(null);
+  }
+
+  // ── Evidence gate (P12) ──────────────────────────────
+  function requestEvidence(taskId: string) {
+    setEvidenceTaskId(taskId);
+    setEvidenceText("");
+    setEvidenceDialogOpen(true);
+  }
+
+  async function handleEvidenceSubmit() {
+    if (!evidenceTaskId) return;
+    setSubmittingEvidence(true);
+    await updateTask(evidenceTaskId, { dispatch_notes: evidenceText.trim() || undefined });
+    await updateTaskStatus(evidenceTaskId, "submitted");
+    await load();
+    setSubmittingEvidence(false);
+    setEvidenceDialogOpen(false);
+    setEvidenceTaskId(null);
+    setEvidenceText("");
+  }
+
   async function handleSendComment() {
     if (!sidePanelTask || !newComment.trim()) return;
     setSendingComment(true);
@@ -366,6 +425,11 @@ export default function TasksPage() {
 
   // ── Inline status change ────────────────────────────
   async function handleStatusChange(taskId: string, newStatusVal: string) {
+    // Evidence gate: require evidence before moving to submitted
+    if (newStatusVal === "submitted") {
+      requestEvidence(taskId);
+      return;
+    }
     setUpdatingId(taskId);
     try {
       const result = await updateTaskStatus(taskId, newStatusVal as TaskWithAgent["status"]);
@@ -897,6 +961,12 @@ export default function TasksPage() {
                                   Unassigned
                                 </div>
                               )}
+                              {task.requires_yas_approval && task.status !== "done" && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: "var(--accent)" }}>
+                                  <Lock className="h-3 w-3" />
+                                  Yas approval required
+                                </div>
+                              )}
                               {(task.due_date || task.sla_hours || task.sla_breached) && (() => {
                                 const sla = getSlaState(task);
                                 return (
@@ -941,8 +1011,7 @@ export default function TasksPage() {
                             </span>
                           </div>
 
-                          {/* Quick done on hover */}
-                          {/* Quick action: submit for review or approve */}
+                          {/* Quick actions on hover */}
                           {canWrite && !task.is_archived && status === "in-review" && (
                             <button
                               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity font-medium"
@@ -954,15 +1023,27 @@ export default function TasksPage() {
                               ✓ Approve
                             </button>
                           )}
-                          {canWrite && !task.is_archived && status !== "done" && status !== "in-review" && status !== "blocked" && (
+                          {canWrite && !task.is_archived && status === "pending" && (
+                            <button
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity font-medium flex items-center gap-1"
+                              style={{ color: "var(--accent)", background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.2)" }}
+                              onClick={(e) => { e.stopPropagation(); openDispatchDialog(task); }}
+                              disabled={updatingId === task.id}
+                              title="Dispatch via Hermes"
+                            >
+                              <Send className="h-2.5 w-2.5" />
+                              Hermes
+                            </button>
+                          )}
+                          {canWrite && !task.is_archived && status !== "done" && status !== "in-review" && status !== "blocked" && status !== "pending" && (
                             <button
                               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition-opacity font-medium"
                               style={{ color: "var(--info)", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.15)" }}
-                              onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "in-review"); }}
+                              onClick={(e) => { e.stopPropagation(); handleStatusChange(task.id, "submitted"); }}
                               disabled={updatingId === task.id}
                               title="Submit for review"
                             >
-                              ↗ Review
+                              ↗ Submit
                             </button>
                           )}
                         </div>
@@ -1354,10 +1435,41 @@ export default function TasksPage() {
                   </div>
                 )}
 
-                {/* Edit button */}
-                <Button variant="outline" size="sm" className="gap-1.5 w-full" onClick={() => { setSidePanelTask(null); openEdit(sidePanelTask); }}>
-                  <Pencil className="h-3 w-3" /> Edit Task
-                </Button>
+                {/* Hermes dispatch fields (read-only when already dispatched) */}
+                {sidePanelTask.owner_agent_id && (
+                  <div className="rounded-lg p-3 space-y-1" style={{ background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>Hermes Dispatch</p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      Owner agent: {agents.find((a) => a.id === sidePanelTask.owner_agent_id)?.name ?? sidePanelTask.owner_agent_id}
+                    </p>
+                    {sidePanelTask.dispatch_notes && (
+                      <p className="text-xs italic" style={{ color: "var(--text-quiet)" }}>&ldquo;{sidePanelTask.dispatch_notes}&rdquo;</p>
+                    )}
+                    {sidePanelTask.dispatched_at && (
+                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Dispatched {timeAgo(sidePanelTask.dispatched_at)}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Greenlight gate (P15) */}
+                {sidePanelTask.requires_yas_approval && sidePanelTask.status !== "done" && (
+                  <div className="rounded-lg p-3 flex items-center gap-2" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                    <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--accent)" }} />
+                    <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>Yas approval required before this task can be marked done.</p>
+                  </div>
+                )}
+
+                {/* Edit + Dispatch buttons */}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => { setSidePanelTask(null); openEdit(sidePanelTask); }}>
+                    <Pencil className="h-3 w-3" /> Edit
+                  </Button>
+                  {canWrite && sidePanelTask.status === "pending" && (
+                    <Button size="sm" className="gap-1.5 flex-1" style={{ background: "var(--accent)", color: "#fff" }} onClick={() => openDispatchDialog(sidePanelTask)}>
+                      <Send className="h-3 w-3" /> Dispatch via Hermes
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Review actions (only for in-review tasks) */}
@@ -1395,7 +1507,7 @@ export default function TasksPage() {
                 <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
                   <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-quiet)" }}>Review History</p>
                   <div className="space-y-2">
-                    {reviews.map((review: any) => (
+                    {reviews.map((review) => (
                       <div key={review.id} className="rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
                         <div className="flex items-center justify-between mb-1">
                           <Badge className={`text-[10px] ${
@@ -1406,6 +1518,7 @@ export default function TasksPage() {
                           <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(review.created_at)}</span>
                         </div>
                         {review.notes && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{review.notes}</p>}
+                        {review.evidence && <p className="text-[10px] mt-1 italic" style={{ color: "var(--text-quiet)" }}>Evidence: {review.evidence}</p>}
                         <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>by {review.reviewed_by}</p>
                       </div>
                     ))}
@@ -1519,6 +1632,97 @@ export default function TasksPage() {
                 {reviewOutcome === "approved" && "Approve"}
                 {reviewOutcome === "returned_for_rework" && "Return for Rework"}
                 {reviewOutcome === "rejected" && "Reject"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dispatch Dialog (P11) */}
+      <Dialog open={dispatchDialogOpen} onOpenChange={(open) => { if (!open) { setDispatchDialogOpen(false); setDispatchTargetTask(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4" style={{ color: "var(--accent)" }} />
+              Dispatch via Hermes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {dispatchTargetTask && (
+              <div className="rounded-lg p-3" style={{ background: "var(--surface-muted)" }}>
+                <p className="text-xs font-medium" style={{ color: "var(--text)" }}>{dispatchTargetTask.title}</p>
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Agent *</label>
+              <Select value={dispatchAgentId} onValueChange={setDispatchAgentId}>
+                <SelectTrigger className="mt-1 w-full">
+                  <SelectValue placeholder="Select agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select agent…</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.emoji} {a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Dispatch notes</label>
+              <textarea
+                className="mt-1 w-full rounded-lg border px-3 py-2 text-sm resize-none"
+                style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                rows={3}
+                placeholder="Context for Hermes / the agent… (optional)"
+                value={dispatchNotes}
+                onChange={(e) => setDispatchNotes(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setDispatchDialogOpen(false)} disabled={dispatching}>Cancel</Button>
+              <Button
+                onClick={handleDispatchSubmit}
+                disabled={dispatching || dispatchAgentId === "none"}
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                {dispatching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                Dispatch
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Evidence Gate Dialog (P12) */}
+      <Dialog open={evidenceDialogOpen} onOpenChange={(open) => { if (!open) { setEvidenceDialogOpen(false); setEvidenceTaskId(null); setEvidenceText(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCheck className="h-4 w-4" style={{ color: "var(--success)" }} />
+              Submit for Review — Evidence Required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              Provide a checkpoint note or evidence link so the reviewer can verify the work.
+            </p>
+            <textarea
+              className="w-full rounded-lg border px-3 py-2 text-sm resize-none"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+              rows={4}
+              placeholder="Evidence link, summary, or checkpoint notes…"
+              value={evidenceText}
+              onChange={(e) => setEvidenceText(e.target.value)}
+            />
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setEvidenceDialogOpen(false)} disabled={submittingEvidence}>Cancel</Button>
+              <Button
+                onClick={handleEvidenceSubmit}
+                disabled={submittingEvidence || !evidenceText.trim()}
+                style={{ background: "var(--success)", color: "#fff" }}
+              >
+                {submittingEvidence ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileCheck className="h-4 w-4 mr-2" />}
+                Submit for Review
               </Button>
             </div>
           </div>

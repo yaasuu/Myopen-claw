@@ -52,6 +52,7 @@ import { getFeedEventsByAgent } from "@/lib/data/feed";
 import { getAgentSkills } from "@/lib/data/skills";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
+import { timeAgo } from "@/lib/utils";
 import type { Agent, TaskWithAgent, FeedEvent, AgentSkill } from "@/types/dashboard";
 
 const statusColor: Record<string, string> = {
@@ -72,17 +73,6 @@ const priorityColors: Record<string, string> = {
   medium: "text-[var(--warning)]",
   low: "text-[var(--text-quiet)]",
 };
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 // Agent memory data — structured focus areas and operating rules per agent
 const AGENT_MEMORY: Record<string, { focusAreas: string[]; operatingRules: string[] }> = {
@@ -312,6 +302,8 @@ export default function AgentDetailPage() {
   const canToggle = canWrite && agent.status !== "retired";
   const blockedTasks = tasks.filter((t) => t.status === "blocked");
   const completedTasks = tasks.filter((t) => t.status === "done");
+  const activeTasks = tasks.filter((t) => t.status === "in-progress" || t.status === "dispatched");
+  const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
   return (
     <PageShell
@@ -402,39 +394,58 @@ export default function AgentDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Task insights */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Task stats */}
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Assigned Tasks</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Activity className="h-3.5 w-3.5" /> Total Tasks
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{tasks.length}</div>
-            <p className="text-xs text-muted-foreground">total assigned</p>
+            <div className="text-2xl font-bold" style={{ color: "var(--text)" }}>{tasks.length}</div>
+            <p className="text-xs" style={{ color: "var(--text-quiet)" }}>all time</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Blocked</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5" /> Active
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[var(--danger)]">{blockedTasks.length}</div>
+            <div className="text-2xl font-bold" style={{ color: "var(--info)" }}>{activeTasks.length}</div>
+            <p className="text-xs" style={{ color: "var(--text-quiet)" }}>in-progress + dispatched</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" /> Blocked
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" style={{ color: "var(--danger)" }}>{blockedTasks.length}</div>
             {blockedTasks.length > 0 ? (
-              <Link href="/tasks" className="text-xs text-[var(--info)] hover:underline flex items-center gap-1">
-                View in tasks <ExternalLink className="h-3 w-3" />
+              <Link href="/tasks" className="text-xs hover:underline flex items-center gap-1" style={{ color: "var(--info)" }}>
+                View <ExternalLink className="h-3 w-3" />
               </Link>
             ) : (
-              <p className="text-xs text-muted-foreground">no blockers</p>
+              <p className="text-xs" style={{ color: "var(--text-quiet)" }}>none</p>
             )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Completed</CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Completion
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[var(--success)]">{completedTasks.length}</div>
-            <p className="text-xs text-muted-foreground">tasks done</p>
+            <div className="text-2xl font-bold" style={{ color: completionRate >= 70 ? "var(--success)" : completionRate >= 40 ? "var(--warning)" : "var(--text)" }}>
+              {completionRate}%
+            </div>
+            <p className="text-xs" style={{ color: "var(--text-quiet)" }}>{completedTasks.length} done</p>
           </CardContent>
         </Card>
       </div>
