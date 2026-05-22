@@ -268,6 +268,15 @@ export default function WorkforcePage() {
   const pausedCount = agents.filter((a) => a.status === "paused").length;
   const overloadedCount = agents.filter((a) => tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length >= 5).length;
 
+  // Live "active now" — any agent whose tasks updated in the last 15 min
+  const fifteenMinAgo = Date.now() - 15 * 60 * 1000;
+  const liveAgentIds = new Set(
+    tasks
+      .filter((t) => t.assigned_agent_id && new Date(t.updated_at).getTime() >= fifteenMinAgo)
+      .map((t) => t.assigned_agent_id as string)
+  );
+  const liveCount = agents.filter((a) => liveAgentIds.has(a.id)).length;
+
   if (loading) {
     return (
       <PageShell title="Workforce" description="Loading...">
@@ -279,24 +288,45 @@ export default function WorkforcePage() {
   }
 
   return (
-    <PageShell title="Workforce" description="Organization hierarchy and unit workspaces">
+    <PageShell>
       {error && (
         <div className="rounded-lg border px-4 py-2.5 text-xs font-mono" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>{error}</div>
       )}
 
-      {/* Top metrics */}
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Workforce</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            {agents.length} agents · {departments.length} departments · {specialists.length} specialists
+          </p>
+        </div>
+        {liveCount > 0 && (
+          <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+               style={{ borderColor: "rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.06)" }}>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "var(--success)" }} />
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--success)" }} />
+            </span>
+            <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>
+              {liveCount} active now
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ── KPI cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Total Agents", value: String(agents.length), color: "var(--text)" },
-          { label: "Active", value: String(activeCount), color: "var(--success)" },
-          { label: "Paused", value: String(pausedCount), color: pausedCount > 0 ? "var(--warning)" : "var(--text-quiet)" },
-          { label: "Departments", value: String(departments.length), color: "var(--accent)" },
-          { label: "Specialists", value: String(specialists.length), color: "var(--info)" },
-          { label: "Overloaded", value: String(overloadedCount), color: overloadedCount > 0 ? "var(--danger)" : "var(--text-quiet)" },
-        ].map((m) => (
-          <div key={m.label} className="surface-card p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{m.label}</p>
-            <p className="text-xl font-bold mt-1" style={{ color: m.color }}>{m.value}</p>
+          { label: "Active",     val: activeCount,    sub: `${agents.length} total agents`,    color: "var(--success)", bg: "rgba(16,185,129,0.08)" },
+          { label: "Paused",     val: pausedCount,    sub: "needs attention",                  color: pausedCount > 0 ? "var(--warning)" : "var(--text-quiet)", bg: "rgba(245,158,11,0.08)" },
+          { label: "Departments",val: departments.length, sub: "+ specialists",                color: "var(--accent)",  bg: "var(--accent-soft)" },
+          { label: "Overloaded", val: overloadedCount, sub: "5+ open tasks",                    color: overloadedCount > 0 ? "var(--danger)" : "var(--text-quiet)", bg: "rgba(220,38,38,0.08)" },
+        ].map((c) => (
+          <div key={c.label} className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{c.label}</span>
+            <div className="text-3xl font-black tabular-nums mt-2" style={{ color: c.color }}>{c.val}</div>
+            <p className="text-[11px] mt-1" style={{ color: "var(--text-quiet)" }}>{c.sub}</p>
           </div>
         ))}
       </div>
@@ -328,6 +358,7 @@ export default function WorkforcePage() {
           <div className="p-2 space-y-0.5 overflow-y-auto" style={{ maxHeight: "500px" }}>
             {filtered.map((item) => {
               const isSelected = selectedId === item.id;
+              const isLive = item.type === "agent" && liveAgentIds.has(item.id);
               return (
                 <button
                   key={`${item.type}-${item.id}`}
@@ -339,11 +370,20 @@ export default function WorkforcePage() {
                 >
                   <div className="relative">
                     <span className="text-base">{item.emoji}</span>
-                    <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${item.status === "active" ? "dot-green" : item.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                    {isLive ? (
+                      <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5">
+                        <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "var(--success)" }} />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 border" style={{ background: "var(--success)", borderColor: "var(--surface)" }} />
+                      </span>
+                    ) : (
+                      <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${item.status === "active" ? "dot-green" : item.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium truncate" style={{ color: isSelected ? "var(--accent)" : "var(--text)" }}>{item.name}</p>
-                    <p className="text-[11px] truncate" style={{ color: "var(--text-quiet)" }}>{item.meta}</p>
+                    <p className="text-[11px] truncate" style={{ color: isLive ? "var(--success)" : "var(--text-quiet)" }}>
+                      {isLive ? "● active now" : item.meta}
+                    </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] shrink-0">{item.type}</Badge>
                 </button>
