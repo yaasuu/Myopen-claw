@@ -1,297 +1,276 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Loader2,
-  BookOpen,
-  CheckCircle,
-  CheckCircle2,
-  AlertTriangle,
-  Zap,
-  RefreshCw,
-  Calendar,
-  ChevronRight,
-  Lightbulb,
-  Plus,
-  Search,
-  Filter,
-  Target,
-  BarChart3,
-  Eye,
-  ThumbsUp,
-  ThumbsDown,
-  Activity,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Clock,
-  XCircle,
-  TrendingUp,
-  Award,
+  Loader2, BookOpen, AlertTriangle, Lightbulb, Search, Calendar,
+  CheckCircle2, ChevronRight, Sparkles, Zap, Brain, Layers,
+  Archive, FolderOpen, ArrowRight, TrendingUp, Filter,
 } from "lucide-react";
-import { 
-  getDailySyncs,
-  getAgentPerformance,
-  getSkillRequests, 
-  getLessons, 
-  getSystemUpdates,
-  approveSkillRequest,
-  rejectSkillRequest,
-  requestSkill,
-  updateLessonStatus,
-  getApprovals,
-  resolveApproval,
-  createApproval,
-  type MeetingSummary,
-  type AgentPerformance, 
-  type Lesson,
-  type SystemUpdate,
-  type Approval,
-  type ApprovalType,
-  type ApprovalStatus,
-  APPROVAL_LABELS
+import {
+  getDailySyncs, getLessons, getSystemUpdates, updateLessonStatus,
+  type MeetingSummary, type Lesson, type SystemUpdate,
 } from "@/lib/data/learning";
 import {
-  getSkills,
-  getAgentSkills,
-  analyzeSkillGaps,
-  scanSkillContent,
-  approveSkillRequest as approveSkillRequestFull,
-  rejectSkillRequest as rejectSkillRequestFull,
-  createSkillRequest as createSkillRequestFull,
-} from "@/lib/data/skills";
-import {
-  getCapabilityGaps,
-  getAuditRuns,
-  reviewCapabilityGap,
-} from "@/lib/data/capability-governance";
-import {
-  getDailyNotes,
-  getKnowledgeEntries,
-  type DailyNote,
-  type KnowledgeEntry,
-  type PARACategory,
+  getDailyNotes, getKnowledgeEntries,
+  type DailyNote, type KnowledgeEntry, type PARACategory,
 } from "@/lib/data/knowledge";
-import type {
-  Skill,
-  AgentSkill,
-  SkillRequest,
-  SkillScanResult,
-  CapabilityGap,
-  CapabilityAuditRun,
-  GapReviewStatus,
-} from "@/types/dashboard";
-import { getAgents } from "@/lib/data/agents";
-import { getTasks } from "@/lib/data/tasks";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import { EmptyState } from "@/components/ui/empty-state";
+import { timeAgo } from "@/lib/utils";
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+// ─── Helpers ──────────────────────────────────────────
 
-const scanStyles: Record<SkillScanResult, { icon: typeof Shield; color: string; bg: string; label: string }> = {
-  pending: { icon: Clock, color: "text-[var(--text-quiet)]", bg: "bg-gray-50", label: "Pending scan" },
-  clean: { icon: ShieldCheck, color: "text-[var(--success)]", bg: "bg-[rgba(16,185,129,0.08)]", label: "Clean" },
-  suspicious: { icon: ShieldAlert, color: "text-[var(--warning)]", bg: "bg-[rgba(245,158,11,0.08)]", label: "Suspicious" },
-  blocked: { icon: Shield, color: "text-[var(--danger)]", bg: "bg-[rgba(239,68,68,0.08)]", label: "Blocked" },
+const PARA_CONFIG: { key: PARACategory; label: string; icon: React.ElementType; color: string; bg: string }[] = [
+  { key: "project",  label: "Projects",  icon: FolderOpen, color: "var(--info)",    bg: "rgba(37,99,235,0.08)"  },
+  { key: "area",     label: "Areas",     icon: Layers,     color: "var(--accent)",  bg: "var(--accent-soft)"    },
+  { key: "resource", label: "Resources", icon: BookOpen,   color: "var(--success)", bg: "rgba(16,185,129,0.08)" },
+  { key: "archive",  label: "Archives",  icon: Archive,    color: "var(--text-quiet)", bg: "var(--surface-muted)" },
+];
+
+const LESSON_STATUS_COLOR: Record<string, { bg: string; color: string }> = {
+  draft:    { bg: "rgba(148,163,184,0.12)", color: "var(--text-quiet)" },
+  pending:  { bg: "rgba(245,158,11,0.12)",  color: "var(--warning)" },
+  approved: { bg: "rgba(37,99,235,0.12)",   color: "var(--info)" },
+  applied:  { bg: "rgba(16,185,129,0.12)",  color: "var(--success)" },
+  rejected: { bg: "rgba(148,163,184,0.12)", color: "var(--text-quiet)" },
 };
 
-const TABS = [
-  { key: "meeting", label: "Meeting", sub: "Daily sync reports", Icon: Calendar, bg: "bg-blue-500/12", border: "border-blue-500/30", icon: "text-blue-400", text: "text-blue-300" },
-  { key: "approvals", label: "Approvals", sub: "Decision queue", Icon: CheckCircle2, bg: "bg-violet-500/12", border: "border-violet-500/30", icon: "text-violet-400", text: "text-violet-300" },
-  { key: "lessons", label: "Lessons", sub: "Operational insights", Icon: BookOpen, bg: "bg-amber-500/12", border: "border-amber-500/30", icon: "text-amber-400", text: "text-amber-300" },
-  { key: "skills", label: "Skills", sub: "Capabilities & requests", Icon: Lightbulb, bg: "bg-emerald-500/12", border: "border-emerald-500/30", icon: "text-emerald-400", text: "text-emerald-300" },
-  { key: "updates", label: "Updates", sub: "Change history", Icon: Zap, bg: "bg-teal-500/12", border: "border-teal-500/30", icon: "text-teal-400", text: "text-teal-300" },
-  { key: "governance", label: "Governance", sub: "Gaps & automation", Icon: Target, bg: "bg-rose-500/12", border: "border-rose-500/30", icon: "text-rose-400", text: "text-rose-300" },
-  { key: "knowledge", label: "Knowledge", sub: "PARA knowledge base", Icon: BookOpen, bg: "bg-cyan-500/12", border: "border-cyan-500/30", icon: "text-cyan-400", text: "text-cyan-300" },
-] as const;
+// ─── Today card ───────────────────────────────────────
 
-type TabKey = typeof TABS[number]["key"];
+function TodayCard({ note, meeting }: { note: DailyNote | null; meeting: MeetingSummary | null }) {
+  // Prefer DailyNote (newer source), fall back to MeetingSummary
+  if (!note && !meeting) {
+    return (
+      <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Calendar className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Today</span>
+        </div>
+        <p className="text-xs italic" style={{ color: "var(--text-quiet)" }}>
+          No daily sync recorded yet. The nightly summary runs at 23:00 UTC.
+        </p>
+      </div>
+    );
+  }
 
-export default function LearningHubPage() {
+  const date     = note?.date ?? meeting?.date ?? "Today";
+  const summary  = note?.summary ?? meeting?.summary ?? "";
+  const wins     = note?.wins ?? meeting?.wins ?? [];
+  const blockers = note?.blockers ?? meeting?.difficulties ?? [];
+  const priorities = note?.priorities_tomorrow ?? meeting?.assigned_actions ?? [];
+  const decisions = note?.decisions ?? note?.yas_decisions ?? [];
+  const eventsReviewed = note?.events_reviewed ?? meeting?.event_count ?? 0;
+
+  return (
+    <div className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)" }}>
+            <Calendar className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          </div>
+          <div>
+            <p className="text-sm font-bold" style={{ color: "var(--text)" }}>Daily Sync — {date}</p>
+            <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{eventsReviewed} events reviewed</p>
+          </div>
+        </div>
+        <Badge variant="outline" className="text-[10px]">Latest</Badge>
+      </div>
+
+      {summary && (
+        <div className="rounded-lg p-3 mb-4" style={{ background: "var(--surface-muted)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-quiet)" }}>Executive summary</p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--text)" }}>{summary}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Wins */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "var(--success)" }}>
+            <CheckCircle2 className="h-3 w-3" /> Wins ({wins.length})
+          </p>
+          {wins.length === 0 ? (
+            <p className="text-[11px] italic" style={{ color: "var(--text-quiet)" }}>—</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {wins.slice(0, 4).map((w, i) => (
+                <li key={i} className="text-xs leading-snug" style={{ color: "var(--text-muted)" }}>{w}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Blockers */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "var(--danger)" }}>
+            <AlertTriangle className="h-3 w-3" /> Blockers ({blockers.length})
+          </p>
+          {blockers.length === 0 ? (
+            <p className="text-[11px] italic" style={{ color: "var(--text-quiet)" }}>None</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {blockers.slice(0, 4).map((b, i) => (
+                <li key={i} className="text-xs leading-snug" style={{ color: "var(--text-muted)" }}>{b}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Priorities tomorrow */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: "var(--accent)" }}>
+            <ChevronRight className="h-3 w-3" /> Tomorrow ({priorities.length})
+          </p>
+          {priorities.length === 0 ? (
+            <p className="text-[11px] italic" style={{ color: "var(--text-quiet)" }}>—</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {priorities.slice(0, 4).map((p, i) => (
+                <li key={i} className="text-xs leading-snug" style={{ color: "var(--text-muted)" }}>{p}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {decisions.length > 0 && (
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-quiet)" }}>Decisions</p>
+          <div className="flex flex-wrap gap-1.5">
+            {decisions.slice(0, 5).map((d, i) => (
+              <span key={i} className="text-[11px] px-2 py-1 rounded-md" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+                {d}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Recurring patterns panel ─────────────────────────
+
+function RecurringPatterns({ lessons }: { lessons: Lesson[] }) {
+  const patterns = useMemo(() => {
+    const counts = new Map<string, { count: number; agents: Set<string>; statuses: Set<string> }>();
+    for (const l of lessons) {
+      const key = (l.pattern || "").trim() || "Uncategorized";
+      const e = counts.get(key) ?? { count: 0, agents: new Set(), statuses: new Set() };
+      e.count++;
+      for (const a of l.affected_agents ?? []) e.agents.add(a);
+      e.statuses.add(l.status);
+      counts.set(key, e);
+    }
+    return [...counts.entries()]
+      .map(([pattern, e]) => ({ pattern, count: e.count, agents: [...e.agents], statuses: [...e.statuses] }))
+      .filter((p) => p.count > 1)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [lessons]);
+
+  return (
+    <div className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <TrendingUp className="h-3.5 w-3.5" style={{ color: "var(--warning)" }} />
+        <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Recurring Patterns</span>
+      </div>
+      {patterns.length === 0 ? (
+        <p className="text-xs italic" style={{ color: "var(--text-quiet)" }}>No recurring patterns yet. Patterns appear when a theme is detected in 2+ lessons.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {patterns.map((p, i) => (
+            <div key={i} className="rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{p.pattern}</span>
+                <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded" style={{ background: "rgba(245,158,11,0.12)", color: "var(--warning)" }}>
+                  ×{p.count}
+                </span>
+              </div>
+              {p.agents.length > 0 && (
+                <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                  Agents: {p.agents.slice(0, 3).join(", ")}{p.agents.length > 3 ? `, +${p.agents.length - 3}` : ""}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────
+
+export default function LearningPage() {
   const canWrite = useCanWrite();
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>("meeting");
-  const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
-  const [skillRequests, setSkillRequests] = useState<SkillRequest[]>([]);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [updates, setUpdates] = useState<SystemUpdate[]>([]);
-  const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [lessonFilter, setLessonFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
-  const [agentPerf, setAgentPerf] = useState<AgentPerformance[]>([]);
-  const [capGaps, setCapGaps] = useState<CapabilityGap[]>([]);
-  const [auditRuns, setAuditRuns] = useState<CapabilityAuditRun[]>([]);
-  const [scanMsg, setScanMsg] = useState<string>("");
-  const [scanning, setScanning] = useState(false);
-
-  // Skills tab state
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [agentSkills, setAgentSkills] = useState<AgentSkill[]>([]);
-  const [gaps, setGaps] = useState<ReturnType<typeof analyzeSkillGaps>>([]);
-  const [processing, setProcessing] = useState<string | null>(null);
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [reqAgentId, setReqAgentId] = useState("");
-  const [reqSkillName, setReqSkillName] = useState("");
-  const [reqReason, setReqReason] = useState("");
-
-  // Notes & Knowledge tab state
+  const [loading, setLoading]     = useState(true);
+  const [meetings, setMeetings]   = useState<MeetingSummary[]>([]);
   const [dailyNotes, setDailyNotes] = useState<DailyNote[]>([]);
+  const [lessons, setLessons]     = useState<Lesson[]>([]);
+  const [updates, setUpdates]     = useState<SystemUpdate[]>([]);
   const [knowledge, setKnowledge] = useState<KnowledgeEntry[]>([]);
-  const [knowledgeFilter, setKnowledgeFilter] = useState<string>("all");
-  const [knowledgeSearch, setKnowledgeSearch] = useState("");
+
+  // Filters
+  const [lessonFilter, setLessonFilter]   = useState<string>("all");
+  const [knowledgeFilter, setKnowledgeFilter] = useState<PARACategory | "all">("all");
+  const [searchQ, setSearchQ]             = useState("");
+  const [scanning, setScanning]           = useState(false);
+  const [scanMsg, setScanMsg]             = useState("");
 
   async function load() {
     setLoading(true);
     try {
       const results = await Promise.allSettled([
         getDailySyncs(7),
-        getSkillRequests(),
+        getDailyNotes(14),
         getLessons(lessonFilter === "all" ? undefined : lessonFilter),
         getSystemUpdates(),
-        getAgentPerformance(),
-        getCapabilityGaps(),
-        getAuditRuns(),
-        getApprovals("pending"),
-        getSkills(),
-        getAgentSkills(),
-        getTasks(),
-        getDailyNotes(14),
-        getKnowledgeEntries({ category: knowledgeFilter === "all" ? undefined : (knowledgeFilter as PARACategory), search: knowledgeSearch || undefined }),
+        getKnowledgeEntries({
+          category: knowledgeFilter === "all" ? undefined : knowledgeFilter,
+          search: searchQ || undefined,
+        }),
       ]);
-      
-      const meetingsR = results[0].status === "fulfilled" ? results[0].value : [];
-      const skillsReqR = results[1].status === "fulfilled" ? results[1].value : [];
-      const lessonsR = results[2].status === "fulfilled" ? results[2].value : [];
-      const updatesR = results[3].status === "fulfilled" ? results[3].value : [];
-      const perfR = results[4].status === "fulfilled" ? results[4].value : [];
-      const gapsR = results[5].status === "fulfilled" ? results[5].value : { data: [], error: null };
-      const auditsR = results[6].status === "fulfilled" ? results[6].value : { data: [], error: null };
-      const approvalsR = results[7].status === "fulfilled" ? results[7].value : [];
-      const skillsListR = results[8].status === "fulfilled" ? results[8].value : { data: [], error: null };
-      const agentSkillsR = results[9].status === "fulfilled" ? results[9].value : { data: [], error: null };
-      const tasksR = results[10].status === "fulfilled" ? results[10].value : { data: [], error: null };
-      const dailyNotesR = results[11].status === "fulfilled" ? results[11].value : { data: [], error: null };
-      const knowledgeR = results[12].status === "fulfilled" ? results[12].value : { data: [], error: null };
-      
-      setMeetings(meetingsR);
-      setSkillRequests(skillsReqR as unknown as SkillRequest[]);
-      setLessons(lessonsR);
-      setUpdates(updatesR);
-      setAgentPerf(perfR);
-      setCapGaps(gapsR.data ?? []);
-      setAuditRuns(auditsR.data ?? []);
-      setApprovals(approvalsR);
-      setSkills(skillsListR.data ?? []);
-      setAgentSkills(agentSkillsR.data ?? []);
-      setDailyNotes(dailyNotesR.data ?? []);
-      setKnowledge(knowledgeR.data ?? []);
-      
-      const agentsList = await getAgents();
-      setGaps(analyzeSkillGaps(tasksR.data ?? [], agentsList.data, agentSkillsR.data ?? []));
+      setMeetings(results[0].status === "fulfilled" ? results[0].value : []);
+      setDailyNotes(results[1].status === "fulfilled" ? (results[1].value.data ?? []) : []);
+      setLessons(results[2].status === "fulfilled" ? results[2].value : []);
+      setUpdates(results[3].status === "fulfilled" ? results[3].value : []);
+      setKnowledge(results[4].status === "fulfilled" ? (results[4].value.data ?? []) : []);
     } catch (err) {
-      console.error("Learning Hub load error:", err);
+      console.error("Learning load error:", err);
     } finally {
       setLoading(false);
     }
   }
 
-  const loadRef = useCallback(() => load(), [lessonFilter, knowledgeFilter, knowledgeSearch]);
-  useRealtimeMulti(["daily_notes", "skill_requests", "lessons", "system_updates", "knowledge_entries"], loadRef);
+  const loadRef = useCallback(() => load(), [lessonFilter, knowledgeFilter, searchQ]);
+  useRealtimeMulti(["daily_notes", "lessons", "system_updates", "knowledge_entries"], loadRef);
 
-  useEffect(() => {
-    load();
-  }, [lessonFilter, activeTab]);
-
-  async function handleApprove(id: string) {
-    await approveSkillRequest(id);
-    load();
-  }
-
-  async function handleReject(id: string) {
-    await rejectSkillRequest(id);
-    load();
-  }
-
-  // Skills tab handlers
-  async function handleSkillApprove(requestId: string) {
-    setProcessing(requestId);
-    const { error } = await approveSkillRequestFull(requestId, "Yas");
-    if (error) console.error(error);
-    await load();
-    setProcessing(null);
-  }
-
-  async function handleSkillReject(requestId: string) {
-    setProcessing(requestId);
-    await rejectSkillRequestFull(requestId, "Yas");
-    await load();
-    setProcessing(null);
-  }
-
-  async function handleSkillRequest() {
-    if (!reqAgentId || !reqSkillName.trim() || !reqReason.trim()) return;
-    setProcessing("creating");
-    const { error } = await createSkillRequestFull({
-      agentId: reqAgentId,
-      skillName: reqSkillName.trim(),
-      reason: reqReason.trim(),
-    });
-    if (error) console.error(error);
-    setRequestOpen(false);
-    setReqAgentId("");
-    setReqSkillName("");
-    setReqReason("");
-    setProcessing(null);
-    await load();
-  }
-
-  const pendingRequests = skillRequests.filter((r) => r.status === "pending");
-
-  async function handleRequestSkill() {
-    const title = prompt("Skill Name:");
-    if (!title) return;
-    const description = prompt("Description/Reason:") || "";
-    await requestSkill(title, description, "Yas");
-    load();
-  }
+  useEffect(() => { load(); }, [lessonFilter, knowledgeFilter, searchQ]);
 
   async function handleScanLessons() {
     setScanning(true);
-    setScanMsg("Scanning tasks and reviews for patterns...");
+    setScanMsg("Scanning tasks and reviews for patterns…");
     try {
-      const resp = await fetch(
-        process.env.NEXT_PUBLIC_SUPABASE_URL ? `/api/orchestrator` : ``,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "check_and_draft_lessons" }),
-        }
-      );
+      const resp = await fetch("/api/orchestrator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check_and_draft_lessons" }),
+      });
       const result = await resp.json();
-      if (result.lessons_draft > 0) {
-        setScanMsg(`✅ ${result.lessons_draft} new lesson(s) drafted.`);
-      } else {
-        setScanMsg("✅ No new recurring patterns found.");
-      }
-      load();
-    } catch (e: any) {
-      setScanMsg(`❌ Scan failed: ${e.message}`);
+      setScanMsg(result.lessons_draft > 0
+        ? `✅ ${result.lessons_draft} new lesson(s) drafted.`
+        : "✅ No new recurring patterns found.");
+      await load();
+    } catch (e: unknown) {
+      setScanMsg(`❌ Scan failed: ${e instanceof Error ? e.message : "Unknown error"}`);
     }
     setScanning(false);
+    setTimeout(() => setScanMsg(""), 6000);
   }
 
   async function handleLessonStatus(id: string, status: Lesson["status"]) {
@@ -299,946 +278,323 @@ export default function LearningHubPage() {
     if (ok) load();
   }
 
-  async function handleReviewGap(gapId: string, status: GapReviewStatus) {
-    await reviewCapabilityGap(gapId, status, "Yas");
-    load();
-  }
+  // ── Derived ────────────────────────────────────────
+  const todayNote     = dailyNotes[0] ?? null;
+  const todayMeeting  = meetings[0] ?? null;
 
-  async function handleResolveApproval(id: string, status: "approved" | "rejected" | "revision_requested") {
-    const ok = await resolveApproval(id, status, "Yas");
-    if (ok) {
-      setApprovals((prev) => prev.filter((a) => a.id !== id));
-      load();
+  const filteredLessons = useMemo(() => {
+    let out = [...lessons];
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      out = out.filter((l) =>
+        l.title?.toLowerCase().includes(q) ||
+        l.lesson_statement?.toLowerCase().includes(q) ||
+        l.proposed_fix?.toLowerCase().includes(q)
+      );
     }
-  }
+    return out.sort((a, b) => new Date(b.date_detected).getTime() - new Date(a.date_detected).getTime());
+  }, [lessons, searchQ]);
 
-  const pendingApprovals = skillRequests.filter(s => s.status === "pending").length + approvals.length;
-  const installedSkills = skillRequests.filter(s => s.status === "installed").length;
+  const filteredKnowledge = useMemo(() => {
+    return knowledgeFilter === "all" ? knowledge : knowledge.filter((k) => k.category === knowledgeFilter);
+  }, [knowledge, knowledgeFilter]);
 
-  const draftLessons = lessons.filter(l => l.status === "draft").length;
-  const draftLessonsFromMeetings = meetings.reduce((acc, m) => (m.skill_gaps?.length || 0) + acc, 0);
-
-  if (loading) {
+  if (loading && lessons.length === 0 && dailyNotes.length === 0) {
     return (
-      <PageShell title="Learning Hub" description="Loading operational intelligence...">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Syncing system memory...
+      <PageShell>
+        <div className="flex items-center gap-2 py-20 justify-center text-sm" style={{ color: "var(--text-muted)" }}>
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading learning hub…
         </div>
       </PageShell>
     );
   }
 
   return (
-    <PageShell title="Learning Hub" description="Daily sync, findings, lessons, skills, and operational improvements">
-      
+    <PageShell>
+      {/* ── Header + stat strip ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Learning</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            What the org has learned · daily sync, lessons, knowledge base
+          </p>
+        </div>
 
-      {/* Summary Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        <Card className="stat-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.12)]"><AlertTriangle className="h-5 w-5 text-[var(--warning)]" /></div>
-            <div><div className="text-lg font-bold">{meetings.reduce((acc, m) => acc + m.difficulties.length, 0)}</div><div className="text-[10px] text-muted-foreground uppercase tracking-wider">Open Findings</div></div>
-          </CardContent>
-        </Card>
-        <Card className="stat-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.12)]"><Lightbulb className="h-5 w-5 text-[var(--info)]" /></div>
-            <div><div className="text-lg font-bold">{draftLessons + draftLessonsFromMeetings}</div><div className="text-[10px] text-muted-foreground uppercase tracking-wider">Draft Lessons</div></div>
-          </CardContent>
-        </Card>
-        <Card className="stat-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.12)]"><CheckCircle2 className="h-5 w-5 text-[var(--accent)]" /></div>
-            <div><div className="text-lg font-bold">{pendingApprovals}</div><div className="text-[10px] text-muted-foreground uppercase tracking-wider">Pending Approvals</div></div>
-          </CardContent>
-        </Card>
-        <Card className="stat-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.12)]"><Zap className="h-5 w-5 text-[var(--success)]" /></div>
-            <div><div className="text-lg font-bold">{installedSkills}</div><div className="text-[10px] text-muted-foreground uppercase tracking-wider">Installed Skills</div></div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2">
+          {[
+            { label: "lessons",   val: lessons.length,    color: "var(--warning)" },
+            { label: "knowledge", val: knowledge.length,  color: "var(--info)" },
+            { label: "updates",   val: updates.length,    color: "var(--success)" },
+          ].map(({ label, val, color }) => (
+            <div key={label} className="hidden md:flex items-center gap-1.5 rounded-full border px-3 py-1" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+              <span className="text-sm font-black tabular-nums" style={{ color }}>{val}</span>
+              <span className="text-[10px] uppercase tracking-wide font-medium" style={{ color: "var(--text-quiet)" }}>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Premium Segmented Tab Bar */}
-      <div className="rounded-xl border border-border/60 bg-surface/60 backdrop-blur p-1.5 mb-6">
-        <div className="flex gap-1">
-          {TABS.map(({ key, label, sub, Icon, bg, border, icon, text }) => {
-            const isActive = activeTab === key;
+      {/* ── Hero search ── */}
+      <div className="rounded-xl border flex items-center gap-3 px-4 py-3" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <Search className="h-4 w-4 shrink-0" style={{ color: "var(--text-quiet)" }} />
+        <input
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--text-quiet)]"
+          placeholder="Search lessons, knowledge, daily syncs…"
+          value={searchQ}
+          onChange={(e) => setSearchQ(e.target.value)}
+        />
+        {searchQ && (
+          <button onClick={() => setSearchQ("")} className="text-[11px] hover:underline" style={{ color: "var(--text-quiet)" }}>
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* ── Today + recurring patterns ── */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+        <TodayCard note={todayNote} meeting={todayMeeting} />
+        <RecurringPatterns lessons={lessons} />
+      </div>
+
+      {/* ── Lessons timeline ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(245,158,11,0.08)" }}>
+              <Lightbulb className="h-4 w-4" style={{ color: "var(--warning)" }} />
+            </div>
+            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Lessons</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+              {filteredLessons.length}
+            </span>
+          </div>
+          {canWrite && (
+            <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={handleScanLessons} disabled={scanning}>
+              {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              Scan now
+            </Button>
+          )}
+        </div>
+
+        {/* Status filter chips */}
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          {["all", "draft", "pending", "approved", "applied"].map((f) => (
+            <button
+              key={f}
+              onClick={() => setLessonFilter(f)}
+              className="rounded-full px-3 py-1 text-[11px] font-semibold capitalize transition-colors"
+              style={{
+                background: lessonFilter === f ? "var(--text)" : "var(--surface-muted)",
+                color:      lessonFilter === f ? "var(--surface)" : "var(--text-muted)",
+              }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {scanMsg && (
+          <div className="text-xs font-mono px-3 py-2 rounded-md mb-3" style={{
+            background: scanMsg.startsWith("✅") ? "rgba(16,185,129,0.08)" : scanMsg.startsWith("❌") ? "rgba(239,68,68,0.08)" : "rgba(139,92,246,0.08)",
+            color:      scanMsg.startsWith("✅") ? "var(--success)"        : scanMsg.startsWith("❌") ? "var(--danger)"         : "var(--accent)",
+          }}>
+            {scanMsg}
+          </div>
+        )}
+
+        {filteredLessons.length === 0 ? (
+          <div className="rounded-xl border py-12 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+            <Lightbulb className="h-10 w-10 mx-auto mb-2" style={{ color: "var(--text-quiet)" }} />
+            <p className="text-sm font-medium" style={{ color: "var(--text)" }}>No lessons yet</p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>Lessons are detected automatically from recurring patterns in tasks and reviews.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {filteredLessons.map((lesson) => {
+              const sc = LESSON_STATUS_COLOR[lesson.status] ?? LESSON_STATUS_COLOR.draft;
+              return (
+                <div key={lesson.id} className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: sc.bg, color: sc.color }}>
+                          {lesson.status}
+                        </span>
+                        {lesson.pattern && (
+                          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>· {lesson.pattern}</span>
+                        )}
+                        <span className="text-[10px] ml-auto" style={{ color: "var(--text-quiet)" }}>
+                          {timeAgo(lesson.date_detected)}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text)" }}>{lesson.title}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--text-muted)" }}>{lesson.lesson_statement}</p>
+                  {lesson.proposed_fix && (
+                    <div className="rounded-lg p-2.5 mb-3" style={{ background: "var(--surface-muted)" }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--text-quiet)" }}>Proposed fix</p>
+                      <p className="text-xs" style={{ color: "var(--text)" }}>{lesson.proposed_fix}</p>
+                    </div>
+                  )}
+                  {(lesson.affected_agents?.length > 0 || canWrite) && (
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {lesson.affected_agents?.slice(0, 4).map((a, i) => (
+                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+                            {a}
+                          </span>
+                        ))}
+                      </div>
+                      {canWrite && (
+                        <div className="flex gap-1.5">
+                          {lesson.status === "draft" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "pending")}>
+                              Promote
+                            </Button>
+                          )}
+                          {lesson.status === "pending" && (
+                            <>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "approved")}>
+                                ✓ Approve
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-6 text-[10px]" style={{ color: "var(--danger)" }} onClick={() => handleLessonStatus(lesson.id, "rejected")}>
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {lesson.status === "approved" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "applied")}>
+                              🚀 Mark applied
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Knowledge base (PARA) ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(37,99,235,0.08)" }}>
+              <BookOpen className="h-4 w-4" style={{ color: "var(--info)" }} />
+            </div>
+            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Knowledge Base</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+              {filteredKnowledge.length}
+            </span>
+          </div>
+        </div>
+
+        {/* PARA cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          {PARA_CONFIG.map((cat) => {
+            const Icon = cat.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+            const count = knowledge.filter((k) => k.category === cat.key).length;
+            const isActive = knowledgeFilter === cat.key;
             return (
               <button
-                key={key}
-                onClick={() => setActiveTab(key as TabKey)}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-3 px-3 rounded-lg text-xs font-medium transition-all duration-150 ${
-                  isActive ? `${bg} ${border} border shadow-sm` : "hover:bg-surface-muted/40"
-                }`}
+                key={cat.key}
+                onClick={() => setKnowledgeFilter(isActive ? "all" : cat.key)}
+                className="rounded-xl p-4 text-left transition-all hover:-translate-y-0.5"
+                style={{
+                  background: isActive ? cat.bg : "var(--surface)",
+                  border: `1px solid ${isActive ? cat.color + "40" : "var(--border)"}`,
+                  boxShadow: isActive ? `0 0 0 2px ${cat.color}40` : "var(--shadow-card)",
+                }}
               >
-                <Icon className={`h-4 w-4 transition-colors ${isActive ? icon : "text-muted-foreground/40"}`} />
-                <span className={`transition-colors ${isActive ? text : "text-muted-foreground/60"}`}>{label}</span>
-                <span className="text-[9px] text-muted-foreground/30 leading-none">{sub}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: isActive ? cat.color : "var(--text-quiet)" }}>{cat.label}</span>
+                  <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
+                </div>
+                <div className="text-2xl font-black tabular-nums" style={{ color: isActive ? cat.color : "var(--text)" }}>{count}</div>
+                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-quiet)" }}>{cat.key === "project" ? "in flight" : cat.key === "area" ? "ongoing" : cat.key === "resource" ? "reference" : "stored"}</p>
               </button>
             );
           })}
         </div>
-      </div>
 
-      {/* Utility Row */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex-1 flex items-center gap-2 h-8 px-3 rounded-lg border border-border/50 bg-surface/40">
-          <Search className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-          <input
-            className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/40"
-            placeholder="Search across Learning Hub..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <button className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border/50 bg-surface/40 text-xs text-muted-foreground/70 hover:bg-surface-muted/50 transition-colors">
-          <Filter className="h-3 w-3" /> Filter
-        </button>
-        <button
-          className={`flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs transition-colors ${
-            showUnresolvedOnly
-              ? "border-[var(--warning)]/30 bg-[var(--warning)]/8 text-[var(--warning)]"
-              : "border-border/50 bg-surface/40 text-muted-foreground/70 hover:bg-surface-muted/50"
-          }`}
-          onClick={() => setShowUnresolvedOnly(!showUnresolvedOnly)}
-        >
-          <AlertTriangle className="h-3 w-3" />
-          Unresolved only
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      <div className="space-y-4">
-
-        {/* ─── MEETING ─── */}
-        {activeTab === "meeting" && (
-          <div className="space-y-4">
-            {meetings.length === 0 ? (
-              <EmptyState icon={Calendar} title="No daily syncs yet" message="Daily sync reports will appear here as the system runs." />
-            ) : (
-              meetings.map((day) => (
-                <Card key={day.id} className={`stat-card ${day.health === "needs_attention" ? "border-l-4 border-l-amber-500" : "border-l-4 border-l-emerald-500"}`}>
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-border/50 pb-3">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <h3 className="text-sm font-semibold text-foreground">Daily Sync — {day.date}</h3>
-                      </div>
-                      <Badge variant={day.health === "healthy" ? "default" : "outline"} className={day.health === "needs_attention" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : ""}>
-                        {day.health === "healthy" ? "Healthy" : "Needs Attention"}
-                      </Badge>
-                    </div>
-
-                    <div className="rounded-md bg-muted/30 p-3 border border-border/50">
-                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">A. Executive Summary</h4>
-                      <p className="text-sm text-foreground/90 leading-relaxed">{day.summary}</p>
-                    </div>
-
-                    <div className="grid lg:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--text)] mb-2">B. Agent Updates</h4>
-                          <div className="grid sm:grid-cols-2 gap-2">
-                            {Array.isArray(day.agent_updates) && day.agent_updates.map((agent: any, i: number) => (
-                              <div key={i} className="rounded border bg-background/50 p-2 text-xs space-y-1">
-                                <div className="flex items-center justify-between font-medium">
-                                  <span>{agent.emoji} {agent.name}</span>
-                                  <span className="text-[10px] text-muted-foreground">{agent.utilization}</span>
-                                </div>
-                                <div className="text-muted-foreground text-[10px]">
-                                  ✅ {agent.workload.completed} | 🚧 {agent.workload.in_progress} | ⚠️ {agent.workload.blocked}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--text)] mb-2">C. Coordination</h4>
-                          {day.cross_team && day.cross_team.coordination_notes && day.cross_team.coordination_notes.length > 0 ? (
-                            day.cross_team.coordination_notes.map((note: string, i: number) => (
-                              <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1"><AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" /> {note}</p>
-                            ))
-                          ) : <p className="text-xs text-muted-foreground/50">No coordination gaps.</p>}
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--success)] mb-1">Wins & Successes</h4>
-                          {day.wins.length > 0 ? day.wins.map((w, i) => (
-                            <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1"><CheckCircle2 className="h-3 w-3 mt-0.5 shrink-0" /> {w}</p>
-                          )) : <p className="text-xs text-muted-foreground/50">No major wins recorded.</p>}
-                        </div>
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--danger)] mb-1">Blockers & Difficulties</h4>
-                          {day.difficulties.length > 0 ? day.difficulties.map((d, i) => (
-                            <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1"><AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" /> {d}</p>
-                          )) : <p className="text-xs text-muted-foreground/50">No blockers reported.</p>}
-                        </div>
-                        <div>
-                          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] mb-1">Tomorrow's Priorities</h4>
-                          {day.assigned_actions.length > 0 ? day.assigned_actions.map((a, i) => (
-                            <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1"><ChevronRight className="h-3 w-3 mt-0.5 shrink-0" /> {a}</p>
-                          )) : <p className="text-xs text-muted-foreground/50">No actions assigned.</p>}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-
-            {/* Agent Performance Section */}
-            {agentPerf.length > 0 && (
-              <Card className="stat-card">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Zap className="h-4 w-4 text-[var(--accent)]" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider">H. Agent Performance — All Time</h4>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {[...agentPerf]
-                      .sort((a, b) => b.total - a.total)
-                      .map(agent => {
-                        const hasBlockers = agent.blocked > 0 || agent.blockers.length > 0;
-                        return (
-                          <div key={agent.name} className={`rounded border p-3 text-xs ${hasBlockers ? "border-amber-500/30 bg-amber-500/3" : "border-border/50 bg-muted/20"}`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-lg">{agent.emoji}</span>
-                              <span className="text-sm font-semibold truncate flex-1">{agent.name}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${agent.completionRate >= 50 ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
-                                {agent.completionRate}%
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1 text-center text-[10px] text-muted-foreground">
-                              <div className="rounded bg-muted/50 p-1">
-                                <div className="text-sm font-bold text-[var(--success)]">{agent.completed}</div>
-                                <div className="text-[8px] uppercase">Done</div>
-                              </div>
-                              <div className="rounded bg-muted/50 p-1">
-                                <div className="text-sm font-bold text-[var(--info)]">{agent.inProgress + agent.inReview}</div>
-                                <div className="text-[8px] uppercase">Active</div>
-                              </div>
-                              <div className="rounded bg-muted/50 p-1">
-                                <div className={`text-sm font-bold ${agent.blocked > 0 ? "text-[var(--danger)]" : "text-muted-foreground"}`}>{agent.blocked}</div>
-                                <div className="text-[8px] uppercase">Blocked</div>
-                              </div>
-                            </div>
-                            {agent.blockers.length > 0 && (
-                              <div className="mt-1.5 text-[10px] text-[var(--danger)]">
-                                {agent.blockers.slice(0, 2).map((b, i) => (
-                                  <div key={i} className="flex items-start gap-1">
-                                    <AlertTriangle className="h-2.5 w-2.5 mt-0.5 shrink-0" /> {b}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+        {/* Knowledge entries */}
+        {filteredKnowledge.length === 0 ? (
+          <div className="rounded-xl border py-10 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+            <BookOpen className="h-8 w-8 mx-auto mb-2" style={{ color: "var(--text-quiet)" }} />
+            <p className="text-sm" style={{ color: "var(--text-quiet)" }}>No knowledge entries{knowledgeFilter !== "all" ? ` in ${knowledgeFilter}` : ""} yet</p>
           </div>
-        )}
-
-        {/* ─── APPROVALS ─── */}
-        {activeTab === "approvals" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-[var(--accent)]" />
-                <h3 className="text-sm font-semibold">Pending Approvals</h3>
-                <Badge variant="outline" className="text-[10px]">{approvals.length} typed + {skillRequests.filter(s => s.status === "pending").length} skill</Badge>
-              </div>
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRequestSkill}>
-                <Plus className="h-3 w-3 mr-1" /> Request Skill
-              </Button>
-            </div>
-
-            {/* Typed approvals */}
-            {approvals.map(a => (
-              <Card key={a.id} className="stat-card">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <Badge variant="outline" className="text-[10px]">{APPROVAL_LABELS[a.approval_type]}</Badge>
-                    <span className="text-[10px] text-muted-foreground">by {a.requested_by}</span>
-                  </div>
-                  <p className="text-sm font-medium">{a.description}</p>
-                  <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => handleResolveApproval(a.id, "approved")}>✅ Approve</Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleResolveApproval(a.id, "revision_requested")}>↩ Rework</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--danger)]" onClick={() => handleResolveApproval(a.id, "rejected")}>✕ Reject</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Pending skill requests */}
-            {skillRequests.filter(s => s.status === "pending").map(req => (
-              <Card key={req.id} className="stat-card">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">{req.agent_name ? `${req.agent_name} Skill` : "System Skill"}</Badge>
-                      <span className="text-sm font-medium">{req.skill_name}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{req.skill_description}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">Requested {timeAgo(req.requested_at)}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-[var(--danger)]" onClick={() => handleReject(req.id)}>Reject</Button>
-                    <Button size="sm" className="h-7 text-xs bg-[var(--success)] hover:bg-[var(--success)]/90 text-background" onClick={() => handleApprove(req.id)}>Approve</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {approvals.length === 0 && skillRequests.every((s: SkillRequest) => s.status !== "pending") && (
-              <EmptyState icon={CheckCircle} title="All caught up" message="No pending approvals right now." />
-            )}
-          </div>
-        )}
-
-        {/* ─── LESSONS ─── */}
-        {activeTab === "lessons" && (
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              {["all", "draft", "pending", "approved", "applied"].map(f => (
-                <Button key={f} size="sm" variant={lessonFilter === f ? "default" : "outline"} className="h-7 text-xs" onClick={() => setLessonFilter(f)}>
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </Button>
-              ))}
-              <Button size="sm" variant="outline" className="h-7 text-xs ml-auto" disabled={scanning} onClick={handleScanLessons}>
-                {scanning ? "Scanning..." : "🔍 Scan Now"}
-              </Button>
-            </div>
-            {scanMsg && (
-              <div className="text-xs font-mono px-3 py-2 rounded-md" style={{
-                background: scanMsg.startsWith("✅") ? "rgba(16,185,129,0.08)" : scanMsg.startsWith("❌") ? "rgba(239,68,68,0.08)" : "rgba(139,92,246,0.08)",
-                color: scanMsg.startsWith("✅") ? "var(--success)" : scanMsg.startsWith("❌") ? "var(--danger)" : "var(--accent)",
-              }}>{scanMsg}</div>
-            )}
-            {lessons.length === 0 ? (
-              <EmptyState icon={BookOpen} title="No lessons yet" message="Lessons are auto-generated when recurring patterns are detected." action={{ label: "Scan Now", onClick: handleScanLessons }} />
-            ) : (
-              lessons.map(lesson => (
-                <Card key={lesson.id} className="stat-card">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className="text-sm font-semibold flex-1">{lesson.title}</h3>
-                      <Badge variant={lesson.status === "applied" ? "default" : lesson.status === "pending" ? "outline" : "secondary"} className="text-[10px] capitalize shrink-0">{lesson.status}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">{lesson.lesson_statement}</p>
-                    {lesson.proposed_fix && (
-                      <div className="rounded-md bg-muted/30 p-2 mb-2 text-[11px] text-muted-foreground">
-                        <span className="font-medium">Proposed fix:</span> {lesson.proposed_fix}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
-                        {lesson.affected_agents && lesson.affected_agents.length > 0 && (
-                          <span className="bg-muted px-2 py-0.5 rounded">Agent{lesson.affected_agents.length > 1 ? "s" : ""}: {lesson.affected_agents.join(", ")}</span>
-                        )}
-                        <span className="bg-muted px-2 py-0.5 rounded">{new Date(lesson.date_detected).toLocaleDateString()}</span>
-                      </div>
-                      {/* Status progression buttons */}
-                      <div className="flex gap-1">
-                        {lesson.status === "draft" && (
-                          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "pending")}>Promote → Pending</Button>
-                        )}
-                        {lesson.status === "pending" && (
-                          <>
-                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "approved")}>✅ Approve</Button>
-                            <Button size="sm" variant="outline" className="h-6 text-[10px] text-[var(--danger)]" onClick={() => handleLessonStatus(lesson.id, "rejected")}>✕ Reject</Button>
-                          </>
-                        )}
-                        {lesson.status === "approved" && (
-                          <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => handleLessonStatus(lesson.id, "applied")}>🚀 Mark Applied</Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* ─── SKILLS ─── */}
-        {activeTab === "skills" && (
-          <div className="space-y-6">
-            {/* Request button */}
-            {canWrite && (
-              <div className="flex justify-end">
-                <Button size="sm" className="gap-1.5" onClick={() => setRequestOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" /> Request Skill
-                </Button>
-              </div>
-            )}
-
-            {/* Pending Requests + Security Scan */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(139,92,246,0.08)]">
-                  <Zap className="h-4 w-4 text-[var(--accent)]" />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {filteredKnowledge.slice(0, 12).map((entry) => (
+              <div key={entry.id} className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text)" }}>{entry.title}</p>
+                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">{entry.category}</Badge>
                 </div>
-                <h2 className="section-title">Skill Requests</h2>
-                {pendingRequests.length > 0 && <Badge className="bg-[rgba(139,92,246,0.12)] text-[var(--accent)] text-xs">{pendingRequests.length}</Badge>}
-              </div>
-
-              {pendingRequests.length === 0 ? (
-                <Card className="stat-card">
-                  <CardContent className="flex items-center gap-3 py-6 px-5">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                    <div>
-                      <p className="text-sm font-medium">No pending requests</p>
-                      <p className="text-xs text-muted-foreground">All skill requests have been reviewed</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {pendingRequests.map((req) => {
-                    const scan = scanStyles[req.scan_result]
-                    const ScanIcon = scan.icon
-
-                    return (
-                      <Card key={req.id} className={`stat-card border-l-4 ${
-                        req.scan_result === "blocked" ? "border-l-red-500" :
-                        req.scan_result === "suspicious" ? "border-l-amber-500" :
-                        req.scan_result === "clean" ? "border-l-emerald-500" :
-                        "border-l-gray-300"
-                      }`}>
-                        <CardContent className="p-5 space-y-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-semibold">{req.skill_name}</span>
-                                <Badge variant="outline" className="text-[10px]">{req.skill_source}</Badge>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">{req.agent_emoji}</span>
-                                <span className="text-xs text-muted-foreground">{req.agent_name}</span>
-                              </div>
-                            </div>
-                            <Badge className={`text-xs ${
-                              req.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
-                              req.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
-                              "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
-                            }`}>{req.urgency}</Badge>
-                          </div>
-
-                          <p className="text-sm text-muted-foreground">{req.reason}</p>
-
-                          <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ${scan.bg}`}>
-                            <ScanIcon className={`h-4 w-4 ${scan.color}`} />
-                            <div>
-                              <p className={`text-xs font-medium ${scan.color}`}>{scan.label}</p>
-                              {req.scan_notes && <p className="text-[10px] text-muted-foreground mt-0.5">{req.scan_notes}</p>}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span>Requested {timeAgo(req.requested_at)}</span>
-                            {req.evidence_task_ids.length > 0 && (
-                              <>
-                                <span>·</span>
-                                <span>{req.evidence_task_ids.length} evidence task{req.evidence_task_ids.length > 1 ? "s" : ""}</span>
-                              </>
-                            )}
-                          </div>
-
-                          {canWrite && req.scan_result !== "blocked" && (
-                            <div className="flex gap-2 pt-2 border-t">
-                              <Button size="sm" className="gap-1.5 flex-1" disabled={processing === req.id} onClick={() => handleSkillApprove(req.id)}>
-                                {processing === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                Approve
-                              </Button>
-                              <Button size="sm" variant="outline" className="gap-1.5 flex-1" disabled={processing === req.id} onClick={() => handleSkillReject(req.id)}>
-                                <XCircle className="h-3.5 w-3.5" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                          {req.scan_result === "blocked" && (
-                            <div className="pt-2 border-t">
-                              <p className="text-xs text-[var(--danger)] font-medium">⛔ Auto-blocked — cannot be approved</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* Skill Gap Analysis */}
-            {gaps.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(245,158,11,0.08)]">
-                    <TrendingUp className="h-4 w-4 text-[var(--warning)]" />
-                  </div>
-                  <h2 className="section-title">Skill Gaps Detected</h2>
-                  <Badge className="bg-[rgba(245,158,11,0.12)] text-[var(--warning)] text-xs">{gaps.length}</Badge>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {gaps.map((gap, i) => (
-                    <Card key={i} className="stat-card border-l-2 border-l-amber-400">
-                      <CardContent className="p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{gap.agent.emoji}</span>
-                            <span className="text-sm font-medium">{gap.agent.name}</span>
-                          </div>
-                          <Badge className={`text-[10px] ${
-                            gap.urgency === "high" ? "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]" :
-                            gap.urgency === "medium" ? "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" :
-                            "bg-[rgba(59,130,246,0.12)] text-[var(--info)]"
-                          }`}>{gap.urgency}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Missing: <span className="font-medium text-foreground">{gap.missingSkill}</span></p>
-                        <p className="text-xs text-muted-foreground">{gap.reason}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Agent Skills */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
-                  <Award className="h-4 w-4 text-[var(--success)]" />
-                </div>
-                <h2 className="section-title">Agent Skills</h2>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {agentSkills.map((as) => (
-                  <Card key={as.id} className="stat-card">
-                    <CardContent className="p-3 flex items-center gap-3">
-                      <span className="text-lg">{as.agent_emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{as.skill_name}</p>
-                        <p className="text-[10px] text-muted-foreground">{as.agent_name}</p>
-                      </div>
-                      <Badge variant="outline" className="text-[9px]">{as.month_installed}</Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-
-            {/* Installed Skills */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
-                  <CheckCircle2 className="h-4 w-4 text-[var(--info)]" />
-                </div>
-                <h2 className="section-title">Installed Skills Registry</h2>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {skills.filter(s => s.status === "active" || !s.status).map((skill) => (
-                  <Card key={skill.id} className="stat-card">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-semibold">{skill.name}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{skill.description}</p>
-                        </div>
-                        <Badge variant="outline" className="bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20">Active</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* ─── UPDATES ─── */}
-        {activeTab === "updates" && (
-          <div className="space-y-4">
-            {updates.length === 0 ? (
-              <EmptyState icon={Zap} title="No updates yet" message="Applied improvements will appear here." />
-            ) : (
-              <div className="space-y-3">
-                {updates.map(update => (
-                  <Card key={update.id} className="stat-card border-l-4 border-l-[var(--success)]">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <Badge variant="outline" className="text-[10px] mb-2">{update.type.replace('_', ' ')}</Badge>
-                          <h3 className="text-sm font-semibold">{update.title}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">{update.description}</p>
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {new Date(update.applied_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── KNOWLEDGE ─── */}
-        {activeTab === "knowledge" && (
-          <div className="space-y-6">
-            {/* Search + Filter */}
-            <div className="action-bar">
-              <div className="flex items-center gap-2 flex-1">
-                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-                <input
-                  className="flex-1 bg-transparent border-0 text-sm outline-none placeholder:text-muted-foreground"
-                  placeholder="Search knowledge base..."
-                  value={knowledgeSearch}
-                  onChange={(e) => setKnowledgeSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && load()}
-                />
-              </div>
-              <select
-                className="h-8 rounded-md border border-border bg-background px-2 text-xs"
-                value={knowledgeFilter}
-                onChange={(e) => setKnowledgeFilter(e.target.value)}
-              >
-                <option value="all">All Categories</option>
-                <option value="project">Projects</option>
-                <option value="area">Areas</option>
-                <option value="resource">Resources</option>
-                <option value="archive">Archives</option>
-              </select>
-              <Button size="sm" variant="outline" onClick={load} className="h-8 gap-1.5">
-                <RefreshCw className="h-3 w-3" /> Refresh
-              </Button>
-            </div>
-
-            {/* PARA category quick stats */}
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                { value: "project", label: "Projects", color: "text-[var(--info)]" },
-                { value: "area", label: "Areas", color: "text-[var(--accent)]" },
-                { value: "resource", label: "Resources", color: "text-[var(--success)]" },
-                { value: "archive", label: "Archives", color: "text-[var(--text-quiet)]" },
-              ].map((cat) => {
-                const count = knowledge.filter((k) => k.category === cat.value).length;
-                return (
-                  <Card
-                    key={cat.value}
-                    className={`stat-card cursor-pointer transition-all ${knowledgeFilter === cat.value ? "ring-2 ring-primary" : ""}`}
-                    onClick={() => setKnowledgeFilter(knowledgeFilter === cat.value ? "all" : cat.value)}
-                  >
-                    <CardContent className="p-4 text-center">
-                      <div className="text-lg font-bold">{count}</div>
-                      <div className={`text-[10px] uppercase tracking-wider ${cat.color}`}>{cat.label}</div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {/* Today's Daily Note */}
-            {dailyNotes.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.08)]">
-                    <Calendar className="h-4 w-4 text-[var(--success)]" />
-                  </div>
-                  <h2 className="section-title">
-                    {dailyNotes[0].sync_type === "full_sync" ? "Daily Team Sync" : "Daily Note"} — {dailyNotes[0].date}
-                  </h2>
-                </div>
-                <Card className={`stat-card border-l-4 ${dailyNotes[0].sync_type === "full_sync" ? "border-l-[var(--accent)]" : "border-l-emerald-500"}`}>
-                  <CardContent className="p-5 space-y-4">
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">A. Executive Summary</h3>
-                      <p className="text-sm">{dailyNotes[0].summary}</p>
-                    </div>
-                    {dailyNotes[0].sync_type === "full_sync" && Array.isArray(dailyNotes[0].agent_updates) && dailyNotes[0].agent_updates.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">B. Agent / Department Updates</h3>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {dailyNotes[0].agent_updates.map((agent: any) => (
-                            <div key={agent.agent_id} className="rounded-md border p-3 bg-background/50">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-lg">{agent.emoji}</span>
-                                <span className="text-sm font-semibold">{agent.name}</span>
-                                <Badge variant="outline" className="ml-auto text-[10px]">{agent.utilization}</Badge>
-                              </div>
-                              <div className="space-y-1 text-xs text-muted-foreground">
-                                <p>✅ Completed: {agent.workload.completed}</p>
-                                <p>🚧 Active: {agent.workload.in_progress + agent.workload.in_review}</p>
-                                {agent.blockers.length > 0 && <p className="text-[var(--danger)]">⚠️ Blockers: {agent.blockers.length}</p>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {dailyNotes[0].sync_type === "full_sync" && dailyNotes[0].cross_team_summary && (
-                      <div className="rounded-md border p-3 bg-background/50">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-2">C. Cross-Team Coordination</h3>
-                        <div className="grid grid-cols-3 gap-2 text-center mb-2">
-                          <div className="rounded bg-muted/50 p-2">
-                            <p className="text-lg font-bold text-[var(--danger)]">{dailyNotes[0].cross_team_summary.total_blockers}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">Blockers</p>
-                          </div>
-                          <div className="rounded bg-muted/50 p-2">
-                            <p className="text-lg font-bold text-[var(--info)]">{dailyNotes[0].cross_team_summary.total_in_review}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">In Review</p>
-                          </div>
-                          <div className="rounded bg-muted/50 p-2">
-                            <p className="text-lg font-bold text-[var(--warning)]">{dailyNotes[0].cross_team_summary.unassigned_open}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">Unassigned</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {dailyNotes[0].issues_list && dailyNotes[0].issues_list.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">D. Issues Faced</h3>
-                        {dailyNotes[0].issues_list.map((issue: string, i: number) => (
-                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 mb-1">
-                            <AlertTriangle className="h-3 w-3 text-[var(--danger)] mt-0.5 shrink-0" /> {issue}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">E. Tomorrow's Priorities</h3>
-                        {(dailyNotes[0].priorities_tomorrow || []).map((p: string, i: number) => (
-                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                            <ChevronRight className="h-3 w-3 text-violet-500 mt-0.5 shrink-0" /> {p}
-                          </p>
-                        ))}
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text)] mb-1">F. Decisions</h3>
-                        {(dailyNotes[0].yas_decisions || dailyNotes[0].decisions || []).map((d: string, i: number) => (
-                          <p key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                            <CheckCircle2 className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" /> {d}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground pt-2 border-t flex justify-between">
-                      <span>{dailyNotes[0].events_reviewed} events reviewed</span>
-                      <span>Updated {timeAgo(dailyNotes[0].updated_at)}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </section>
-            )}
-
-            {/* Previous Daily Notes */}
-            {dailyNotes.length > 1 && (
-              <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <h2 className="section-title">Previous Days</h2>
-                </div>
-                <div className="space-y-3">
-                  {dailyNotes.slice(1, 8).map((note) => (
-                    <Card key={note.id} className="stat-card">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold">{note.date}</span>
-                              <Badge variant="outline" className="text-[10px]">{note.events_reviewed} events</Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2">{note.summary}</p>
-                          </div>
-                        </div>
-                        {note.decisions.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {note.decisions.slice(0, 3).map((d, i) => (
-                              <Badge key={i} variant="outline" className="text-[10px] truncate max-w-[200px]">{d}</Badge>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Knowledge Entries */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[rgba(59,130,246,0.08)]">
-                  <BookOpen className="h-4 w-4 text-[var(--info)]" />
-                </div>
-                <h2 className="section-title">Knowledge Base</h2>
-                <Badge className="bg-[rgba(59,130,246,0.12)] text-[var(--info)] text-xs">{knowledge.length}</Badge>
-              </div>
-              {knowledge.length === 0 ? (
-                <Card className="stat-card">
-                  <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                    No knowledge entries found
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {knowledge.map((entry) => (
-                    <Card key={entry.id} className="stat-card">
-                      <CardContent className="p-4 space-y-2">
-                        <div className="flex items-start justify-between">
-                          <p className="text-sm font-semibold">{entry.title}</p>
-                          <Badge variant="outline" className="text-[10px] shrink-0 ml-2">{entry.category}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-3">{entry.content}</p>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {entry.tags.map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>
-                          ))}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {entry.source} · {timeAgo(entry.updated_at)}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-
-        {/* ─── GOVERNANCE ─── */}
-        {activeTab === "governance" && (
-          <div className="space-y-6">
-            {/* Audit History */}
-            {auditRuns.length > 0 && (
-              <Card className="stat-card">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Activity className="h-4 w-4 text-[var(--accent)]" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider">Audit History</h4>
-                  </div>
-                  <div className="space-y-2">
-                    {auditRuns.slice(0, 5).map((run: any, i: number) => (
-                      <div key={i} className="flex items-center gap-3 text-xs rounded-lg border border-border/50 p-3">
-                        <Badge variant="outline" className="text-[10px]">{run.run_date || "Today"}</Badge>
-                        <span className="flex-1 text-muted-foreground">{run.summary || "Audit completed"}</span>
-                        <span className="text-[10px] text-muted-foreground">{run.gaps_detected || run.total_gaps_created || 0} gaps · {run.critical_gaps || 0} critical</span>
-                      </div>
+                <p className="text-xs leading-relaxed line-clamp-3 mb-2" style={{ color: "var(--text-muted)" }}>{entry.content}</p>
+                {entry.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {entry.tags.slice(0, 5).map((tag) => (
+                      <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+                        {tag}
+                      </span>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Capability Gaps */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="h-4 w-4 text-[var(--danger)]" />
-                <h4 className="text-xs font-bold uppercase tracking-wider">Capability Gaps</h4>
-                {capGaps.length > 0 && (
-                  <Badge className="bg-[rgba(239,68,68,0.12)] text-[var(--danger)] text-[10px]">
-                    {capGaps.filter((g: any) => g.review_status === "pending").length} pending
-                  </Badge>
                 )}
-              </div>
-
-              {capGaps.length === 0 ? (
-                <Card className="stat-card"><CardContent className="py-8 text-center text-muted-foreground">No capability gaps detected yet. The nightly audit runs at 23:00 UTC.</CardContent></Card>
-              ) : (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {capGaps.map((gap: any) => {
-                    const urgencyColors: Record<string, string> = {
-                      high: "bg-[rgba(239,68,68,0.12)] text-[var(--danger)]",
-                      medium: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]",
-                      low: "bg-[rgba(59,130,246,0.12)] text-[var(--info)]",
-                    };
-                    const statusColors: Record<string, string> = {
-                      pending: "border-l-amber-400",
-                      approved: "border-l-emerald-500",
-                      rejected: "border-l-red-500",
-                      monitored: "border-l-blue-400",
-                      resolved: "border-l-gray-300",
-                    };
-                    const categoryLabels: Record<string, string> = {
-                      missing_skill: "Missing Skill",
-                      wrong_assignment: "Wrong Assignment",
-                      unclear_scope: "Unclear Scope",
-                      dependency_blocker: "Dependency Blocker",
-                      missing_process: "Missing Process",
-                      approval_delay: "Approval Delay",
-                    };
-
-                    return (
-                      <Card key={gap.id} className={`stat-card border-l-4 ${statusColors[gap.review_status] || "border-l-amber-400"}`}>
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-semibold">{gap.missing_skill_name || gap.capability_area}</span>
-                                <Badge variant="outline" className="text-[9px]">{categoryLabels[gap.gap_category] || gap.gap_category}</Badge>
-                              </div>
-                              {gap.agent_emoji && (
-                                <span className="text-xs text-muted-foreground">{gap.agent_emoji} {gap.agent_name || "Unassigned"}</span>
-                              )}
-                            </div>
-                            <Badge className={`text-[9px] ${urgencyColors[gap.urgency_level] || urgencyColors.medium}`}>
-                              {gap.urgency_level}
-                            </Badge>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground">{gap.why_flagged}</p>
-
-                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                            <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" /> {gap.evidence_count || 0} evidence</span>
-                            {gap.confidence_level && <span>Confidence: {gap.confidence_level}</span>}
-                          </div>
-
-                          {gap.recommended_action && (
-                            <div className="flex items-start gap-1.5 rounded-lg bg-[rgba(139,92,246,0.05)] px-2.5 py-1.5">
-                              <ChevronRight className="h-3 w-3 text-[var(--accent)] mt-0.5 flex-shrink-0" />
-                              <p className="text-[10px]">{gap.recommended_action}</p>
-                            </div>
-                          )}
-
-                          {gap.review_status !== "pending" && (
-                            <Badge variant="outline" className="text-[9px]">
-                              {gap.review_status === "monitored" && <Eye className="h-2.5 w-2.5 mr-0.5" />}
-                              {gap.review_status === "approved" && <ThumbsUp className="h-2.5 w-2.5 mr-0.5" />}
-                              {gap.review_status === "rejected" && <ThumbsDown className="h-2.5 w-2.5 mr-0.5" />}
-                              {gap.review_status}
-                            </Badge>
-                          )}
-
-                          {gap.review_status === "pending" && (
-                            <div className="flex gap-1.5 pt-1.5 border-t border-border/50">
-                              <Button size="sm" className="h-6 text-[10px] flex-1 gap-1" onClick={() => handleReviewGap(gap.id, "approved")}>
-                                <ThumbsUp className="h-3 w-3" /> Approve
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-6 text-[10px] flex-1 gap-1" onClick={() => handleReviewGap(gap.id, "rejected")}>
-                                <ThumbsDown className="h-3 w-3" /> Reject
-                              </Button>
-                              <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-1" onClick={() => handleReviewGap(gap.id, "monitored")}>
-                                <Eye className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                <div className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                  {entry.source} · {timeAgo(entry.updated_at)}
                 </div>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
+        )}
+      </section>
+
+      {/* ── Applied updates ── */}
+      {updates.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(16,185,129,0.08)" }}>
+              <Zap className="h-4 w-4" style={{ color: "var(--success)" }} />
+            </div>
+            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Applied Updates</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
+              {updates.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {updates.slice(0, 5).map((u) => (
+              <div key={u.id} className="rounded-xl border p-3 flex items-start gap-3" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                <div className="h-1.5 w-1.5 rounded-full mt-2 shrink-0" style={{ background: "var(--success)" }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Badge variant="outline" className="text-[9px]">{u.type.replace("_", " ")}</Badge>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{u.title}</p>
+                  </div>
+                  <p className="text-xs leading-snug" style={{ color: "var(--text-muted)" }}>{u.description}</p>
+                </div>
+                <span className="text-[10px] shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>{timeAgo(u.applied_at)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Footer: link to approvals + previous days ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+        <Link href="/approvals" className="flex items-center gap-2 text-sm hover:underline" style={{ color: "var(--accent)" }}>
+          <CheckCircle2 className="h-4 w-4" />
+          Pending approvals & capability gaps
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+        {dailyNotes.length > 1 && (
+          <span className="text-xs" style={{ color: "var(--text-quiet)" }}>
+            {dailyNotes.length} daily syncs in history
+          </span>
         )}
       </div>
     </PageShell>

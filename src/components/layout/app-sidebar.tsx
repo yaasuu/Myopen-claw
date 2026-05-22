@@ -71,6 +71,7 @@ const sections = [
   {
     label: "Governance",
     items: [
+      { title: "Approvals", href: "/approvals", icon: CheckSquare },
       { title: "Autonomy", href: "/autonomy", icon: Shield },
       { title: "Reviews", href: "/reviews", icon: ShieldCheck },
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
