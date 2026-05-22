@@ -63,13 +63,22 @@ export default function OrgChartPage() {
   }
 
   return (
-    <PageShell title="Team Structure" description="Organization hierarchy — CEO, orchestrator, departments, agents, and specialists">
+    <PageShell>
       {error && (
         <div className="rounded-lg border px-4 py-2.5 text-xs" style={{ borderColor: "rgba(245,158,11,0.2)", background: "rgba(245,158,11,0.06)", color: "var(--warning)" }}>
           {error}
         </div>
       )}
 
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Team Structure</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            CEO → Orchestrator → Departments → Agents · Specialists
+          </p>
+        </div>
+      </div>
 
       {/* CEO */}
       <div className="flex justify-center">

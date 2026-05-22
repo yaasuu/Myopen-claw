@@ -100,16 +100,17 @@ export default function GoalsPage() {
   useEffect(() => { loadGoals(); }, []);
 
   return (
-    <PageShell title="Goals & Mission" description="Strategic hierarchy and execution targets">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg border" style={{ background: "var(--surface-muted)", borderColor: "var(--border)" }}>
-            <Target className="h-5 w-5 text-[var(--accent)]" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Goal Tree</h2>
-            <p className="text-xs text-muted-foreground">Manage your missions from high-level strategy to daily execution.</p>
-          </div>
+    <PageShell>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: "var(--text)" }}>
+            <Target className="h-6 w-6" style={{ color: "var(--accent)" }} />
+            Goals
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Strategic hierarchy · execution targets · mission tree
+          </p>
         </div>
         <Button className="gap-2">
           <Plus className="h-4 w-4" /> New Goal
