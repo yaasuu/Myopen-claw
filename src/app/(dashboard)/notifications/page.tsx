@@ -147,12 +147,34 @@ export default function NotificationsPage() {
   }
 
   return (
-    <PageShell title="Notifications" description="Operator inbox and alerts">
+    <PageShell>
       {error && (
         <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Notifications</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Operator inbox · system alerts
+          </p>
+        </div>
+        {unreadCount > 0 && (
+          <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+               style={{ borderColor: "rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.06)" }}>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "var(--danger)" }} />
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--danger)" }} />
+            </span>
+            <span className="text-xs font-semibold" style={{ color: "var(--danger)" }}>
+              {unreadCount} unread
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center gap-3">

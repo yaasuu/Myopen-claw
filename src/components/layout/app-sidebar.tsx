@@ -65,13 +65,13 @@ const sections = [
     label: "Workforce",
     items: [
       { title: "Workforce", href: "/workforce", icon: Users },
-      { title: "Departments", href: "/departments", icon: Building2 },
       { title: "Office", href: "/office", icon: Monitor },
     ],
   },
   {
     label: "Governance",
     items: [
+      { title: "Approvals", href: "/approvals", icon: CheckSquare },
       { title: "Autonomy", href: "/autonomy", icon: Shield },
       { title: "Reviews", href: "/reviews", icon: ShieldCheck },
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },

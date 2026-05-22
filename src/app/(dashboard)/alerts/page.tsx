@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
@@ -122,25 +122,63 @@ export default function AlertsPage() {
   }
 
   return (
-    <PageShell
-      title="Alerts"
-      description="Blockers, critical events, and system warnings"
-    >
+    <PageShell>
       {error && (
         <div className="rounded-md border border-amber-200 bg-[rgba(245,158,11,0.08)] px-3 py-2 text-xs text-[var(--warning)]">
           Some data may be stale: {error}
         </div>
       )}
 
-      {/* Alert summary bar */}
-      <div className="flex items-center gap-3">
-        <Bell className="h-5 w-5 text-muted-foreground" />
-        <span className="text-sm font-medium">
-          {totalAlerts === 0
-            ? "All clear — no active alerts"
-            : `${totalAlerts} active alert${totalAlerts !== 1 ? "s" : ""}`}
-        </span>
-        {totalAlerts > 0 && <Badge variant="destructive">{totalAlerts}</Badge>}
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Alerts</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Blockers · drift · paused agents · critical events
+          </p>
+        </div>
+        {totalAlerts > 0 ? (
+          <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+               style={{ borderColor: "rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.06)" }}>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "var(--danger)" }} />
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "var(--danger)" }} />
+            </span>
+            <span className="text-xs font-semibold" style={{ color: "var(--danger)" }}>
+              {totalAlerts} active alert{totalAlerts !== 1 ? "s" : ""}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+               style={{ borderColor: "rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.06)" }}>
+            <span className="h-2 w-2 rounded-full" style={{ background: "var(--success)" }} />
+            <span className="text-xs font-semibold" style={{ color: "var(--success)" }}>All clear</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── KPI cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Blockers",       val: blocked.length,        sub: "tasks stuck",        color: blocked.length > 0 ? "var(--danger)" : "var(--text-quiet)",       bg: "rgba(220,38,38,0.08)", icon: AlertTriangle },
+          { label: "Drift",          val: driftTasks.length,     sub: `no update > ${DRIFT_HOURS}h`, color: driftTasks.length > 0 ? "var(--warning)" : "var(--text-quiet)", bg: "rgba(245,158,11,0.08)", icon: TrendingDown },
+          { label: "Paused",         val: pausedAgents.length,   sub: "agents",             color: pausedAgents.length > 0 ? "var(--warning)" : "var(--text-quiet)", bg: "rgba(245,158,11,0.08)", icon: Bot },
+          { label: "Critical Events",val: criticalEvents.length, sub: "last 10",            color: criticalEvents.length > 0 ? "var(--info)" : "var(--text-quiet)",   bg: "rgba(37,99,235,0.08)", icon: ShieldAlert },
+        ].map((c) => {
+          const Icon = c.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+          return (
+            <div key={c.label} className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{c.label}</span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: c.bg }}>
+                  <Icon className="h-3.5 w-3.5" style={{ color: c.color }} />
+                </div>
+              </div>
+              <div className="text-3xl font-black tabular-nums" style={{ color: c.color }}>{c.val}</div>
+              <p className="text-[11px] mt-1" style={{ color: "var(--text-quiet)" }}>{c.sub}</p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Section 1: Active Blockers — actionable cards */}

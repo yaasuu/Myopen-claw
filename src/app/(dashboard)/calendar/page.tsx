@@ -208,7 +208,17 @@ export default function CalendarPage() {
   ];
 
   return (
-    <PageShell title="Schedule & Calendar" description="Operational timing for the Yas Claw workforce">
+    <PageShell>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Calendar</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Operational timing · routines · cron jobs · governance milestones
+          </p>
+        </div>
+      </div>
+
       {/* Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="action-bar">

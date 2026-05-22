@@ -228,11 +228,22 @@ export async function getProjectMilestones(projectId: string): Promise<{ data: P
   const supabase = getSupabase();
   if (!supabase) return { data: MOCK_MILESTONES.filter((m) => m.project_id === projectId), error: null };
 
-  const { data, error } = await supabase
+  // Try sort_order first; fall back to created_at if column doesn't exist (migration 023 adds it)
+  let { data, error } = await supabase
     .from("project_milestones")
     .select("*")
     .eq("project_id", projectId)
     .order("sort_order", { ascending: true });
+
+  if (error && error.message?.includes("sort_order")) {
+    const fallback = await supabase
+      .from("project_milestones")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) return { data: [], error: error.message };
   return { data: (data ?? []) as ProjectMilestone[], error: null };
@@ -253,18 +264,30 @@ export async function createProjectMilestone(input: {
     .select("*", { count: "exact", head: true })
     .eq("project_id", input.projectId);
 
-  const { data, error } = await supabase
+  const baseRow = {
+    project_id: input.projectId,
+    title: input.title,
+    due_date: input.dueDate ?? null,
+    owner: input.owner ?? "",
+    notes: input.notes ?? "",
+  };
+
+  // Try inserting with sort_order; if column missing, retry without it
+  let { data, error } = await supabase
     .from("project_milestones")
-    .insert({
-      project_id: input.projectId,
-      title: input.title,
-      due_date: input.dueDate ?? null,
-      owner: input.owner ?? "",
-      notes: input.notes ?? "",
-      sort_order: (count ?? 0) + 1,
-    })
+    .insert({ ...baseRow, sort_order: (count ?? 0) + 1 })
     .select()
     .single();
+
+  if (error && error.message?.includes("sort_order")) {
+    const retry = await supabase
+      .from("project_milestones")
+      .insert(baseRow)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return { data: null, error: error.message };
   return { data: data as ProjectMilestone, error: null };

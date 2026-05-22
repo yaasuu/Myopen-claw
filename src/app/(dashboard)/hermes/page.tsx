@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,22 +92,26 @@ export default function HermesPage() {
 
   return (
     <PageShell>
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight" style={{ color: "var(--text)" }}>
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: "var(--text)" }}>
+            <Send className="h-6 w-6" style={{ color: "var(--accent)" }} />
             Hermes Orchestrator
           </h1>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Dispatch queue and agent routing status
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Dispatch queue · agent routing · system health
           </p>
         </div>
-        <div
-          className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-          style={{ borderColor: "rgba(99,102,241,0.2)", background: s.bg }}
-        >
-          <div className={`h-2 w-2 rounded-full ${s.dot}`} />
-          <span className="text-xs font-medium" style={{ color: s.color }}>
+        <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+             style={{ borderColor: s.color + "40", background: s.bg }}>
+          <span className="relative flex h-2 w-2">
+            {systemStatus?.status === "healthy" && (
+              <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: s.color }} />
+            )}
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: s.color }} />
+          </span>
+          <span className="text-xs font-semibold" style={{ color: s.color }}>
             {s.label}
           </span>
           {systemStatus?.last_event && (
@@ -118,26 +122,28 @@ export default function HermesPage() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* ── KPI cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Active Agents",  value: systemStatus?.active_agents ?? agents.length, icon: Bot,   color: "var(--accent)" },
-          { label: "In Progress",    value: dispatched.filter((t) => t.status === "in-progress").length, icon: Zap, color: "var(--info)" },
-          { label: "In Dispatch",    value: dispatched.filter((t) => t.status === "dispatched").length, icon: Send, color: "var(--warning)" },
-          { label: "Pending Review", value: dispatched.filter((t) => t.status === "in-review" || t.status === "submitted").length, icon: FileText, color: "var(--success)" },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label}>
-            <CardContent className="flex items-center gap-3 py-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: `${color}18` }}>
-                <Icon className="h-4 w-4" style={{ color }} />
+          { label: "Active Agents",  val: systemStatus?.active_agents ?? agents.length,                          sub: "online",            icon: Bot,      color: "var(--accent)",  bg: "var(--accent-soft)" },
+          { label: "In Progress",    val: dispatched.filter((t) => t.status === "in-progress").length,            sub: "executing",         icon: Zap,      color: "var(--info)",    bg: "rgba(37,99,235,0.08)" },
+          { label: "In Dispatch",    val: dispatched.filter((t) => t.status === "dispatched").length,             sub: "awaiting pickup",   icon: Send,     color: "var(--warning)", bg: "rgba(245,158,11,0.08)" },
+          { label: "Pending Review", val: dispatched.filter((t) => t.status === "in-review" || t.status === "submitted").length, sub: "needs Yas",         icon: FileText, color: "var(--success)", bg: "rgba(16,185,129,0.08)" },
+        ].map((c) => {
+          const Icon = c.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+          return (
+            <div key={c.label} className="rounded-xl border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{c.label}</span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: c.bg }}>
+                  <Icon className="h-3.5 w-3.5" style={{ color: c.color }} />
+                </div>
               </div>
-              <div>
-                <p className="text-xl font-bold tabular-nums" style={{ color: "var(--text)" }}>{value}</p>
-                <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "var(--text-quiet)" }}>{label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              <div className="text-3xl font-black tabular-nums" style={{ color: c.color }}>{c.val}</div>
+              <p className="text-[11px] mt-1" style={{ color: "var(--text-quiet)" }}>{c.sub}</p>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
