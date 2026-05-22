@@ -227,12 +227,34 @@ export default function HiringPage() {
   }
 
   return (
-    <PageShell title="Hiring" description="Strategic agent hiring based on task patterns and workload">
+    <PageShell>
       {error && (
         <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">
           {error}
         </div>
       )}
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: "var(--text)" }}>
+            <UserPlus className="h-6 w-6" style={{ color: "var(--accent)" }} />
+            Hiring
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Strategic agent hiring · workload-driven recommendations
+          </p>
+        </div>
+        {visibleRecommendations.length > 0 && (
+          <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+               style={{ borderColor: "rgba(139,92,246,0.3)", background: "rgba(139,92,246,0.06)" }}>
+            <span className="h-2 w-2 rounded-full" style={{ background: "#8b5cf6" }} />
+            <span className="text-xs font-semibold" style={{ color: "#8b5cf6" }}>
+              {visibleRecommendations.length} recommendation{visibleRecommendations.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Section A: Hiring Recommendations */}
       <section>

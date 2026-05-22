@@ -177,12 +177,43 @@ export default function AutonomyPage() {
   const StateIcon = stateStyle.icon;
 
   return (
-    <PageShell title="Autonomy Center" description="Governed operating loops and executive oversight">
+    <PageShell>
       {error && (
         <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">
           {error}
         </div>
       )}
+
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: "var(--text)" }}>
+            <Shield className="h-6 w-6" style={{ color: "var(--accent)" }} />
+            Autonomy
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
+            Governed operating loops · executive oversight
+          </p>
+        </div>
+        {(() => {
+          const tone =
+            state === "STABLE"                 ? { c: "var(--success)", b: "rgba(16,185,129,0.3)",  bg: "rgba(16,185,129,0.06)" } :
+            state === "OPTIMIZING"             ? { c: "var(--info)",    b: "rgba(37,99,235,0.3)",   bg: "rgba(37,99,235,0.06)"  } :
+            state === "EXPANDING"              ? { c: "var(--accent)",  b: "rgba(139,92,246,0.3)",  bg: "rgba(139,92,246,0.06)" } :
+            state === "RESTRUCTURING"          ? { c: "var(--warning)", b: "rgba(245,158,11,0.3)",  bg: "rgba(245,158,11,0.06)" } :
+                                                 { c: "var(--danger)",  b: "rgba(220,38,38,0.3)",   bg: "rgba(220,38,38,0.06)"  };
+          return (
+            <div className="flex items-center gap-2 rounded-full border px-3 py-1.5"
+                 style={{ borderColor: tone.b, background: tone.bg }}>
+              <span className="relative flex h-2 w-2">
+                {state === "STABLE" && <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: tone.c }} />}
+                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: tone.c }} />
+              </span>
+              <span className="text-xs font-semibold" style={{ color: tone.c }}>{stateStyle.label}</span>
+            </div>
+          );
+        })()}
+      </div>
 
       {/* ── Autonomy State Banner ─────────────────── */}
       <Card className={`stat-card border-2 ${stateStyle.bg}`}>
