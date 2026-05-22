@@ -34,6 +34,7 @@ import {
   type Notification,
 } from "@/lib/data/notifications";
 import { useRealtime } from "@/lib/realtime/use-realtime";
+import { timeAgo } from "@/lib/utils";
 
 const iconMap: Record<string, typeof AlertTriangle> = {
   task_created: CheckCircle2,
@@ -51,16 +52,6 @@ const severityStyles: Record<string, { border: string; bg: string; badge: string
   warning: { border: "border-l-amber-500", bg: "bg-[rgba(245,158,11,0.08)]/50", badge: "bg-[rgba(245,158,11,0.12)] text-[var(--warning)]" },
   info: { border: "border-l-blue-400", bg: "", badge: "bg-[rgba(59,130,246,0.12)] text-[var(--info)]" },
 };
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 const SEVERITIES = ["all", "critical", "warning", "info"] as const;
 

@@ -52,6 +52,7 @@ export interface Task {
   reviewed_by?: string | null;
   requires_yas_approval?: boolean;
   dispatch_notes?: string;
+  evidence?: string;
   dispatched_at?: string | null;
   submitted_at?: string | null;
   reviewed_at?: string | null;

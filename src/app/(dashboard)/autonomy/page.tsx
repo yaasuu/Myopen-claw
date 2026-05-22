@@ -48,6 +48,7 @@ import {
   type ExecutiveReview,
   type RecommendedAction,
 } from "@/lib/data/autonomy";
+import { timeAgo } from "@/lib/utils";
 import type { Agent, TaskWithAgent } from "@/types/dashboard";
 
 const stateStyles: Record<AutonomyState, { label: string; color: string; bg: string; icon: typeof Shield }> = {
@@ -73,17 +74,6 @@ const actionIcons: Record<string, typeof Bot> = {
   review_governance: Shield,
   expand_department: TrendingUp,
 };
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 export default function AutonomyPage() {
   const canWrite = useCanWrite();

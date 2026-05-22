@@ -199,9 +199,9 @@ export default function ReviewsPage() {
                       {task.description && (
                         <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-muted)" }}>{task.description}</p>
                       )}
-                      {task.dispatch_notes && (
+                      {task.evidence && (
                         <p className="text-[11px] italic mt-1.5 px-2 py-1 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>
-                          Evidence: {task.dispatch_notes}
+                          Evidence: {task.evidence}
                         </p>
                       )}
 
