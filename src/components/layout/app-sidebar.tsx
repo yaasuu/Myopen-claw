@@ -77,6 +77,7 @@ const sections = [
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
       { title: "Hiring", href: "/hiring", icon: UserPlus },
       { title: "Learning", href: "/learning", icon: BookOpen },
+      { title: "Knowledge", href: "/knowledge", icon: Brain },
     ],
   },
   {

@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, BookOpen, AlertTriangle, Lightbulb, Search, Calendar,
-  CheckCircle2, ChevronRight, Sparkles, Zap, Brain, Layers,
-  Archive, FolderOpen, ArrowRight, TrendingUp, Filter,
+  CheckCircle2, ChevronRight, Sparkles, Zap, ArrowRight, TrendingUp,
 } from "lucide-react";
 import {
   getDailySyncs, getLessons, getSystemUpdates, updateLessonStatus,
@@ -16,20 +15,13 @@ import {
 } from "@/lib/data/learning";
 import {
   getDailyNotes, getKnowledgeEntries,
-  type DailyNote, type KnowledgeEntry, type PARACategory,
+  type DailyNote, type KnowledgeEntry,
 } from "@/lib/data/knowledge";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import { timeAgo } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────
-
-const PARA_CONFIG: { key: PARACategory; label: string; icon: React.ElementType; color: string; bg: string }[] = [
-  { key: "project",  label: "Projects",  icon: FolderOpen, color: "var(--info)",    bg: "rgba(37,99,235,0.08)"  },
-  { key: "area",     label: "Areas",     icon: Layers,     color: "var(--accent)",  bg: "var(--accent-soft)"    },
-  { key: "resource", label: "Resources", icon: BookOpen,   color: "var(--success)", bg: "rgba(16,185,129,0.08)" },
-  { key: "archive",  label: "Archives",  icon: Archive,    color: "var(--text-quiet)", bg: "var(--surface-muted)" },
-];
 
 const LESSON_STATUS_COLOR: Record<string, { bg: string; color: string }> = {
   draft:    { bg: "rgba(148,163,184,0.12)", color: "var(--text-quiet)" },
@@ -217,7 +209,6 @@ export default function LearningPage() {
 
   // Filters
   const [lessonFilter, setLessonFilter]   = useState<string>("all");
-  const [knowledgeFilter, setKnowledgeFilter] = useState<PARACategory | "all">("all");
   const [searchQ, setSearchQ]             = useState("");
   const [scanning, setScanning]           = useState(false);
   const [scanMsg, setScanMsg]             = useState("");
@@ -230,10 +221,8 @@ export default function LearningPage() {
         getDailyNotes(14),
         getLessons(lessonFilter === "all" ? undefined : lessonFilter),
         getSystemUpdates(),
-        getKnowledgeEntries({
-          category: knowledgeFilter === "all" ? undefined : knowledgeFilter,
-          search: searchQ || undefined,
-        }),
+        // Just the count for the footer card — full list lives at /knowledge
+        getKnowledgeEntries({ search: searchQ || undefined }),
       ]);
       setMeetings(results[0].status === "fulfilled" ? results[0].value : []);
       setDailyNotes(results[1].status === "fulfilled" ? (results[1].value.data ?? []) : []);
@@ -247,10 +236,10 @@ export default function LearningPage() {
     }
   }
 
-  const loadRef = useCallback(() => load(), [lessonFilter, knowledgeFilter, searchQ]);
-  useRealtimeMulti(["daily_notes", "lessons", "system_updates", "knowledge_entries"], loadRef);
+  const loadRef = useCallback(() => load(), [lessonFilter, searchQ]);
+  useRealtimeMulti(["daily_notes", "lessons", "system_updates"], loadRef);
 
-  useEffect(() => { load(); }, [lessonFilter, knowledgeFilter, searchQ]);
+  useEffect(() => { load(); }, [lessonFilter, searchQ]);
 
   async function handleScanLessons() {
     setScanning(true);
@@ -294,10 +283,6 @@ export default function LearningPage() {
     }
     return out.sort((a, b) => new Date(b.date_detected).getTime() - new Date(a.date_detected).getTime());
   }, [lessons, searchQ]);
-
-  const filteredKnowledge = useMemo(() => {
-    return knowledgeFilter === "all" ? knowledge : knowledge.filter((k) => k.category === knowledgeFilter);
-  }, [knowledge, knowledgeFilter]);
 
   if (loading && lessons.length === 0 && dailyNotes.length === 0) {
     return (
@@ -479,123 +464,57 @@ export default function LearningPage() {
         )}
       </section>
 
-      {/* ── Knowledge base (PARA) ── */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+      {/* ── Footer: 3 quick links to the rest of memory ── */}
+      <div className="grid gap-3 sm:grid-cols-3 pt-3">
+        <Link href="/knowledge" className="group rounded-xl border p-4 hover:-translate-y-0.5 transition-all"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="flex items-center gap-2 mb-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(37,99,235,0.08)" }}>
               <BookOpen className="h-4 w-4" style={{ color: "var(--info)" }} />
             </div>
-            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Knowledge Base</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
-              {filteredKnowledge.length}
-            </span>
+            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Knowledge</span>
           </div>
-        </div>
-
-        {/* PARA cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          {PARA_CONFIG.map((cat) => {
-            const Icon = cat.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-            const count = knowledge.filter((k) => k.category === cat.key).length;
-            const isActive = knowledgeFilter === cat.key;
-            return (
-              <button
-                key={cat.key}
-                onClick={() => setKnowledgeFilter(isActive ? "all" : cat.key)}
-                className="rounded-xl p-4 text-left transition-all hover:-translate-y-0.5"
-                style={{
-                  background: isActive ? cat.bg : "var(--surface)",
-                  border: `1px solid ${isActive ? cat.color + "40" : "var(--border)"}`,
-                  boxShadow: isActive ? `0 0 0 2px ${cat.color}40` : "var(--shadow-card)",
-                }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: isActive ? cat.color : "var(--text-quiet)" }}>{cat.label}</span>
-                  <Icon className="h-3.5 w-3.5" style={{ color: cat.color }} />
-                </div>
-                <div className="text-2xl font-black tabular-nums" style={{ color: isActive ? cat.color : "var(--text)" }}>{count}</div>
-                <p className="text-[10px] mt-0.5" style={{ color: "var(--text-quiet)" }}>{cat.key === "project" ? "in flight" : cat.key === "area" ? "ongoing" : cat.key === "resource" ? "reference" : "stored"}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Knowledge entries */}
-        {filteredKnowledge.length === 0 ? (
-          <div className="rounded-xl border py-10 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-            <BookOpen className="h-8 w-8 mx-auto mb-2" style={{ color: "var(--text-quiet)" }} />
-            <p className="text-sm" style={{ color: "var(--text-quiet)" }}>No knowledge entries{knowledgeFilter !== "all" ? ` in ${knowledgeFilter}` : ""} yet</p>
+          <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
+            {knowledge.length} entries · PARA library
+          </p>
+          <div className="mt-2 text-[11px] font-medium flex items-center gap-1 group-hover:underline" style={{ color: "var(--accent)" }}>
+            Open <ArrowRight className="h-3 w-3" />
           </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {filteredKnowledge.slice(0, 12).map((entry) => (
-              <div key={entry.id} className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <p className="text-sm font-semibold leading-snug" style={{ color: "var(--text)" }}>{entry.title}</p>
-                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">{entry.category}</Badge>
-                </div>
-                <p className="text-xs leading-relaxed line-clamp-3 mb-2" style={{ color: "var(--text-muted)" }}>{entry.content}</p>
-                {entry.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {entry.tags.slice(0, 5).map((tag) => (
-                      <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
-                  {entry.source} · {timeAgo(entry.updated_at)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+        </Link>
 
-      {/* ── Applied updates ── */}
-      {updates.length > 0 && (
-        <section>
-          <div className="flex items-center gap-2 mb-3">
+        <Link href="/approvals" className="group rounded-xl border p-4 hover:-translate-y-0.5 transition-all"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "var(--accent-soft)" }}>
+              <CheckCircle2 className="h-4 w-4" style={{ color: "var(--accent)" }} />
+            </div>
+            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Approvals</span>
+          </div>
+          <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
+            Skill requests · capability gaps · decisions
+          </p>
+          <div className="mt-2 text-[11px] font-medium flex items-center gap-1 group-hover:underline" style={{ color: "var(--accent)" }}>
+            Open <ArrowRight className="h-3 w-3" />
+          </div>
+        </Link>
+
+        <div className="rounded-xl border p-4"
+             style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}>
+          <div className="flex items-center gap-2 mb-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(16,185,129,0.08)" }}>
               <Zap className="h-4 w-4" style={{ color: "var(--success)" }} />
             </div>
             <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Applied Updates</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "var(--surface-muted)", color: "var(--text-muted)" }}>
-              {updates.length}
-            </span>
           </div>
-          <div className="space-y-2">
-            {updates.slice(0, 5).map((u) => (
-              <div key={u.id} className="rounded-xl border p-3 flex items-start gap-3" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                <div className="h-1.5 w-1.5 rounded-full mt-2 shrink-0" style={{ background: "var(--success)" }} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Badge variant="outline" className="text-[9px]">{u.type.replace("_", " ")}</Badge>
-                    <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{u.title}</p>
-                  </div>
-                  <p className="text-xs leading-snug" style={{ color: "var(--text-muted)" }}>{u.description}</p>
-                </div>
-                <span className="text-[10px] shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>{timeAgo(u.applied_at)}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── Footer: link to approvals + previous days ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-        <Link href="/approvals" className="flex items-center gap-2 text-sm hover:underline" style={{ color: "var(--accent)" }}>
-          <CheckCircle2 className="h-4 w-4" />
-          Pending approvals & capability gaps
-          <ArrowRight className="h-3 w-3" />
-        </Link>
-        {dailyNotes.length > 1 && (
-          <span className="text-xs" style={{ color: "var(--text-quiet)" }}>
-            {dailyNotes.length} daily syncs in history
-          </span>
-        )}
+          <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
+            {updates.length} {updates.length === 1 ? "update" : "updates"} shipped
+          </p>
+          {updates[0] && (
+            <p className="text-[11px] mt-2 truncate" style={{ color: "var(--text-muted)" }}>
+              Latest: {updates[0].title}
+            </p>
+          )}
+        </div>
       </div>
     </PageShell>
   );
