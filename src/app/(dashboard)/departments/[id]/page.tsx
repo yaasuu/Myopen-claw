@@ -183,7 +183,7 @@ export default function DepartmentDetailPage() {
         <div className="rounded-lg border border-amber-200/60 bg-[rgba(245,158,11,0.08)]/50 px-4 py-2.5 text-xs text-[var(--warning)]">{error}</div>
       )}
 
-      <Button variant="ghost" size="sm" className="gap-1.5 w-fit" onClick={() => router.push("/departments")}>
+      <Button variant="ghost" size="sm" className="gap-1.5 w-fit" onClick={() => router.push("/workforce?view=departments")}>
         <ArrowLeft className="h-3.5 w-3.5" /> Back to Departments
       </Button>
 
