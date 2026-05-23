@@ -553,7 +553,7 @@ export default function OverviewPage() {
                 <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Department Output</span>
                 <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>this week</span>
               </div>
-              <Link href="/departments" className="text-[11px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
+              <Link href="/workforce?view=departments" className="text-[11px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
                 Outputs <ArrowRight className="h-3 w-3" />
               </Link>
             </div>

@@ -317,7 +317,7 @@ export default function AgentDetailPage() {
       )}
 
       {/* Back button */}
-      <Button variant="ghost" size="sm" className="gap-1.5 w-fit" onClick={() => router.push("/agents")}>
+      <Button variant="ghost" size="sm" className="gap-1.5 w-fit" onClick={() => router.push("/workforce?view=agents")}>
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to Agents
       </Button>
