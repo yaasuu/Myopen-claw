@@ -13,6 +13,7 @@ import {
   Radio,
   Settings,
   CheckSquare,
+  ClipboardCheck,
   Bell,
   UserPlus,
   Users,
@@ -68,7 +69,7 @@ const sections = [
   {
     label: "Governance",
     items: [
-      { title: "Approvals", href: "/approvals", icon: CheckSquare },
+      { title: "Approvals", href: "/approvals", icon: ClipboardCheck },
       { title: "Autonomy", href: "/autonomy", icon: Shield },
       { title: "Reviews", href: "/reviews", icon: ShieldCheck },
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
@@ -82,9 +83,9 @@ const sections = [
     items: [
       { title: "Alerts", href: "/alerts", icon: Bell },
       { title: "Hermes", href: "/hermes", icon: Zap },
-      { title: "Skills", href: "/skills", icon: Brain },
+      { title: "Skills", href: "/skills", icon: GraduationCap },
       { title: "Memory", href: "/memory", icon: Lightbulb },
-      { title: "Team", href: "/org-chart", icon: Network },
+      { title: "Org Chart", href: "/org-chart", icon: Network },
       { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
