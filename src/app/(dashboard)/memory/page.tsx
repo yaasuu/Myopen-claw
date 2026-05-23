@@ -140,7 +140,7 @@ export default function MemoryPage() {
         </div>
         <div className="flex items-center gap-2 text-xs" style={{ color: "var(--text-quiet)" }}>
           <Brain className="h-4 w-4" />
-          {workspaces.length} agents
+          {workspaces.length} agent{workspaces.length !== 1 ? "s" : ""}
         </div>
       </div>
 

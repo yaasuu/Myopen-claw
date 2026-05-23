@@ -306,7 +306,7 @@ export default function HiringPage() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
-                          {rec.matchedTaskCount} tasks
+                          {rec.matchedTaskCount} task{rec.matchedTaskCount !== 1 ? "s" : ""}
                         </span>
                         {rec.blockedTaskCount > 0 && (
                           <span className="flex items-center gap-1 text-[var(--danger)]">
@@ -498,7 +498,7 @@ export default function HiringPage() {
                   <p className="text-sm font-medium text-[var(--success)]">Agent created and active</p>
                   {hireAutoAssign && hireRec && (
                     <p className="text-xs text-muted-foreground">
-                      {hireRec.matchedTaskIds.length} tasks assigned automatically
+                      {hireRec.matchedTaskIds.length} task{hireRec.matchedTaskIds.length !== 1 ? "s" : ""} assigned automatically
                     </p>
                   )}
                 </div>

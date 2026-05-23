@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -238,7 +239,7 @@ function ProjectCard({
         {/* Stats row */}
         <div className="flex items-center gap-3 text-[10px] mb-3" style={{ color: "var(--text-quiet)" }}>
           <span className="flex items-center gap-1">
-            <span className="font-semibold tabular-nums" style={{ color: "var(--text-muted)" }}>{project.open_tasks}</span> tasks
+            <span className="font-semibold tabular-nums" style={{ color: "var(--text-muted)" }}>{project.open_tasks}</span> task{project.open_tasks !== 1 ? "s" : ""}
           </span>
           {project.blocked_tasks > 0 && (
             <span className="flex items-center gap-1" style={{ color: "var(--danger)" }}>
@@ -704,6 +705,7 @@ function ListView({
   agents: Agent[];
   healthScores: Map<string, ProjectHealthScore>;
 }) {
+  const router = useRouter();
   return (
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
       <table className="w-full text-sm">
@@ -727,7 +729,7 @@ function ListView({
             return (
               <tr key={p.id} className="border-b last:border-0 hover:bg-[var(--surface-muted)] transition-colors cursor-pointer"
                   style={{ borderColor: "var(--border)" }}
-                  onClick={() => window.location.href = `/projects/${p.id}`}>
+                  onClick={() => router.push(`/projects/${p.id}`)}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px]">{p.project_code}</Badge>

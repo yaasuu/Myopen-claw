@@ -12,7 +12,7 @@ interface Goal {
   id: string;
   title: string;
   status: string;
-  priority: string;
+  priority?: string | null;
   parent_goal_id: string | null;
   due_date: string | null;
   description?: string | null;
@@ -109,7 +109,7 @@ export default function GoalsPage() {
 
       const { data, error } = await supabase
         .from("goals")
-        .select("id, title, status, priority, parent_goal_id, due_date, description, owner, progress, notes")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw new Error(error.message);
@@ -159,7 +159,7 @@ export default function GoalsPage() {
             Strategic hierarchy · execution targets · mission tree
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" disabled title="Goal creation coming soon — add goals via Supabase or the Hello session">
           <Plus className="h-4 w-4" /> New Goal
         </Button>
       </div>
@@ -243,9 +243,11 @@ export default function GoalsPage() {
               >
                 {selectedGoal.status}
               </Badge>
-              <Badge variant="outline" className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {selectedGoal.priority} priority
-              </Badge>
+              {selectedGoal.priority && (
+                <Badge variant="outline" className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                  {selectedGoal.priority} priority
+                </Badge>
+              )}
             </div>
 
             {/* Progress bar */}

@@ -134,7 +134,7 @@ export default function WorkforcePage() {
       name: d.name,
       emoji: d.emoji,
       status: d.status,
-      meta: `${departmentAgents.get(d.id)?.length ?? 0} agents`,
+      meta: (() => { const n = departmentAgents.get(d.id)?.length ?? 0; return `${n} ${n === 1 ? "agent" : "agents"}`; })(),
     })),
     // Agents (excluding direct agents)
     ...agents.filter((a) => !directAgents.some((direct) => direct.id === a.id)).map((a) => ({

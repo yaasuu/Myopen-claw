@@ -337,7 +337,7 @@ export default function CalendarPage() {
                       {d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
                       {isToday && <Badge variant="outline" className="ml-2 text-[10px]">Today</Badge>}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{dayRoutines.length} events</span>
+                    <span className="text-[10px] text-muted-foreground">{dayRoutines.length} event{dayRoutines.length !== 1 ? "s" : ""}</span>
                   </div>
                   {dayRoutines.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
