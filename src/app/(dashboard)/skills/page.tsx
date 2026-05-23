@@ -15,6 +15,17 @@ import {
   Globe, Activity, Loader2,
 } from "lucide-react";
 
+interface HermesSkill {
+  slug: string;
+  displayName: string;
+  summary: string;
+  tags: string[];
+  category: string;
+  downloads: number;
+  stars: number;
+  version: string | null;
+}
+
 // ─── Hermes brand: source label rewrite ───────────────
 // We keep "clawhub" / "hermes" as the underlying DB value
 // (a future migration will normalize to "hermes") and just
@@ -49,6 +60,9 @@ export default function SkillsPage() {
   const [loading, setLoading]         = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [searchQ, setSearchQ]         = useState("");
+  const [hermesSkills, setHermesSkills] = useState<HermesSkill[]>([]);
+  const [hermesLoading, setHermesLoading] = useState(true);
+  const [hermesError, setHermesError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [skillsResult, agentSkillsResult, agentsResult] = await Promise.all([
@@ -60,17 +74,23 @@ export default function SkillsPage() {
     setAgentSkills(agentSkillsResult.data);
     setAgents(agentsResult.data);
     setLoading(false);
+
+    // Fetch Hermes registry skills
+    try {
+      const hermesRes = await fetch("/api/hermes-skills");
+      const hermesData = await hermesRes.json();
+      setHermesSkills(hermesData.items ?? []);
+    } catch {
+      setHermesError("Could not reach Hermes registry");
+    } finally {
+      setHermesLoading(false);
+    }
   }, []);
 
   useRealtime("agent_skills", load);
   useEffect(() => { load(); }, [load]);
 
   // ── Derived ────────────────────────────────────────
-  const categories = useMemo(
-    () => ["all", ...Array.from(new Set(skills.map((s) => s.category).filter(Boolean)))],
-    [skills]
-  );
-
   const filtered = useMemo(() => {
     let out = skills;
     if (filterCategory !== "all") out = out.filter((s) => s.category === filterCategory);
@@ -85,6 +105,36 @@ export default function SkillsPage() {
     return out;
   }, [skills, filterCategory, searchQ]);
 
+  // Cross-reference: which Hermes skills are already installed in our DB
+  const installedSlugs = useMemo(
+    () => new Set(skills.map((s) => s.name.toLowerCase())),
+    [skills]
+  );
+
+  const filteredHermes = useMemo(() => {
+    let out = hermesSkills;
+    if (filterCategory !== "all") out = out.filter((s) => s.category === filterCategory);
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      out = out.filter(
+        (s) =>
+          s.displayName.toLowerCase().includes(q) ||
+          s.summary.toLowerCase().includes(q) ||
+          s.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    return out;
+  }, [hermesSkills, filterCategory, searchQ]);
+
+  // Combined categories from both sources
+  const allCategories = useMemo(
+    () => ["all", ...Array.from(new Set([
+      ...skills.map((s) => s.category).filter(Boolean),
+      ...hermesSkills.map((s) => s.category).filter(Boolean),
+    ]))],
+    [skills, hermesSkills]
+  );
+
   const agentsForSkill = (skillId: string) =>
     agentSkills
       .filter((as) => as.skill_id === skillId)
@@ -97,7 +147,6 @@ export default function SkillsPage() {
   const totalSkills    = skills.length;
   const totalInstalls  = agentSkills.length;
   const totalCategories = new Set(skills.map((s) => s.category).filter(Boolean)).size;
-  const hermesSkills   = skills.filter((s) => formatSource(s.source) === "Hermes").length;
 
   if (loading) {
     return (
@@ -124,29 +173,13 @@ export default function SkillsPage() {
         </div>
       </div>
 
-      {/* ── Hero banner — Hermes branding ── */}
-      <div className="rounded-xl border p-5 flex items-center gap-4" style={{
-        background: "linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(99,102,241,0.06) 100%)",
-        borderColor: "rgba(139,92,246,0.2)",
-      }}>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl shrink-0" style={{ background: "rgba(139,92,246,0.12)" }}>
-          <Sparkles className="h-6 w-6" style={{ color: "#8b5cf6" }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold" style={{ color: "var(--text)" }}>Hermes Skill Finder</p>
-          <p className="text-xs mt-0.5 leading-snug" style={{ color: "var(--text-muted)" }}>
-            Discover and install capabilities for your agents. Every Hermes skill is security-scanned before approval.
-          </p>
-        </div>
-      </div>
-
       {/* ── KPI cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Skills",     val: totalSkills,     sub: "installed",      icon: Sparkles, color: "#8b5cf6",         bg: "rgba(139,92,246,0.08)" },
-          { label: "Installs",   val: totalInstalls,   sub: "agent-skill links", icon: Users,    color: "var(--accent)",   bg: "var(--accent-soft)" },
-          { label: "Categories", val: totalCategories, sub: "skill domains",     icon: Tag,      color: "var(--info)",     bg: "rgba(37,99,235,0.08)" },
-          { label: "Hermes",     val: hermesSkills,    sub: "from skill finder", icon: Globe,    color: "var(--success)",  bg: "rgba(16,185,129,0.08)" },
+          { label: "Skills",     val: totalSkills,           sub: "installed",         icon: Sparkles, color: "#8b5cf6",         bg: "rgba(139,92,246,0.08)" },
+          { label: "Installs",   val: totalInstalls,         sub: "agent-skill links", icon: Users,    color: "var(--accent)",   bg: "var(--accent-soft)" },
+          { label: "Categories", val: totalCategories,       sub: "skill domains",     icon: Tag,      color: "var(--info)",     bg: "rgba(37,99,235,0.08)" },
+          { label: "Hermes",     val: hermesSkills.length,   sub: "from skill finder", icon: Globe,    color: "var(--success)",  bg: "rgba(16,185,129,0.08)" },
         ].map((c) => {
           const Icon = c.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
           return (
@@ -177,7 +210,7 @@ export default function SkillsPage() {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          {categories.map((cat) => {
+          {allCategories.map((cat) => {
             const active = filterCategory === cat;
             const style = cat === "all" ? null : categoryStyle(cat);
             return (
@@ -294,6 +327,71 @@ export default function SkillsPage() {
           })}
         </div>
       )}
+
+      {/* ── Hermes Registry — available skills ── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4" style={{ color: "#8b5cf6" }} />
+          <h2 className="text-sm font-bold" style={{ color: "var(--text)" }}>
+            Available from Hermes Registry
+          </h2>
+          {hermesLoading && <Loader2 className="h-3 w-3 animate-spin" style={{ color: "var(--text-quiet)" }} />}
+          {!hermesLoading && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(139,92,246,0.1)", color: "#8b5cf6" }}>
+              {filteredHermes.filter((s) => !installedSlugs.has(s.slug.toLowerCase())).length} available
+            </span>
+          )}
+        </div>
+
+        {hermesError && (
+          <p className="text-xs" style={{ color: "var(--danger)" }}>{hermesError}</p>
+        )}
+
+        {!hermesLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filteredHermes
+              .filter((s) => !installedSlugs.has(s.slug.toLowerCase()))
+              .slice(0, 30)
+              .map((skill) => {
+                const cs = categoryStyle(skill.category);
+                const Icon = cs.icon as React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+                return (
+                  <div
+                    key={skill.slug}
+                    className="rounded-xl border p-4 flex flex-col gap-2 hover:-translate-y-0.5 transition-all"
+                    style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-card)" }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: cs.bg }}>
+                        <Icon className="h-4 w-4" style={{ color: cs.color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{skill.displayName}</p>
+                        <p className="text-[10px] uppercase font-medium mt-0.5" style={{ color: cs.color }}>{skill.category}</p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] leading-snug line-clamp-2" style={{ color: "var(--text-muted)" }}>
+                      {skill.summary}
+                    </p>
+                    <div className="flex items-center gap-3 mt-auto pt-1">
+                      <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                        ↓ {skill.downloads.toLocaleString()}
+                      </span>
+                      {skill.version && (
+                        <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>v{skill.version}</span>
+                      )}
+                      {skill.tags.slice(0, 2).map((t) => (
+                        <span key={t} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="pt-2 border-t flex items-center justify-between flex-wrap gap-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>

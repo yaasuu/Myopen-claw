@@ -17,7 +17,6 @@ import {
   UserPlus,
   Users,
   Shield,
-  Building2,
   Zap,
   Lightbulb,
   GraduationCap,
@@ -28,7 +27,6 @@ import {
   Brain,
   ShieldCheck,
   CalendarIcon,
-  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -58,8 +56,6 @@ const sections = [
       { title: "Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Projects", href: "/projects", icon: BarChart3 },
       { title: "Outputs", href: "/outputs", icon: FolderKanban },
-      { title: "Goals", href: "/goals", icon: Target },
-      { title: "Departments", href: "/departments", icon: Building2 },
     ],
   },
   {

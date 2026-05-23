@@ -33,6 +33,7 @@ import { getAgents } from "@/lib/data/agents";
 import { getSpecialistTypes } from "@/lib/data/departments";
 import { getAllDeliverables, type Deliverable } from "@/lib/data/reviews";
 import { useCanWrite } from "@/lib/auth/use-can-write";
+import { getSupabase } from "@/lib/supabase/client";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
 import { timeAgo } from "@/lib/utils";
 import type {
@@ -42,7 +43,20 @@ import type {
 
 // ─── Helpers ──────────────────────────────────────────
 
-type Tab = "overview" | "tasks" | "outputs" | "timeline" | "activity";
+type Tab = "overview" | "tasks" | "outputs" | "timeline" | "activity" | "goals";
+
+interface ProjectGoal {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  parent_goal_id: string | null;
+  due_date: string | null;
+  description?: string | null;
+  owner?: string | null;
+  progress?: number | null;
+  children?: ProjectGoal[];
+}
 
 const statusColor: Record<string, string> = {
   planning:  "var(--text-quiet)",
@@ -320,6 +334,8 @@ export default function ProjectDetailPage() {
   const [reviews, setReviews]   = useState<ProjectReview[]>([]);
   const [decisions, setDecisions] = useState<ProjectDecision[]>([]);
   const [deliverableOutputs, setDeliverableOutputs] = useState<Deliverable[]>([]);
+  const [projectGoals, setProjectGoals] = useState<ProjectGoal[]>([]);
+  const [goalsLoading, setGoalsLoading] = useState(false);
 
   // Tabs + sidebar
   const [tab, setTab] = useState<Tab>("overview");
@@ -362,6 +378,30 @@ export default function ProjectDetailPage() {
         setReviews(rvResult.data);
         setDecisions(dcResult.data);
         setHealth(calculateProjectHealth(result.data, result.tasks, msResult.data, rvResult.data));
+
+        // Fetch project goals
+        const supabase = getSupabase();
+        if (supabase && result.data?.id) {
+          const { data: goalsData } = await supabase
+            .from("goals")
+            .select("id, title, status, priority, parent_goal_id, due_date, description, owner, progress")
+            .eq("project_id", result.data.id)
+            .order("created_at", { ascending: true });
+
+          // Build tree
+          const goalMap = new Map<string, ProjectGoal>();
+          const roots: ProjectGoal[] = [];
+          (goalsData || []).forEach((g) => goalMap.set(g.id, { ...g, children: [] }));
+          (goalsData || []).forEach((g) => {
+            const goal = goalMap.get(g.id)!;
+            if (g.parent_goal_id && goalMap.has(g.parent_goal_id)) {
+              goalMap.get(g.parent_goal_id)!.children!.push(goal);
+            } else {
+              roots.push(goal);
+            }
+          });
+          setProjectGoals(roots);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -572,6 +612,7 @@ export default function ProjectDetailPage() {
       <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: "var(--surface-muted)" }}>
         {([
           { id: "overview" as Tab,  label: "Overview", count: undefined },
+          { id: "goals" as Tab,     label: "Goals",    count: projectGoals.reduce((n, g) => n + 1 + (g.children?.length ?? 0), 0) },
           { id: "tasks" as Tab,     label: "Tasks",    count: tasks.length },
           { id: "outputs" as Tab,   label: "Outputs",  count: deliverableOutputs.length },
           { id: "timeline" as Tab,  label: "Timeline", count: milestones.length },
@@ -598,6 +639,145 @@ export default function ProjectDetailPage() {
       {/* Tab content + sidebar */}
       <div className={`grid gap-4 ${sidebarOpen ? "lg:grid-cols-[1fr_300px]" : ""}`}>
         <div className="space-y-4 min-w-0">
+
+          {/* ── GOALS TAB ── */}
+          {tab === "goals" && (
+            <div className="space-y-4">
+              {/* Header row */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                  Project Goals
+                </p>
+                <Button
+                  size="sm"
+                  className="gap-1.5 h-7 text-xs"
+                  onClick={async () => {
+                    const supabase = getSupabase();
+                    if (!supabase || !project) return;
+                    const { data } = await supabase
+                      .from("goals")
+                      .insert({ title: "New Goal", status: "active", priority: "medium", project_id: project.id })
+                      .select()
+                      .single();
+                    if (data) {
+                      setProjectGoals((prev) => [...prev, { ...data, children: [] }]);
+                    }
+                  }}
+                >
+                  <Target className="h-3 w-3" /> Add Goal
+                </Button>
+              </div>
+
+              {goalsLoading ? (
+                <div className="flex items-center justify-center h-24" style={{ color: "var(--text-quiet)" }}>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading goals...
+                </div>
+              ) : projectGoals.length === 0 ? (
+                <div
+                  className="rounded-xl border-2 border-dashed p-8 text-center"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <Target className="h-8 w-8 mx-auto mb-3" style={{ color: "var(--text-quiet)" }} />
+                  <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>No goals yet</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>
+                    Every project needs at least one goal to track success.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-4 gap-1.5 h-7 text-xs"
+                    onClick={async () => {
+                      const supabase = getSupabase();
+                      if (!supabase || !project) return;
+                      const { data } = await supabase
+                        .from("goals")
+                        .insert({ title: "New Goal", status: "active", priority: "medium", project_id: project.id })
+                        .select()
+                        .single();
+                      if (data) {
+                        setProjectGoals([{ ...data, children: [] }]);
+                      }
+                    }}
+                  >
+                    <Target className="h-3 w-3" /> Add First Goal
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className="rounded-xl border divide-y"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  {projectGoals.map((goal) => {
+                    const statusStyle: Record<string, { bg: string; color: string }> = {
+                      active:    { bg: "rgba(16,185,129,0.1)",  color: "var(--success)" },
+                      completed: { bg: "rgba(37,99,235,0.1)",   color: "var(--info)" },
+                      paused:    { bg: "rgba(245,158,11,0.1)",  color: "var(--warning)" },
+                      cancelled: { bg: "rgba(220,38,38,0.1)",   color: "var(--danger)" },
+                    };
+                    const ss = statusStyle[goal.status] ?? { bg: "rgba(148,163,184,0.1)", color: "var(--text-quiet)" };
+                    return (
+                      <div key={goal.id} className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Target className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />
+                            <span className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>
+                              {goal.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                              style={{ background: ss.bg, color: ss.color }}
+                            >
+                              {goal.status}
+                            </span>
+                            <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                              {goal.priority}
+                            </span>
+                          </div>
+                        </div>
+                        {goal.description && (
+                          <p className="text-xs mt-1 ml-6 leading-snug" style={{ color: "var(--text-muted)" }}>
+                            {goal.description}
+                          </p>
+                        )}
+                        {goal.progress != null && (
+                          <div className="ml-6 mt-2">
+                            <div className="h-1 rounded-full" style={{ background: "var(--surface-muted)" }}>
+                              <div
+                                className="h-1 rounded-full"
+                                style={{ width: `${goal.progress}%`, background: "var(--accent)" }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {goal.children && goal.children.length > 0 && (
+                          <div className="ml-6 mt-2 space-y-1">
+                            {goal.children.map((child) => {
+                              const cs = statusStyle[child.status] ?? { bg: "rgba(148,163,184,0.1)", color: "var(--text-quiet)" };
+                              return (
+                                <div key={child.id} className="flex items-center gap-2 py-1">
+                                  <ChevronRight className="h-3 w-3 shrink-0" style={{ color: "var(--text-quiet)" }} />
+                                  <span className="text-xs flex-1 truncate" style={{ color: "var(--text-muted)" }}>
+                                    {child.title}
+                                  </span>
+                                  <span
+                                    className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                    style={{ background: cs.bg, color: cs.color }}
+                                  >
+                                    {child.status}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── OVERVIEW ── */}
           {tab === "overview" && (
