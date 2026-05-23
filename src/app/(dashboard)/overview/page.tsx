@@ -168,7 +168,7 @@ function AgentCard({ agent, tasks }: { agent: Agent; tasks: TaskWithAgent[] }) {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
             <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>
-              {agent.status === "paused" ? "⏸ Paused" : agent.last_activity ? `Active ${timeAgo(agent.last_activity)}` : "No activity"}
+              {agent.status === "paused" ? "⏸ Paused" : agent.last_activity ? `Active ${timeAgo(agent.last_activity)}` : inProgress > 0 ? `${inProgress} task${inProgress > 1 ? "s" : ""} in progress` : open > 0 ? `${open} task${open > 1 ? "s" : ""} queued` : "No activity"}
             </p>
           </div>
           {blocked > 0 && (
@@ -670,10 +670,12 @@ export default function OverviewPage() {
               <div className="space-y-2">
                 {waiting.slice(0, 5).map((item, i) => (
                   <Link key={i} href={item.href}>
-                    <div className="flex items-center gap-2.5 rounded-lg p-2.5 hover:opacity-80 transition-opacity" style={{ background: "var(--surface-muted)" }}>
-                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: item.color }} />
-                      <span className="flex-1 text-[12px] truncate font-medium" style={{ color: "var(--text)" }}>{item.text}</span>
-                      <span className="text-[10px] shrink-0 tabular-nums" style={{ color: "var(--text-quiet)" }}>{item.age}</span>
+                    <div className="flex items-start gap-2.5 rounded-lg p-2.5 hover:opacity-80 transition-opacity" style={{ background: "var(--surface-muted)" }}>
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0 mt-1.5" style={{ background: item.color }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium leading-snug" style={{ color: "var(--text)" }} title={item.text}>{item.text}</p>
+                        <p className="text-[10px] tabular-nums mt-0.5" style={{ color: "var(--text-quiet)" }}>{item.age}</p>
+                      </div>
                     </div>
                   </Link>
                 ))}

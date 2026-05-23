@@ -449,7 +449,7 @@ export default function SettingsPage() {
           <div className="grid gap-3 sm:grid-cols-4">
             {[
               { label: "Version",        value: "1.0.0" },
-              { label: "Framework",      value: "Next.js 15" },
+              { label: "Framework",      value: "Next.js 16" },
               { label: "Environment",    value: "Production" },
               { label: "Design System",  value: "Mission Control" },
             ].map(({ label, value }) => (
