@@ -276,7 +276,7 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {blockedWarnings.length} Blocked Task{blockedWarnings.length > 1 ? "s" : ""} Affecting Schedule
+                {blockedWarnings.length} Blocked Task{blockedWarnings.length !== 1 ? "s" : ""} Affecting Schedule
               </span>
             </div>
             <div className="space-y-1">
