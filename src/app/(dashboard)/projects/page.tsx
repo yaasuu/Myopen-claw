@@ -534,8 +534,13 @@ export default function PortfolioPage() {
               <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>+{signals.length - 3} more</span>
             )}
           </div>
-          <button onClick={runReview} className="text-xs font-medium hover:underline" style={{ color: "var(--danger)" }}>
-            Review →
+          <button
+            onClick={runReview}
+            disabled={runningReview}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all hover:opacity-80 disabled:opacity-50"
+            style={{ color: "var(--danger)", borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.1)" }}
+          >
+            {runningReview ? "Running…" : "Run Review →"}
           </button>
         </div>
       )}

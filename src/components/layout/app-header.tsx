@@ -38,6 +38,11 @@ const pageTitles: Record<string, string> = {
   "/specialists": "Specialists",
   "/projects": "Projects",
   "/outputs": "Outputs",
+  "/office": "Office",
+  "/reviews": "Reviews",
+  "/calendar": "Calendar",
+  "/workforce": "Workforce",
+  "/agents": "Agents",
 };
 
 const statusConfig: Record<string, { label: string; dot: string; border: string; bg: string; color: string }> = {

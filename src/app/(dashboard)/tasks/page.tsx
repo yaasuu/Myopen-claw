@@ -924,7 +924,7 @@ export default function TasksPage() {
                       <EmptyState
                         icon={List}
                         title="No tasks"
-                        message={`No tasks in ${statusLabel[status].toLowerCase()}.`}
+                        message={status === "in-progress" ? "No tasks in progress." : status === "in-review" ? "No tasks in review." : `No ${statusLabel[status].toLowerCase()} tasks.`}
                         className="py-8"
                       />
                     ) : (

@@ -121,9 +121,11 @@ function KpiCard({ card, active, onClick }: { card: KpiConfig; active: boolean; 
         </div>
         <p className="mt-1 text-[11px]" style={{ color: "var(--text-quiet)" }}>{card.sublabel}</p>
       </div>
-      <div className="mt-auto">
-        <Sparkline value={card.value} color={card.color} />
-      </div>
+      {card.value > 0 && (
+        <div className="mt-auto">
+          <Sparkline value={card.value} color={card.color} />
+        </div>
+      )}
       {active && (
         <span className="absolute right-3 top-3 h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: card.color }} />
       )}
