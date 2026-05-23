@@ -384,7 +384,7 @@ export default function AgentDetailPage() {
           <div className="flex items-center gap-6 text-xs text-muted-foreground pt-2 border-t">
             <div className="flex items-center gap-1.5">
               <Activity className="h-3.5 w-3.5" />
-              <span>{agent.task_count} total tasks</span>
+              <span>{agent.task_count} total task{(agent.task_count ?? 0) !== 1 ? "s" : ""}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
