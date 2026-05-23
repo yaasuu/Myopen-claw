@@ -124,7 +124,7 @@ export default function WorkforcePage() {
       name: a.name,
       emoji: a.emoji,
       status: a.status,
-      meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
+      meta: (() => { const n = tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length; return `${n} ${n === 1 ? "task" : "tasks"}`; })(),
       parentId: "yas-claw",
     })),
     // Departments
@@ -143,7 +143,7 @@ export default function WorkforcePage() {
       name: a.name,
       emoji: a.emoji,
       status: a.status,
-      meta: `${tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length} tasks`,
+      meta: (() => { const n = tasks.filter((t) => t.assigned_agent_id === a.id && t.status !== "done").length; return `${n} ${n === 1 ? "task" : "tasks"}`; })(),
       parentId: getAgentDepartmentId(a, departments),
     })),
     ...specialists.map((s) => ({

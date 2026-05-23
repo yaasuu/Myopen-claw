@@ -159,7 +159,7 @@ export function analyzeHiringNeeds(
         );
         recommendations.push({
           id: `rec-relieve-${agent.id}`,
-          suggestedName: `${agent.domain.split(",")[0]?.trim() || "Support"} Agent`,
+          suggestedName: `${(agent.domain.split(",")[0]?.trim() || "Support").split(/[-\s]+/).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")} Agent`,
           suggestedEmoji: "🤝",
           suggestedDomain: agent.domain,
           department: matchDepartment(agent.domain),
