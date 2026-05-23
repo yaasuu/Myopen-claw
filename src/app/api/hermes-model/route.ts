@@ -1,31 +1,36 @@
 export const runtime = "edge";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// GET uses anon key (read-only, no service role needed)
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// POST needs service role to write. Falls back gracefully with a clear error if not set.
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 function deriveProvider(model: string): string {
   if (model.startsWith("gemini")) return "google";
-  // GPT-5 Codex models use the openai-codex OAuth provider (ChatGPT Plus)
   if (/^gpt-5/.test(model)) return "openai-codex";
   return "openrouter";
 }
 
-async function sbFetch(path: string, init?: RequestInit) {
+async function sbFetch(path: string, key: string, init?: RequestInit) {
   return fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       ...(init?.headers as Record<string, string> | undefined),
     },
   });
 }
 
-// GET /api/hermes-model → { model, provider, maxTokens, fallbackModel, fallbackProvider }
+// GET /api/hermes-model → current llm_config value
 export async function GET(): Promise<Response> {
   try {
-    const res = await sbFetch("/settings?key=eq.llm_config&select=value&limit=1");
+    const res = await sbFetch(
+      "/settings?key=eq.llm_config&select=value&limit=1",
+      ANON_KEY
+    );
     if (!res.ok) {
       const text = await res.text();
       return Response.json({ error: text }, { status: res.status });
@@ -41,8 +46,14 @@ export async function GET(): Promise<Response> {
 }
 
 // POST /api/hermes-model  body: { model: string }
-// Updates settings.llm_config.model + provider, returns updated value
 export async function POST(request: Request): Promise<Response> {
+  if (!SERVICE_ROLE_KEY) {
+    return Response.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY not configured in Vercel — add it in Project Settings → Environment Variables" },
+      { status: 503 }
+    );
+  }
+
   try {
     const body = await request.json().catch(() => null);
     const model = typeof body?.model === "string" ? body.model.trim() : "";
@@ -52,30 +63,24 @@ export async function POST(request: Request): Promise<Response> {
 
     const provider = deriveProvider(model);
 
-    // Patch only model + provider fields inside the JSONB value
-    const patch = `value = value || '{"model":${JSON.stringify(model)},"provider":${JSON.stringify(provider)}}'::jsonb, updated_by = 'yas-dashboard', updated_at = now()`;
-
-    const res = await sbFetch("/settings?key=eq.llm_config", {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        value: { model, provider }, // will be merged below
-      }),
-    });
-
-    // Supabase PATCH replaces the whole value — instead use rpc or re-fetch current and merge
-    // Re-fetch current value, merge, then update
-    const getRes = await sbFetch("/settings?key=eq.llm_config&select=value&limit=1");
+    // Fetch current value to merge
+    const getRes = await sbFetch(
+      "/settings?key=eq.llm_config&select=value&limit=1",
+      ANON_KEY
+    );
     if (!getRes.ok) return Response.json({ error: "fetch failed" }, { status: 500 });
     const current: { value: Record<string, unknown> }[] = await getRes.json();
     const currentValue = current[0]?.value ?? {};
-
     const newValue = { ...currentValue, model, provider };
 
-    const updateRes = await sbFetch("/settings?key=eq.llm_config", {
+    const updateRes = await sbFetch("/settings?key=eq.llm_config", SERVICE_ROLE_KEY, {
       method: "PATCH",
       headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ value: newValue, updated_by: "yas-dashboard", updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        value: newValue,
+        updated_by: "yas-dashboard",
+        updated_at: new Date().toISOString(),
+      }),
     });
 
     if (!updateRes.ok) {
