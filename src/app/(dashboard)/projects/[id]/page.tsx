@@ -347,6 +347,17 @@ export default function ProjectDetailPage() {
   const [editProgress, setEditProgress] = useState(0);
   const [editing, setEditing]         = useState(false);
 
+  // Milestone dialog
+  const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [milestoneTitle, setMilestoneTitle] = useState("");
+  const [milestoneSubmitting, setMilestoneSubmitting] = useState(false);
+
+  // Review dialog
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewDialogType, setReviewDialogType] = useState<"weekly" | "executive" | "risk">("weekly");
+  const [reviewSummary, setReviewSummary] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -1027,10 +1038,7 @@ export default function ProjectDetailPage() {
                     <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Milestones</span>
                   </div>
                   {canWrite && (
-                    <button onClick={async () => {
-                      const title = prompt("Milestone title:");
-                      if (title) { await createProjectMilestone({ projectId: project.id, title }); await load(); }
-                    }} className="text-[11px] font-medium hover:underline" style={{ color: "var(--accent)" }}>+ Add</button>
+                    <button onClick={() => { setMilestoneTitle(""); setMilestoneOpen(true); }} className="text-[11px] font-medium hover:underline" style={{ color: "var(--accent)" }}>+ Add</button>
                   )}
                 </div>
                 {milestones.length === 0 ? (
@@ -1070,13 +1078,7 @@ export default function ProjectDetailPage() {
                   {canWrite && (
                     <div className="flex gap-1">
                       {(["weekly", "executive", "risk"] as const).map((type) => (
-                        <button key={type} onClick={async () => {
-                          const summary = prompt(`${type} review summary:`);
-                          if (summary) {
-                            await createProjectReview({ projectId: project.id, reviewType: type, summary, blockers: blockedTasks.map((t) => t.title) });
-                            await load();
-                          }
-                        }} className="text-[10px] font-medium capitalize hover:underline px-1.5" style={{ color: "var(--accent)" }}>
+                        <button key={type} onClick={() => { setReviewDialogType(type); setReviewSummary(""); setReviewDialogOpen(true); }} className="text-[10px] font-medium capitalize hover:underline px-1.5" style={{ color: "var(--accent)" }}>
                           +{type}
                         </button>
                       ))}
@@ -1262,6 +1264,96 @@ export default function ProjectDetailPage() {
               <Button onClick={handleEditSave} disabled={editing} className="w-full">
                 {editing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Save
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Milestone dialog */}
+      {canWrite && (
+        <Dialog open={milestoneOpen} onOpenChange={setMilestoneOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Add Milestone</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Title *</label>
+                <input
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                  placeholder="Milestone title"
+                  value={milestoneTitle}
+                  onChange={(e) => setMilestoneTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && milestoneTitle.trim() && !milestoneSubmitting) {
+                      e.preventDefault();
+                      (async () => {
+                        setMilestoneSubmitting(true);
+                        await createProjectMilestone({ projectId: project.id, title: milestoneTitle.trim() });
+                        setMilestoneSubmitting(false);
+                        setMilestoneOpen(false);
+                        await load();
+                      })();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => setMilestoneOpen(false)} disabled={milestoneSubmitting}>Cancel</Button>
+                <Button size="sm" disabled={milestoneSubmitting || !milestoneTitle.trim()} onClick={async () => {
+                  setMilestoneSubmitting(true);
+                  await createProjectMilestone({ projectId: project.id, title: milestoneTitle.trim() });
+                  setMilestoneSubmitting(false);
+                  setMilestoneOpen(false);
+                  await load();
+                }}>
+                  {milestoneSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                  Add Milestone
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Review dialog */}
+      {canWrite && (
+        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="capitalize">{reviewDialogType} Review</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Summary *</label>
+                <textarea
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm resize-none"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                  rows={4}
+                  placeholder={`Summarise the ${reviewDialogType} review…`}
+                  value={reviewSummary}
+                  onChange={(e) => setReviewSummary(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {blockedTasks.length > 0 && (
+                <p className="text-xs rounded-lg px-3 py-2" style={{ background: "rgba(220,38,38,0.06)", color: "var(--danger)" }}>
+                  {blockedTasks.length} blocked task{blockedTasks.length !== 1 ? "s" : ""} will be included as blockers.
+                </p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => setReviewDialogOpen(false)} disabled={reviewSubmitting}>Cancel</Button>
+                <Button size="sm" disabled={reviewSubmitting || !reviewSummary.trim()} onClick={async () => {
+                  setReviewSubmitting(true);
+                  await createProjectReview({ projectId: project.id, reviewType: reviewDialogType, summary: reviewSummary.trim(), blockers: blockedTasks.map((t) => t.title) });
+                  setReviewSubmitting(false);
+                  setReviewDialogOpen(false);
+                  await load();
+                }}>
+                  {reviewSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                  Save Review
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
