@@ -5,7 +5,7 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 function deriveProvider(model: string): string {
   if (model.startsWith("gemini")) return "google";
-  if (/^(gpt-4|gpt-3|o1|o3)/.test(model)) return "openai";
+  // openai/* models are routed through OpenRouter (OAuth BYOK)
   return "openrouter";
 }
 

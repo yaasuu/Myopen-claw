@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Database, Globe, Key, Bell, Bot, Activity,
-  Cpu, CheckCircle2, Lock, Loader2, AlertCircle, Zap,
+  Cpu, CheckCircle2, Loader2, AlertCircle, Zap,
 } from "lucide-react";
 
 // ── Model catalogue ────────────────────────────────────────────────────────────
@@ -18,7 +18,6 @@ interface LLMModel {
   providerLabel: string;
   contextK: number;
   free: boolean;
-  locked?: boolean;
   description: string;
   badge?: string;
   badgeColor?: string;
@@ -120,35 +119,35 @@ const MODELS: LLMModel[] = [
     badge: "Reasoning",
     badgeColor: "var(--accent)",
   },
-  // ── OpenAI (locked) ────────────────────────────────────────────────────────
+  // ── OpenAI via OpenRouter OAuth ────────────────────────────────────────────
   {
-    id: "gpt-4o-mini",
+    id: "openai/gpt-4o-mini",
     name: "GPT-4o Mini",
-    provider: "openai",
-    providerLabel: "OpenAI",
+    provider: "openrouter",
+    providerLabel: "OpenAI via OpenRouter",
     contextK: 128,
     free: false,
-    locked: true,
-    description: "Budget OpenAI model. Fast and cost-effective. Requires API key.",
+    description: "Fast and cost-effective OpenAI model. ~$0.007/1K tokens via your OpenRouter account.",
+    badge: "Pay-per-use",
+    badgeColor: "var(--warning)",
   },
   {
-    id: "gpt-4o",
+    id: "openai/gpt-4o",
     name: "GPT-4o",
-    provider: "openai",
-    providerLabel: "OpenAI",
+    provider: "openrouter",
+    providerLabel: "OpenAI via OpenRouter",
     contextK: 128,
     free: false,
-    locked: true,
-    description: "Full OpenAI flagship model. Best quality. Requires API key.",
+    description: "OpenAI flagship. Best reasoning + tool use. ~$0.11/1K tokens via your OpenRouter account.",
     badge: "Premium",
-    badgeColor: "var(--text-muted)",
+    badgeColor: "var(--accent)",
   },
 ];
 
 const PROVIDER_GROUPS = [
   { key: "google",     label: "Google Gemini",    color: "#4285F4", dot: "🔵" },
   { key: "openrouter", label: "OpenRouter Free",   color: "var(--success)", dot: "🟢" },
-  { key: "openai",     label: "OpenAI",            color: "var(--text-quiet)", dot: "🔒" },
+  { key: "openai",     label: "OpenAI via OpenRouter",  color: "var(--warning)", dot: "💳" },
 ];
 
 // ── Static info sections ───────────────────────────────────────────────────────
@@ -211,7 +210,7 @@ function LLMSwitcher() {
   }, []);
 
   async function selectModel(model: LLMModel) {
-    if (model.locked || model.id === currentModel || saving) return;
+    if (model.id === currentModel || saving) return;
     setSaving(true);
     setToast(null);
     const prev = currentModel;
@@ -288,9 +287,9 @@ function LLMSwitcher() {
                 {group.key === "openai" && (
                   <span
                     className="text-[9px] px-1.5 py-0.5 rounded"
-                    style={{ background: "rgba(148,163,184,0.1)", color: "var(--text-quiet)" }}
+                    style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}
                   >
-                    Requires API key
+                    Charged via OpenRouter
                   </span>
                 )}
               </div>
@@ -298,34 +297,23 @@ function LLMSwitcher() {
               {/* Model cards grid */}
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {groupModels.map((model) => {
-                  const isActive  = model.id === currentModel;
-                  const isLocked  = model.locked;
+                  const isActive = model.id === currentModel;
 
                   return (
                     <button
                       key={model.id}
-                      disabled={isLocked || saving}
+                      disabled={saving}
                       onClick={() => selectModel(model)}
                       className="text-left rounded-xl p-3.5 transition-all duration-150 border"
                       style={{
-                        background: isActive
-                          ? "rgba(99,102,241,0.08)"
-                          : isLocked
-                          ? "var(--surface-muted)"
-                          : "var(--surface)",
-                        borderColor: isActive
-                          ? "var(--accent)"
-                          : "var(--border)",
-                        opacity: isLocked ? 0.55 : 1,
-                        cursor: isLocked ? "not-allowed" : saving ? "wait" : "pointer",
+                        background: isActive ? "rgba(99,102,241,0.08)" : "var(--surface)",
+                        borderColor: isActive ? "var(--accent)" : "var(--border)",
+                        cursor: saving ? "wait" : "pointer",
                         boxShadow: isActive ? "0 0 0 1px var(--accent)" : "none",
                       }}
                     >
                       <div className="flex items-start justify-between gap-1 mb-1.5">
-                        <span
-                          className="text-xs font-semibold leading-tight"
-                          style={{ color: isLocked ? "var(--text-muted)" : "var(--text)" }}
-                        >
+                        <span className="text-xs font-semibold leading-tight" style={{ color: "var(--text)" }}>
                           {model.name}
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
@@ -334,9 +322,6 @@ function LLMSwitcher() {
                               className="h-3.5 w-3.5"
                               style={{ color: "var(--accent)" }}
                             />
-                          )}
-                          {isLocked && (
-                            <Lock className="h-3 w-3" style={{ color: "var(--text-quiet)" }} />
                           )}
                         </div>
                       </div>
@@ -358,7 +343,7 @@ function LLMSwitcher() {
                         >
                           {model.contextK}K ctx
                         </span>
-                        {model.free && !isLocked && (
+                        {model.free && (
                           <span
                             className="text-[9px] px-1.5 py-0.5 rounded font-medium"
                             style={{ background: "rgba(16,185,129,0.1)", color: "var(--success)" }}
