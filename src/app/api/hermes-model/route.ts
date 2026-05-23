@@ -3,8 +3,11 @@ export const runtime = "edge";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 // GET uses anon key (read-only, no service role needed)
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-// POST needs service role to write. Falls back gracefully with a clear error if not set.
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+// POST needs service role to write. Checks both possible variable names.
+const SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.service_role ??
+  "";
 
 function deriveProvider(model: string): string {
   if (model.startsWith("gemini")) return "google";
