@@ -395,7 +395,7 @@ export default function SkillsPage() {
 
       {/* Footer */}
       <div className="pt-2 border-t flex items-center justify-between flex-wrap gap-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
-        <span>{filtered.length} of {skills.length} skills shown</span>
+        <span>{filtered.length} of {skills.length} {skills.length !== 1 ? "skills" : "skill"} shown</span>
       </div>
     </PageShell>
   );
