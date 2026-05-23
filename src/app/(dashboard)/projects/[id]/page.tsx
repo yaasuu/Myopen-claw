@@ -49,7 +49,7 @@ interface ProjectGoal {
   id: string;
   title: string;
   status: string;
-  priority: string;
+  priority?: string | null;
   parent_goal_id: string | null;
   due_date: string | null;
   description?: string | null;
@@ -384,7 +384,7 @@ export default function ProjectDetailPage() {
         if (supabase && result.data?.id) {
           const { data: goalsData } = await supabase
             .from("goals")
-            .select("id, title, status, priority, parent_goal_id, due_date, description, owner, progress")
+            .select("*")
             .eq("project_id", result.data.id)
             .order("created_at", { ascending: true });
 
@@ -656,7 +656,7 @@ export default function ProjectDetailPage() {
                     if (!supabase || !project) return;
                     const { data } = await supabase
                       .from("goals")
-                      .insert({ title: "New Goal", status: "active", priority: "medium", project_id: project.id })
+                      .insert({ title: "New Goal", status: "active", project_id: project.id })
                       .select()
                       .single();
                     if (data) {
@@ -690,7 +690,7 @@ export default function ProjectDetailPage() {
                       if (!supabase || !project) return;
                       const { data } = await supabase
                         .from("goals")
-                        .insert({ title: "New Goal", status: "active", priority: "medium", project_id: project.id })
+                        .insert({ title: "New Goal", status: "active", project_id: project.id })
                         .select()
                         .single();
                       if (data) {
@@ -730,9 +730,11 @@ export default function ProjectDetailPage() {
                             >
                               {goal.status}
                             </span>
-                            <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
-                              {goal.priority}
-                            </span>
+                            {goal.priority && (
+                              <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                                {goal.priority}
+                              </span>
+                            )}
                           </div>
                         </div>
                         {goal.description && (

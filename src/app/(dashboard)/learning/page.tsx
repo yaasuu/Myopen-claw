@@ -475,7 +475,7 @@ export default function LearningPage() {
             <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Knowledge</span>
           </div>
           <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
-            {knowledge.length} entries · PARA library
+            {knowledge.length} entr{knowledge.length !== 1 ? "ies" : "y"} · PARA library
           </p>
           <div className="mt-2 text-[11px] font-medium flex items-center gap-1 group-hover:underline" style={{ color: "var(--accent)" }}>
             Open <ArrowRight className="h-3 w-3" />
