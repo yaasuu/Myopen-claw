@@ -193,7 +193,7 @@ export default function KnowledgePage() {
 
       {/* ── Footer ── */}
       <div className="pt-2 border-t flex items-center justify-between flex-wrap gap-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
-        <span>{filtered.length} of {entries.length} entries</span>
+        <span>{filtered.length} of {entries.length} {entries.length !== 1 ? "entries" : "entry"}</span>
         <Link href="/learning" className="hover:underline" style={{ color: "var(--accent)" }}>
           Learning →
         </Link>
