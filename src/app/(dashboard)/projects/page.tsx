@@ -439,7 +439,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Portfolio</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
-            {stats.total} projects · {stats.active} active · {stats.critical + projects.filter((p) => healthScores.get(p.id)?.status === "at_risk").length} at risk · {onTimePct}% on-time
+            {stats.total} {stats.total !== 1 ? "projects" : "project"} · {stats.active} active · {stats.critical + projects.filter((p) => healthScores.get(p.id)?.status === "at_risk").length} at risk · {onTimePct}% on-time
           </p>
         </div>
         <div className="flex items-center gap-2">
