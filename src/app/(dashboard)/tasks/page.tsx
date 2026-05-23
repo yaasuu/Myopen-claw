@@ -1136,7 +1136,7 @@ export default function TasksPage() {
                         onValueChange={(v) => handleReassign(task.id, v === "unassigned" ? null : v)}
                         disabled={!canWrite || updatingId === task.id || task.is_archived}
                       >
-                        <SelectTrigger className="h-7 w-44 text-xs">
+                        <SelectTrigger className="h-7 w-52 text-xs">
                           <SelectValue>
                             {task.assigned_agent_name ? (
                               <span>{task.assigned_agent_emoji} {task.assigned_agent_name}</span>
@@ -1164,11 +1164,13 @@ export default function TasksPage() {
                             <Badge variant="outline" className={`text-[10px] ${slaBadgeClass(sla.tone)}`}>
                               {sla.label}
                             </Badge>
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              <span>{formatDueDate(task.due_date)}</span>
-                              {task.sla_hours ? <span>· {task.sla_hours}h</span> : null}
-                            </div>
+                            {task.due_date && (
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>{formatDueDate(task.due_date)}</span>
+                                {task.sla_hours ? <span>· {task.sla_hours}h</span> : null}
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
