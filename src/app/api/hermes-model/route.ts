@@ -5,7 +5,8 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 function deriveProvider(model: string): string {
   if (model.startsWith("gemini")) return "google";
-  // openai/* models are routed through OpenRouter (OAuth BYOK)
+  // GPT-5 Codex models use the openai-codex OAuth provider (ChatGPT Plus)
+  if (/^gpt-5/.test(model)) return "openai-codex";
   return "openrouter";
 }
 

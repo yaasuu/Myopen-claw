@@ -119,35 +119,53 @@ const MODELS: LLMModel[] = [
     badge: "Reasoning",
     badgeColor: "var(--accent)",
   },
-  // ── OpenAI via OpenRouter OAuth ────────────────────────────────────────────
+  // ── ChatGPT Codex OAuth (ChatGPT Plus) ────────────────────────────────────
   {
-    id: "openai/gpt-4o-mini",
-    name: "GPT-4o Mini",
-    provider: "openrouter",
-    providerLabel: "OpenAI via OpenRouter",
+    id: "gpt-5.5",
+    name: "GPT-5.5",
+    provider: "openai-codex",
+    providerLabel: "ChatGPT Codex",
     contextK: 128,
     free: false,
-    description: "Fast and cost-effective OpenAI model. ~$0.007/1K tokens via your OpenRouter account.",
-    badge: "Pay-per-use",
-    badgeColor: "var(--warning)",
+    description: "OpenAI's most capable Codex model. ChatGPT Plus monthly cap applies.",
+    badge: "Flagship",
+    badgeColor: "var(--accent)",
   },
   {
-    id: "openai/gpt-4o",
-    name: "GPT-4o",
-    provider: "openrouter",
-    providerLabel: "OpenAI via OpenRouter",
+    id: "gpt-5.4",
+    name: "GPT-5.4",
+    provider: "openai-codex",
+    providerLabel: "ChatGPT Codex",
     contextK: 128,
     free: false,
-    description: "OpenAI flagship. Best reasoning + tool use. ~$0.11/1K tokens via your OpenRouter account.",
-    badge: "Premium",
-    badgeColor: "var(--accent)",
+    description: "Strong reasoning and instruction following via your ChatGPT Plus OAuth.",
+  },
+  {
+    id: "gpt-5.4-mini",
+    name: "GPT-5.4 Mini",
+    provider: "openai-codex",
+    providerLabel: "ChatGPT Codex",
+    contextK: 128,
+    free: false,
+    description: "Faster, lighter GPT-5 variant. Higher throughput on Plus plan.",
+    badge: "Higher limit",
+    badgeColor: "var(--success)",
+  },
+  {
+    id: "gpt-5.3-codex",
+    name: "GPT-5.3 Codex",
+    provider: "openai-codex",
+    providerLabel: "ChatGPT Codex",
+    contextK: 128,
+    free: false,
+    description: "Solid Codex model, well-tested. Good fallback when larger models are capped.",
   },
 ];
 
 const PROVIDER_GROUPS = [
   { key: "google",     label: "Google Gemini",    color: "#4285F4", dot: "🔵" },
   { key: "openrouter", label: "OpenRouter Free",   color: "var(--success)", dot: "🟢" },
-  { key: "openai",     label: "OpenAI via OpenRouter",  color: "var(--warning)", dot: "💳" },
+  { key: "openai-codex", label: "ChatGPT Codex (OAuth)", color: "var(--success)", dot: "🤖" },
 ];
 
 // ── Static info sections ───────────────────────────────────────────────────────
@@ -284,12 +302,12 @@ function LLMSwitcher() {
                 >
                   {group.label}
                 </span>
-                {group.key === "openai" && (
+                {group.key === "openai-codex" && (
                   <span
                     className="text-[9px] px-1.5 py-0.5 rounded"
-                    style={{ background: "rgba(245,158,11,0.1)", color: "var(--warning)" }}
+                    style={{ background: "rgba(16,185,129,0.1)", color: "var(--success)" }}
                   >
-                    Charged via OpenRouter
+                    ChatGPT Plus · monthly cap
                   </span>
                 )}
               </div>
