@@ -547,7 +547,7 @@ export default function HiringPage() {
                         onChange={(e) => setHireAutoAssign(e.target.checked)}
                         className="rounded"
                       />
-                      <span>Assign {hireRec.matchedTaskIds.length} matching tasks automatically</span>
+                      <span>Assign {hireRec.matchedTaskIds.length} matching {hireRec.matchedTaskIds.length !== 1 ? "tasks" : "task"} automatically</span>
                     </label>
                   )}
                   <Button onClick={handleHire} disabled={!hireName.trim()} className="w-full gap-2">

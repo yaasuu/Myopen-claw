@@ -364,7 +364,7 @@ export default function PortfolioPage() {
     await logFeedEvent({
       event_type: "portfolio_review_run",
       source: "Hermes Orchestrator",
-      summary: `Portfolio review: ${r.topRisks.length} risks, ${r.bottlenecks.length} bottlenecks`,
+      summary: `Portfolio review: ${r.topRisks.length} ${r.topRisks.length !== 1 ? "risks" : "risk"}, ${r.bottlenecks.length} ${r.bottlenecks.length !== 1 ? "bottlenecks" : "bottleneck"}`,
     });
     setRunningReview(false);
   }
