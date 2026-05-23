@@ -445,7 +445,7 @@ export default function ApprovalsPage() {
       <div className="pt-2 border-t flex items-center justify-between flex-wrap gap-2" style={{ borderColor: "var(--border)" }}>
         <Link href="/learning" className="flex items-center gap-2 text-sm hover:underline" style={{ color: "var(--accent)" }}>
           <Lightbulb className="h-4 w-4" />
-          Back to Learning
+          Learning
           <ChevronRight className="h-3 w-3" />
         </Link>
         <Link href="/skills" className="text-xs hover:underline" style={{ color: "var(--text-quiet)" }}>

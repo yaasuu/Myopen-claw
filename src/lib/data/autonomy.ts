@@ -454,7 +454,7 @@ export function generateRecommendedActions(
     actions.push({
       id: "action-assign-unassigned",
       type: "rebalance",
-      title: "Assign ${unassignedTasks.length} Unassigned Tasks",
+      title: `Assign ${unassignedTasks.length} Unassigned Tasks`,
       description: `${unassignedTasks.length} tasks have no agent. Route them to available capacity.`,
       urgency: unassignedTasks.length >= 4 ? "high" : "medium",
       relatedTaskIds: unassignedTasks.map((t) => t.id),

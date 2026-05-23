@@ -305,7 +305,18 @@ export async function getKnowledgeEntries(options?: {
   const { data, error } = await query;
   if (error) return { data: [], error: error.message };
 
-  let results = (data ?? []) as KnowledgeEntry[];
+  // Normalise plural/variant category values from the DB to the expected singular PARACategory keys
+  const categoryMap: Record<string, PARACategory> = {
+    projects: "project", project: "project",
+    areas:    "area",    area:    "area",
+    resources:"resource",resource:"resource",
+    archives: "archive", archive: "archive",
+  };
+
+  let results = ((data ?? []) as KnowledgeEntry[]).map((e) => ({
+    ...e,
+    category: categoryMap[String(e.category).toLowerCase()] ?? "resource",
+  }));
   if (options?.search) {
     const q = options.search.toLowerCase();
     results = results.filter((e) =>
