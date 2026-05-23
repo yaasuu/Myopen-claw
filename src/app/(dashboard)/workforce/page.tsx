@@ -298,7 +298,7 @@ export default function WorkforcePage() {
         <div>
           <h1 className="text-2xl font-black tracking-tight" style={{ color: "var(--text)" }}>Workforce</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--text-quiet)" }}>
-            {agents.length} agents · {departments.length} departments · {specialists.length} specialists
+            {agents.length} agent{agents.length !== 1 ? "s" : ""} · {departments.length} department{departments.length !== 1 ? "s" : ""} · {specialists.length} specialist{specialists.length !== 1 ? "s" : ""}
           </p>
         </div>
         {liveCount > 0 && (
@@ -318,7 +318,7 @@ export default function WorkforcePage() {
       {/* ── KPI cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Active",     val: activeCount,    sub: `${agents.length} total agents`,    color: "var(--success)", bg: "rgba(16,185,129,0.08)" },
+          { label: "Active",     val: activeCount,    sub: `${agents.length} total agent${agents.length !== 1 ? "s" : ""}`,    color: "var(--success)", bg: "rgba(16,185,129,0.08)" },
           { label: "Paused",     val: pausedCount,    sub: "needs attention",                  color: pausedCount > 0 ? "var(--warning)" : "var(--text-quiet)", bg: "rgba(245,158,11,0.08)" },
           { label: "Departments",val: departments.length, sub: "+ specialists",                color: "var(--accent)",  bg: "var(--accent-soft)" },
           { label: "Overloaded", val: overloadedCount, sub: "5+ open tasks",                    color: overloadedCount > 0 ? "var(--danger)" : "var(--text-quiet)", bg: "rgba(220,38,38,0.08)" },
