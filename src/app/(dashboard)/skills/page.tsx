@@ -10,7 +10,7 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import { timeAgo } from "@/lib/utils";
 import type { Skill, AgentSkill, Agent } from "@/types/dashboard";
 import {
-  Sparkles, Users, Tag, Clock, ExternalLink, Search, Brain,
+  Sparkles, Users, Tag, Clock, Search, Brain,
   Cpu, MessageSquare, BarChart3, Bot, FileText, Settings as SettingsIcon,
   Globe, Activity, Loader2,
 } from "lucide-react";
@@ -122,17 +122,6 @@ export default function SkillsPage() {
             Capabilities your agents can install · powered by Hermes
           </p>
         </div>
-        <a
-          href="https://hermes-agent.nousresearch.com/docs/skills"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
-        >
-          <Globe className="h-3.5 w-3.5" style={{ color: "#8b5cf6" }} />
-          Hermes Skills Docs
-          <ExternalLink className="h-3 w-3" style={{ color: "var(--text-quiet)" }} />
-        </a>
       </div>
 
       {/* ── Hero banner — Hermes branding ── */}
@@ -149,15 +138,6 @@ export default function SkillsPage() {
             Discover and install capabilities for your agents. Every Hermes skill is security-scanned before approval.
           </p>
         </div>
-        <a
-          href="https://hermes-agent.nousresearch.com/docs/skills"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-semibold flex items-center gap-1 hover:underline shrink-0"
-          style={{ color: "#8b5cf6" }}
-        >
-          Browse all skills <ExternalLink className="h-3 w-3" />
-        </a>
       </div>
 
       {/* ── KPI cards ── */}
@@ -318,15 +298,6 @@ export default function SkillsPage() {
       {/* Footer */}
       <div className="pt-2 border-t flex items-center justify-between flex-wrap gap-2 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
         <span>{filtered.length} of {skills.length} skills shown</span>
-        <a
-          href="https://hermes-agent.nousresearch.com/docs/skills"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 hover:underline"
-          style={{ color: "#8b5cf6" }}
-        >
-          Browse the full Hermes skill catalog <ExternalLink className="h-3 w-3" />
-        </a>
       </div>
     </PageShell>
   );

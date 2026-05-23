@@ -15,8 +15,9 @@ import { getAgents } from "@/lib/data/agents";
 import { getAgentSkills } from "@/lib/data/skills";
 import { getProjects } from "@/lib/data/projects";
 import { getPausedAgents } from "@/lib/data/alerts";
+import { getDepartments } from "@/lib/data/departments";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { SystemStatus, TaskWithAgent, FeedEvent, Agent } from "@/types/dashboard";
+import type { SystemStatus, TaskWithAgent, FeedEvent, Agent, Department } from "@/types/dashboard";
 import { timeAgo } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────
@@ -209,14 +210,8 @@ function AgentCard({ agent, tasks }: { agent: Agent; tasks: TaskWithAgent[] }) {
 
 // ─── Department Card ──────────────────────────────────
 
-const DEPT_CONFIG = [
-  { name: "Export-Growth",        emoji: "📦", agentShortId: "export-growth",        href: "/departments" },
-  { name: "Ops-Improvement",      emoji: "⚙️",  agentShortId: "ops-improvement",      href: "/departments" },
-  { name: "Architecture-Systems", emoji: "🏗️", agentShortId: "architecture-systems",  href: "/departments" },
-];
-
-function DeptCard({ dept, tasks, agents }: { dept: typeof DEPT_CONFIG[0]; tasks: TaskWithAgent[]; agents: Agent[] }) {
-  const agent = agents.find((a) => a.short_id === dept.agentShortId);
+function DeptCard({ dept, tasks, agents }: { dept: Department & { href: string }; tasks: TaskWithAgent[]; agents: Agent[] }) {
+  const agent = agents.find((a) => a.short_id === dept.short_id);
   const deptTasks = tasks.filter((t) => t.assigned_agent_id === agent?.id);
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const doneWeek = deptTasks.filter((t) => t.status === "done" && t.updated_at >= weekAgo).length;
@@ -297,6 +292,7 @@ export default function OverviewPage() {
   const [skillCount, setSkillCount]     = useState(0);
   const [projectCount, setProjectCount] = useState(0);
   const [lane, setLane]                 = useState<Lane>("all");
+  const [departments, setDepartments]   = useState<Department[]>([]);
 
   async function load() {
     setLoading(true);
@@ -324,6 +320,7 @@ export default function OverviewPage() {
       setSkillCount(skillsRes.data.length);
       setProjectCount(projRes.data.length);
       setTasks(tasksRes.data);
+      getDepartments().then(({ data }) => { if (data) setDepartments(data); });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -559,8 +556,13 @@ export default function OverviewPage() {
               </Link>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              {DEPT_CONFIG.map((dept) => (
-                <DeptCard key={dept.name} dept={dept} tasks={tasks} agents={allAgents} />
+              {departments.map((dept) => (
+                <DeptCard
+                  key={dept.id}
+                  dept={{ ...dept, href: `/departments/${dept.id}` }}
+                  tasks={tasks}
+                  agents={allAgents}
+                />
               ))}
             </div>
           </div>

@@ -377,7 +377,7 @@ export default function PortfolioPage() {
       const h = healthScores.get(p.id);
       return h && (h.status === "at_risk" || h.status === "critical");
     });
-    if (tab === "mine")    out = out.filter((p) => p.owner_department && true);
+    if (tab === "mine")    out = out.filter((p) => p.status === "active" || p.status === "planning");
     // Dept
     if (filterDept !== "all") out = out.filter((p) => p.owner_department === filterDept);
     // Sort
@@ -547,7 +547,7 @@ export default function PortfolioPage() {
             { id: "all" as Tab,     label: "All",     count: projects.length },
             { id: "active" as Tab,  label: "Active",  count: projects.filter((p) => p.status === "active").length },
             { id: "at_risk" as Tab, label: "At Risk", count: projects.filter((p) => { const h = healthScores.get(p.id); return h && (h.status === "at_risk" || h.status === "critical"); }).length },
-            { id: "mine" as Tab,    label: "Mine",    count: projects.length },
+            { id: "mine" as Tab,    label: "Mine",    count: projects.filter((p) => p.status === "active" || p.status === "planning").length },
           ]).map((t) => (
             <button
               key={t.id}
