@@ -11,11 +11,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Sheet, SheetContent,
+} from "@/components/ui/sheet";
+import {
   ArrowLeft, Loader2, AlertTriangle, RefreshCw, Pencil, Clock,
   CheckCircle2, FolderOpen, Sparkles, AlertOctagon, CheckCircle, Zap,
   Activity, Shield, MessageSquare, Send, PanelRightOpen, PanelRightClose,
   Bot, Target, FileCheck, Save, X, ChevronRight, Calendar,
-  Flag, TrendingUp,
+  Flag, TrendingUp, ExternalLink, Cpu,
 } from "lucide-react";
 import {
   getProjectById, updateProject, applyProjectPlan,
@@ -351,6 +354,18 @@ export default function ProjectDetailPage() {
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
 
+  // Output report drawer
+  const [outputDrawerTask, setOutputDrawerTask] = useState<TaskOutput | null>(null);
+  const [outputDrawerData, setOutputDrawerData] = useState<{
+    title?: string;
+    sections?: { type: string; content: string }[];
+    summary?: string;
+    content?: string;
+    model?: string;
+  } | null>(null);
+  const [outputDrawerLoading, setOutputDrawerLoading] = useState(false);
+  const [outputDrawerError, setOutputDrawerError] = useState<string | null>(null);
+
   // Tabs + sidebar
   const [tab, setTab] = useState<Tab>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -371,6 +386,23 @@ export default function ProjectDetailPage() {
   const [reviewDialogType, setReviewDialogType] = useState<"weekly" | "executive" | "risk">("weekly");
   const [reviewSummary, setReviewSummary] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  async function openOutputDrawer(task: TaskOutput) {
+    setOutputDrawerTask(task);
+    setOutputDrawerData(null);
+    setOutputDrawerError(null);
+    setOutputDrawerLoading(true);
+    try {
+      const res = await fetch(`/api/task-output?task_id=${task.id}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to load output");
+      setOutputDrawerData(json.output_data ?? json);
+    } catch (err) {
+      setOutputDrawerError(err instanceof Error ? err.message : "Failed to load output");
+    } finally {
+      setOutputDrawerLoading(false);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -867,7 +899,12 @@ export default function ProjectDetailPage() {
                 ) : (
                   <div className="space-y-2">
                     {deliverableOutputs.slice(0, 5).map((d) => (
-                      <div key={d.id} className="flex items-center gap-3 rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
+                      <button
+                        key={d.id}
+                        onClick={() => openOutputDrawer(d)}
+                        className="w-full flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-[var(--border)] group"
+                        style={{ background: "var(--surface-muted)" }}
+                      >
                         <FileCheck className="h-4 w-4 shrink-0" style={{ color: "var(--success)" }} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{d.title}</p>
@@ -877,7 +914,8 @@ export default function ProjectDetailPage() {
                         </div>
                         {d.agents?.emoji && <span className="text-sm shrink-0">{d.agents.emoji}</span>}
                         <span className="text-[10px] tabular-nums shrink-0" style={{ color: "var(--text-quiet)" }}>{timeAgo(d.submitted_at ?? d.updated_at)}</span>
-                      </div>
+                        <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-50 transition-opacity" style={{ color: "var(--text-quiet)" }} />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -1032,20 +1070,28 @@ export default function ProjectDetailPage() {
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {deliverableOutputs.map((d) => (
-                    <div key={d.id} className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+                    <button
+                      key={d.id}
+                      onClick={() => openOutputDrawer(d)}
+                      className="rounded-xl border p-4 text-left w-full transition-all hover:-translate-y-0.5 hover:shadow-md group"
+                      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+                    >
                       <div className="flex items-start gap-2 mb-2">
                         <FileCheck className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
                         <p className="text-sm font-semibold leading-snug flex-1" style={{ color: "var(--text)" }}>{d.title}</p>
-                        <Badge variant="outline" className="text-[9px] shrink-0 capitalize">{d.status}</Badge>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge variant="outline" className="text-[9px] capitalize">{d.status}</Badge>
+                          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "var(--text-quiet)" }} />
+                        </div>
                       </div>
                       {d.output_data && (
-                        <div className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-muted)" }}>
+                        <div className="text-xs leading-relaxed mb-3 line-clamp-2" style={{ color: "var(--text-muted)" }}>
                           {d.output_data.summary ? (
                             <p>{String(d.output_data.summary)}</p>
                           ) : d.output_data.content ? (
                             <p>{String(d.output_data.content)}</p>
                           ) : (
-                            <p className="italic" style={{ color: "var(--text-quiet)" }}>Output recorded</p>
+                            <p className="italic" style={{ color: "var(--text-quiet)" }}>Output recorded — click to view</p>
                           )}
                         </div>
                       )}
@@ -1055,7 +1101,7 @@ export default function ProjectDetailPage() {
                         )}
                         <span>{timeAgo(d.submitted_at ?? d.updated_at)}</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -1408,6 +1454,173 @@ export default function ProjectDetailPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── Output Report Drawer ── */}
+      <Sheet open={!!outputDrawerTask} onOpenChange={(open) => { if (!open) { setOutputDrawerTask(null); setOutputDrawerData(null); } }}>
+        <SheetContent className="w-full sm:max-w-[600px] flex flex-col p-0 gap-0 overflow-hidden">
+          {outputDrawerTask && (
+            <>
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{outputDrawerTask.agents?.emoji ?? "🤖"}</span>
+                    <div>
+                      <p className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                        {outputDrawerTask.agents?.name ?? "Agent"}
+                      </p>
+                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>
+                        {outputDrawerTask.agents?.specialist_domain ?? ""}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold shrink-0 ${
+                    outputDrawerTask.status === "done" || outputDrawerTask.status === "approved" ? "bg-emerald-100 text-emerald-700" :
+                    outputDrawerTask.status === "in-review" ? "bg-violet-100 text-violet-700" :
+                    outputDrawerTask.status === "submitted" ? "bg-amber-100 text-amber-700" :
+                    "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                  }`}>{outputDrawerTask.status}</span>
+                </div>
+
+                <h2 className="text-base font-bold leading-snug mb-3" style={{ color: "var(--text)" }}>
+                  {outputDrawerTask.title}
+                </h2>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span className="capitalize">{outputDrawerTask.priority} priority</span>
+                  {outputDrawerTask.submitted_at && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> {timeAgo(outputDrawerTask.submitted_at)}
+                    </span>
+                  )}
+                  {outputDrawerData?.model && (
+                    <span className="flex items-center gap-1">
+                      <Cpu className="h-3 w-3" /> {String(outputDrawerData.model)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                {outputDrawerLoading ? (
+                  <div className="flex items-center justify-center py-20 gap-2" style={{ color: "var(--text-muted)" }}>
+                    <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--accent)" }} />
+                    <span className="text-sm">Loading output…</span>
+                  </div>
+                ) : outputDrawerError ? (
+                  <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "var(--danger)" }} />
+                    <p className="text-sm" style={{ color: "var(--danger)" }}>{outputDrawerError}</p>
+                  </div>
+                ) : outputDrawerData ? (
+                  <div className="space-y-5">
+                    {/* Sections from output_data */}
+                    {outputDrawerData.sections && outputDrawerData.sections.length > 0 ? (
+                      outputDrawerData.sections.map((section, i) => (
+                        <div key={i}>
+                          {section.type === "text" && (
+                            <OutputMarkdown content={section.content} />
+                          )}
+                        </div>
+                      ))
+                    ) : outputDrawerData.summary ? (
+                      <OutputMarkdown content={String(outputDrawerData.summary)} />
+                    ) : outputDrawerData.content ? (
+                      <OutputMarkdown content={String(outputDrawerData.content)} />
+                    ) : (
+                      <p className="text-sm italic" style={{ color: "var(--text-quiet)" }}>No output content available.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </PageShell>
+  );
+}
+
+// ─── Output markdown renderer ─────────────────────────
+
+function OutputMarkdown({ content }: { content: string }) {
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith("### ")) {
+      elements.push(
+        <h3 key={i} className="text-sm font-bold mt-4 mb-1.5" style={{ color: "var(--text)" }}>
+          {line.slice(4)}
+        </h3>
+      );
+    } else if (line.startsWith("## ")) {
+      elements.push(
+        <h2 key={i} className="text-base font-bold mt-5 mb-2 pb-1.5 border-b" style={{ color: "var(--text)", borderColor: "var(--border)" }}>
+          {line.slice(3)}
+        </h2>
+      );
+    } else if (line.startsWith("# ")) {
+      elements.push(
+        <h1 key={i} className="text-lg font-black mt-5 mb-2" style={{ color: "var(--text)" }}>
+          {line.slice(2)}
+        </h1>
+      );
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+      elements.push(
+        <li key={i} className="text-sm ml-4 leading-relaxed list-disc list-outside" style={{ color: "var(--text-muted)" }}>
+          <InlineFormat text={line.slice(2)} />
+        </li>
+      );
+    } else if (/^\d+\.\s/.test(line)) {
+      elements.push(
+        <li key={i} className="text-sm ml-4 leading-relaxed list-decimal list-outside" style={{ color: "var(--text-muted)" }}>
+          <InlineFormat text={line.replace(/^\d+\.\s/, "")} />
+        </li>
+      );
+    } else if (line.startsWith("---") || line.startsWith("___")) {
+      elements.push(<hr key={i} className="my-3" style={{ borderColor: "var(--border)" }} />);
+    } else if (line.trim() === "") {
+      elements.push(<div key={i} className="h-2" />);
+    } else {
+      elements.push(
+        <p key={i} className="text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
+          <InlineFormat text={line} />
+        </p>
+      );
+    }
+    i++;
+  }
+
+  return <div className="space-y-0.5">{elements}</div>;
+}
+
+function InlineFormat({ text }: { text: string }) {
+  // Replace **bold** and *italic* inline
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={i} style={{ color: "var(--text)" }}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        }
+        if (part.startsWith("`") && part.endsWith("`")) {
+          return (
+            <code key={i} className="text-[11px] px-1 py-0.5 rounded font-mono"
+              style={{ background: "var(--surface-muted)", color: "var(--accent)" }}>
+              {part.slice(1, -1)}
+            </code>
+          );
+        }
+        return <React.Fragment key={i}>{part}</React.Fragment>;
+      })}
+    </>
   );
 }
