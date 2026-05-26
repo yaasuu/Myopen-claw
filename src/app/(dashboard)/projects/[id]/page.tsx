@@ -30,7 +30,7 @@ import {
 import { generateProjectPlan } from "@/lib/data/planning";
 import {
   calculateProjectHealth, getProjectMilestones, getProjectReviews,
-  getProjectDecisions, createProjectReview, createProjectMilestone,
+  getProjectDecisions, createProjectReview, createProjectMilestone, createProjectDecision,
 } from "@/lib/data/governance";
 import { getAgents } from "@/lib/data/agents";
 import { getSpecialistTypes } from "@/lib/data/departments";
@@ -56,6 +56,26 @@ import type {
 } from "@/types/dashboard";
 
 // ─── Helpers ──────────────────────────────────────────
+
+function getOutputPreview(outputData: Record<string, unknown> | null): string | null {
+  if (!outputData) return null;
+  // Sections format: { title, sections: [{ type: "text", content: "..." }] }
+  const sections = outputData.sections;
+  if (Array.isArray(sections) && sections.length > 0) {
+    const first = sections[0] as { type?: string; content?: string };
+    if (first?.content) {
+      return first.content
+        .replace(/^#+\s+/gm, "")
+        .replace(/\*+/g, "")
+        .replace(/`/g, "")
+        .trim()
+        .substring(0, 150);
+    }
+  }
+  if (outputData.summary) return String(outputData.summary).substring(0, 150);
+  if (outputData.content) return String(outputData.content).substring(0, 150);
+  return null;
+}
 
 type Tab = "overview" | "tasks" | "outputs" | "timeline" | "activity" | "goals";
 
@@ -386,6 +406,16 @@ export default function ProjectDetailPage() {
   const [reviewDialogType, setReviewDialogType] = useState<"weekly" | "executive" | "risk">("weekly");
   const [reviewSummary, setReviewSummary] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  // Decision dialog
+  const [decisionOpen, setDecisionOpen] = useState(false);
+  const [decisionTitle, setDecisionTitle] = useState("");
+  const [decisionSummary, setDecisionSummary] = useState("");
+  const [decisionType, setDecisionType] = useState<"technical" | "ux" | "strategic" | "operational" | "general">("general");
+  const [decisionBy, setDecisionBy] = useState("Yas");
+  const [decisionImpact, setDecisionImpact] = useState<"high" | "medium" | "low">("medium");
+  const [decisionSubmitting, setDecisionSubmitting] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
 
   async function openOutputDrawer(task: TaskOutput) {
     setOutputDrawerTask(task);
@@ -908,8 +938,8 @@ export default function ProjectDetailPage() {
                         <FileCheck className="h-4 w-4 shrink-0" style={{ color: "var(--success)" }} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{d.title}</p>
-                          {!!d.output_data?.summary && (
-                            <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{String(d.output_data.summary)}</p>
+                          {getOutputPreview(d.output_data) && (
+                            <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{getOutputPreview(d.output_data)}</p>
                           )}
                         </div>
                         {d.agents?.emoji && <span className="text-sm shrink-0">{d.agents.emoji}</span>}
@@ -1028,13 +1058,20 @@ export default function ProjectDetailPage() {
                       <th className="px-4 py-3 text-left font-bold w-32">Agent</th>
                       <th className="px-4 py-3 text-left font-bold w-32">Updated</th>
                       <th className="px-4 py-3 text-left font-bold">Blocker</th>
+                      <th className="px-4 py-3 w-8" />
                     </tr>
                   </thead>
                   <tbody>
                     {tasks.map((t) => {
                       const tc = taskStatusColors[t.status] ?? taskStatusColors.pending;
+                      const outputTask = deliverableOutputs.find((d) => d.id === t.id);
                       return (
-                        <tr key={t.id} className="border-b last:border-0 hover:bg-[var(--surface-muted)]" style={{ borderColor: "var(--border)" }}>
+                        <tr
+                          key={t.id}
+                          className="border-b last:border-0 hover:bg-[var(--surface-muted)] transition-colors"
+                          style={{ borderColor: "var(--border)", cursor: outputTask ? "pointer" : "default" }}
+                          onClick={() => { if (outputTask) openOutputDrawer(outputTask); }}
+                        >
                           <td className="px-4 py-3 font-medium text-sm" style={{ color: "var(--text)" }}>{t.title}</td>
                           <td className="px-4 py-3">
                             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" style={{ background: tc.bg, color: tc.color }}>
@@ -1048,6 +1085,13 @@ export default function ProjectDetailPage() {
                           <td className="px-4 py-3 text-xs" style={{ color: "var(--text-quiet)" }}>{timeAgo(t.updated_at)}</td>
                           <td className="px-4 py-3 text-xs">
                             {t.blocker ? <span className="flex items-center gap-1" style={{ color: "var(--danger)" }}><AlertTriangle className="h-3 w-3" /> {t.blocker}</span> : <span style={{ color: "var(--text-quiet)" }}>—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {outputTask && (
+                              <span title="Has output — click to view">
+                                <FileCheck className="h-3.5 w-3.5 mx-auto" style={{ color: "var(--success)" }} />
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1084,17 +1128,13 @@ export default function ProjectDetailPage() {
                           <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" style={{ color: "var(--text-quiet)" }} />
                         </div>
                       </div>
-                      {d.output_data && (
-                        <div className="text-xs leading-relaxed mb-3 line-clamp-2" style={{ color: "var(--text-muted)" }}>
-                          {d.output_data.summary ? (
-                            <p>{String(d.output_data.summary)}</p>
-                          ) : d.output_data.content ? (
-                            <p>{String(d.output_data.content)}</p>
-                          ) : (
-                            <p className="italic" style={{ color: "var(--text-quiet)" }}>Output recorded — click to view</p>
-                          )}
-                        </div>
-                      )}
+                      <div className="text-xs leading-relaxed mb-3 line-clamp-2" style={{ color: "var(--text-muted)" }}>
+                        {getOutputPreview(d.output_data) ? (
+                          <p>{getOutputPreview(d.output_data)}</p>
+                        ) : (
+                          <p className="italic" style={{ color: "var(--text-quiet)" }}>Click to view full output</p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3 text-[10px] pt-3 border-t" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
                         {d.agents && (
                           <span className="flex items-center gap-1">{d.agents.emoji} {d.agents.name}</span>
@@ -1214,9 +1254,18 @@ export default function ProjectDetailPage() {
 
               {/* Decisions */}
               <div className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <Shield className="h-4 w-4" style={{ color: "#8b5cf6" }} />
-                  <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Decision Log</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" style={{ color: "#8b5cf6" }} />
+                    <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Decision Log</span>
+                  </div>
+                  {canWrite && (
+                    <button
+                      onClick={() => { setDecisionTitle(""); setDecisionSummary(""); setDecisionType("general"); setDecisionBy("Yas"); setDecisionImpact("medium"); setDecisionError(null); setDecisionOpen(true); }}
+                      className="text-[11px] font-medium hover:underline"
+                      style={{ color: "var(--accent)" }}
+                    >+ Add</button>
+                  )}
                 </div>
                 {decisions.length === 0 ? (
                   <p className="text-xs italic py-4 text-center" style={{ color: "var(--text-quiet)" }}>No decisions logged</p>
@@ -1448,6 +1497,95 @@ export default function ProjectDetailPage() {
                 }}>
                   {reviewSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
                   Save Review
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Decision dialog */}
+      {canWrite && (
+        <Dialog open={decisionOpen} onOpenChange={(o) => { setDecisionOpen(o); if (!o) setDecisionError(null); }}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Log Decision</DialogTitle></DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Title *</label>
+                <input
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                  placeholder="e.g. Use Supabase Auth"
+                  value={decisionTitle}
+                  onChange={(e) => setDecisionTitle(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Summary *</label>
+                <textarea
+                  className="mt-1 w-full rounded-md border px-3 py-2 text-sm resize-none"
+                  style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                  rows={3}
+                  placeholder="What was decided and why?"
+                  value={decisionSummary}
+                  onChange={(e) => setDecisionSummary(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Type</label>
+                  <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                    style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                    value={decisionType} onChange={(e) => setDecisionType(e.target.value as typeof decisionType)}>
+                    {(["technical","ux","strategic","operational","general"] as const).map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Impact</label>
+                  <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                    style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                    value={decisionImpact} onChange={(e) => setDecisionImpact(e.target.value as "high" | "medium" | "low")}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Decided by</label>
+                  <select className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                    style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+                    value={decisionBy} onChange={(e) => setDecisionBy(e.target.value)}>
+                    <option value="Yas">Yas</option>
+                    {agents.map((a) => <option key={a.id} value={a.name}>{a.emoji} {a.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {decisionError && (
+                <p className="text-xs rounded-lg px-3 py-2" style={{ background: "rgba(220,38,38,0.06)", color: "var(--danger)" }}>{decisionError}</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" size="sm" onClick={() => setDecisionOpen(false)} disabled={decisionSubmitting}>Cancel</Button>
+                <Button size="sm" disabled={decisionSubmitting || !decisionTitle.trim() || !decisionSummary.trim()} onClick={async () => {
+                  setDecisionSubmitting(true);
+                  setDecisionError(null);
+                  const res = await createProjectDecision({
+                    projectId: project.id,
+                    title: decisionTitle.trim(),
+                    summary: decisionSummary.trim(),
+                    decisionType,
+                    decidedBy: decisionBy,
+                    impactLevel: decisionImpact,
+                  });
+                  setDecisionSubmitting(false);
+                  if (res.error) { setDecisionError(res.error); return; }
+                  setDecisionOpen(false);
+                  await load();
+                }}>
+                  {decisionSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                  Log Decision
                 </Button>
               </div>
             </div>
