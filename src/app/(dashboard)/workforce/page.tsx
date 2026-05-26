@@ -23,6 +23,7 @@ import {
   FileText,
   Users,
   ChevronRight,
+  ChevronDown,
   Clock,
   Activity,
   AlertOctagon,
@@ -43,7 +44,7 @@ import {
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { RelatedContext } from "@/components/ui/related-context";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import { buildOrgStructure, getAgentDepartmentId } from "@/lib/org-structure";
+import { buildOrgStructure, getAgentDepartmentId, getDepartmentShortId } from "@/lib/org-structure";
 import type { Agent, TaskWithAgent, Department, Specialist, AgentWorkspace, WorkspaceFile } from "@/types/dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
 import { timeAgo } from "@/lib/utils";
@@ -61,7 +62,15 @@ interface HierarchyItem {
   parentId?: string;
 }
 
-const FILTERS = ["all", "departments", "agents", "specialists"] as const;
+const FILTERS = ["all", "departments", "agents", "specialists", "org-chart"] as const;
+
+const FILTER_LABELS: Record<string, string> = {
+  all: "All",
+  departments: "Departments",
+  agents: "Agents",
+  specialists: "Specialists",
+  "org-chart": "Org Chart",
+};
 
 export default function WorkforcePage() {
   const canWrite = useCanWrite();
@@ -84,6 +93,15 @@ export default function WorkforcePage() {
   const [editingFile, setEditingFile] = useState(false);
   const [savingFile, setSavingFile] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set([]));
+
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   async function load() {
     setLoading(true);
@@ -337,18 +355,151 @@ export default function WorkforcePage() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors capitalize"
+            className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
             style={{
               background: filter === f ? "var(--text)" : "transparent",
               color: filter === f ? "var(--surface)" : "var(--text-muted)",
             }}
           >
-            {f}
+            {FILTER_LABELS[f] ?? f}
           </button>
         ))}
       </div>
 
-      {/* Split layout */}
+      {/* Org Chart view */}
+      {filter === "org-chart" && (
+        <div className="space-y-4">
+          {/* Yas Claw root node */}
+          <div className="flex justify-center">
+            <div className="surface-card-hover p-5 text-center" style={{ minWidth: "220px" }}>
+              <div className="text-3xl mb-2">🦀</div>
+              <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>Yas Claw</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Central AI Orchestrator</p>
+              <Badge className="mt-2" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>Active</Badge>
+            </div>
+          </div>
+
+          {/* Direct agents under Yas Claw */}
+          {directAgents.length > 0 && (
+            <>
+              <div className="flex justify-center">
+                <div className="w-px h-6" style={{ background: "var(--border)" }} />
+              </div>
+              <div className="flex justify-center gap-4 flex-wrap">
+                {directAgents.map((agent) => (
+                  <Link key={agent.id} href={`/agents/${agent.id}`}>
+                    <div className="surface-card-hover p-4 flex items-center gap-3" style={{ minWidth: "180px" }}>
+                      <div className="relative">
+                        <span className="text-2xl">{agent.emoji}</span>
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${agent.status === "active" ? "dot-green" : "dot-amber"}`} style={{ borderColor: "var(--surface)" }} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{agent.name}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-quiet)" }}>{agent.domain.split(",")[0]}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Connector to departments */}
+          <div className="flex justify-center">
+            <div className="w-px h-6" style={{ background: "var(--border)" }} />
+          </div>
+
+          {/* Horizontal connector bar */}
+          <div className="flex justify-center">
+            <div className="h-px" style={{ background: "var(--border)", width: `${Math.min(departments.length * 260, 1000)}px` }} />
+          </div>
+
+          {/* Departments grid */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {departments.map((dept) => {
+              const deptAgentList = departmentAgents.get(dept.id) ?? [];
+              const shortId = getDepartmentShortId(dept);
+              const isExpanded = expanded.has(shortId);
+
+              return (
+                <div key={dept.id} className="space-y-0">
+                  {/* Vertical connector */}
+                  <div className="flex justify-center">
+                    <div className="w-px h-6" style={{ background: "var(--border)" }} />
+                  </div>
+
+                  {/* Department card */}
+                  <div
+                    className="surface-card p-4 cursor-pointer"
+                    onClick={() => toggleExpand(shortId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl">{dept.emoji}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{dept.name}</p>
+                          <div className={`h-2 w-2 rounded-full ${dept.status === "active" ? "dot-green" : "dot-amber"}`} />
+                        </div>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--text-quiet)" }}>{deptAgentList.length} agent{deptAgentList.length !== 1 ? "s" : ""}</p>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Agents under department */}
+                  {isExpanded && deptAgentList.length > 0 && (
+                    <div className="ml-8 space-y-2 mt-2">
+                      <div className="relative">
+                        <div className="absolute left-[-16px] top-0 bottom-0 w-px" style={{ background: "var(--border)" }} />
+                        {deptAgentList.map((agent) => (
+                          <div key={agent.id} className="relative mb-2">
+                            <div className="absolute left-[-16px] top-4 w-4 h-px" style={{ background: "var(--border)" }} />
+                            <Link href={`/agents/${agent.id}`}>
+                              <div className="surface-card-hover p-3 ml-2">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="relative">
+                                    <span className="text-lg">{agent.emoji}</span>
+                                    <div className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border ${agent.status === "active" ? "dot-green" : agent.status === "paused" ? "dot-amber" : "dot-gray"}`} style={{ borderColor: "var(--surface)" }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>{agent.name}</p>
+                                    <p className="text-[11px] truncate" style={{ color: "var(--text-quiet)" }}>{agent.domain}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {isExpanded && deptAgentList.length === 0 && (
+                    <div className="ml-8 mt-2">
+                      <div className="relative">
+                        <div className="absolute left-[-16px] top-0 bottom-0 w-px" style={{ background: "var(--border)" }} />
+                        <div className="relative">
+                          <div className="absolute left-[-16px] top-4 w-4 h-px" style={{ background: "var(--border)" }} />
+                          <div className="rounded-lg border border-dashed p-3 ml-2 text-center text-xs" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
+                            No agents assigned
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Split layout — hidden when org-chart is active */}
+      {filter !== "org-chart" && (
       <div className="flex gap-4" style={{ minHeight: "500px" }}>
         {/* Left: Hierarchy */}
         <div className="w-[260px] shrink-0 rounded-xl border overflow-hidden" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
@@ -756,6 +907,7 @@ export default function WorkforcePage() {
           ) : null}
         </div>
       </div>
+      )}
     </PageShell>
   );
 }

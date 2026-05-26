@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
@@ -63,6 +63,15 @@ import {
   Send,
   Lock,
   FileCheck,
+  Package,
+  FileText,
+  Search,
+  RotateCcw,
+  XCircle,
+  FolderKanban,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import {
   getTasks,
@@ -78,10 +87,12 @@ import {
 } from "@/lib/data/tasks";
 import { getAgents } from "@/lib/data/agents";
 import { getTaskComments, addTaskComment } from "@/lib/data/comments";
-import { getTaskReviews, submitReview, submitDeliverable } from "@/lib/data/reviews";
+import { getTaskReviews, submitReview, submitDeliverable, getAllDeliverables } from "@/lib/data/reviews";
+import { getProjects } from "@/lib/data/projects";
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
-import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus, TaskReview } from "@/types/dashboard";
+import type { TaskWithAgent, Agent, TaskComment, Goal, TaskStatus, TaskReview, ProjectWithStats } from "@/types/dashboard";
+import type { Deliverable } from "@/lib/data/reviews";
 import { EmptyState } from "@/components/ui/empty-state";
 import { timeAgo } from "@/lib/utils";
 
@@ -150,6 +161,159 @@ function slaBadgeClass(tone: ReturnType<typeof getSlaState>["tone"]): string {
 }
 const PRIORITIES: TaskWithAgent["priority"][] = ["high", "medium", "low"];
 
+// ── Outputs view helpers ──────────────────────────────────────────────────────
+
+type OutputFilterTab = "all" | "pending" | "approved" | "rework" | "rejected";
+
+const OUTPUT_TAB_LABELS: Record<OutputFilterTab, { label: string; color: string; bg: string }> = {
+  all:      { label: "All",            color: "var(--text)",       bg: "var(--surface-muted)" },
+  pending:  { label: "Pending Review", color: "var(--warning)",    bg: "rgba(217,119,6,0.08)" },
+  approved: { label: "Approved",       color: "var(--success)",    bg: "rgba(22,163,74,0.08)" },
+  rework:   { label: "Rework",         color: "#f97316",           bg: "rgba(249,115,22,0.08)" },
+  rejected: { label: "Rejected",       color: "var(--danger)",     bg: "rgba(220,38,38,0.08)" },
+};
+
+function deliverableStatus(d: Deliverable): OutputFilterTab {
+  if (d.review_stage === "worker_submission") return "pending";
+  if (d.outcome === "approved") return "approved";
+  if (d.outcome === "rejected") return "rejected";
+  if (d.outcome === "returned_for_rework") return "rework";
+  return "pending";
+}
+
+function outputStatusBadge(tab: OutputFilterTab) {
+  const cfg = OUTPUT_TAB_LABELS[tab];
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      style={{ background: cfg.bg, color: cfg.color }}
+    >
+      {tab === "approved" && <CheckCircle2 className="h-2.5 w-2.5" />}
+      {tab === "pending"  && <Clock className="h-2.5 w-2.5" />}
+      {tab === "rework"   && <RotateCcw className="h-2.5 w-2.5" />}
+      {tab === "rejected" && <XCircle className="h-2.5 w-2.5" />}
+      {cfg.label}
+    </span>
+  );
+}
+
+function DeliverableCard({ d, expanded, onToggle }: { d: Deliverable; expanded: boolean; onToggle: () => void }) {
+  const tab = deliverableStatus(d);
+  const stageLabel =
+    d.review_stage === "worker_submission" ? "DELIVERABLE" :
+    d.review_stage === "orchestrator" ? "ORCHESTRATOR" :
+    d.review_stage === "yas" ? "YAS REVIEW" : "REVIEW";
+
+  return (
+    <div
+      className="rounded-xl transition-all"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "var(--shadow-card)" }}
+    >
+      <button onClick={onToggle} className="w-full text-left flex items-start gap-3 p-4">
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-lg shrink-0"
+          style={{ background: d.review_stage === "worker_submission" ? "var(--accent-soft)" : "rgba(99,102,241,0.06)" }}
+        >
+          {d.review_stage === "worker_submission" ? (
+            <Package className="h-4 w-4" style={{ color: "var(--accent)" }} />
+          ) : (
+            <FileText className="h-4 w-4" style={{ color: "#6366f1" }} />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span
+              className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
+              style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}
+            >
+              {stageLabel}
+            </span>
+            {outputStatusBadge(tab)}
+            {d.project_name && (
+              <Link
+                href="/projects"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] font-medium hover:underline"
+                style={{ color: "var(--accent)" }}
+              >
+                {d.project_name}
+              </Link>
+            )}
+          </div>
+          <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>
+            {d.task_title ?? "Untitled task"}
+          </p>
+          <p className="text-xs mt-0.5 line-clamp-2" style={{ color: "var(--text-muted)" }}>
+            {d.evidence}
+          </p>
+          <div className="flex items-center gap-3 mt-2 text-[11px]" style={{ color: "var(--text-quiet)" }}>
+            {d.assigned_agent_name && (
+              <span className="flex items-center gap-1">
+                {d.assigned_agent_emoji} {d.assigned_agent_name}
+              </span>
+            )}
+            <span>by {d.reviewed_by}</span>
+            <span>{timeAgo(d.created_at)}</span>
+          </div>
+        </div>
+
+        <div className="shrink-0">
+          {expanded ? (
+            <ChevronDown className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+          ) : (
+            <ChevronRight className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t px-4 py-4 space-y-3" style={{ borderColor: "var(--border)" }}>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-quiet)" }}>
+              Evidence / Deliverable
+            </p>
+            <div className="rounded-lg p-3 font-mono text-[12px] leading-relaxed whitespace-pre-wrap" style={{ background: "var(--surface-muted)", color: "var(--text)" }}>
+              {d.evidence}
+            </div>
+          </div>
+
+          {d.notes && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--text-quiet)" }}>Notes</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>{d.notes}</p>
+            </div>
+          )}
+
+          {d.risk_notes && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--warning)" }}>Risk Notes</p>
+              <p className="text-sm" style={{ color: "var(--warning)" }}>{d.risk_notes}</p>
+            </div>
+          )}
+
+          {d.action_required && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "var(--danger)" }}>Action Required</p>
+              <p className="text-sm" style={{ color: "var(--danger)" }}>{d.action_required}</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+            {d.assigned_agent_id && (
+              <Link href={`/agents/${d.assigned_agent_id}`} className="text-[11px] font-medium flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
+                View agent <ExternalLink className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function TasksPage() {
   const canWrite = useCanWrite();
   const [tasks, setTasks] = useState<TaskWithAgent[]>([]);
@@ -162,8 +326,18 @@ export default function TasksPage() {
   const [quickFilter, setQuickFilter] = useState<string | null>(null);
   const [filterAgent, setFilterAgent] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
-  const [viewMode, setViewMode] = useState<"board" | "table">("board");
+  const [viewMode, setViewMode] = useState<"board" | "table" | "outputs">("board");
   const [goals, setGoals] = useState<Goal[]>([]);
+
+  // Outputs view state
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [outputProjects, setOutputProjects] = useState<ProjectWithStats[]>([]);
+  const [outputsLoading, setOutputsLoading] = useState(false);
+  const [outputTab, setOutputTab] = useState<OutputFilterTab>("all");
+  const [outputSearch, setOutputSearch] = useState("");
+  const [outputFilterProject, setOutputFilterProject] = useState<string>("all");
+  const [outputFilterAgent, setOutputFilterAgent] = useState<string>("all");
+  const [outputExpanded, setOutputExpanded] = useState<Set<string>>(new Set());
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -246,6 +420,70 @@ export default function TasksPage() {
   useEffect(() => {
     load();
   }, [showArchived]);
+
+  // Load deliverables when Outputs view is activated
+  useEffect(() => {
+    if (viewMode !== "outputs") return;
+    let cancelled = false;
+    async function loadOutputs() {
+      setOutputsLoading(true);
+      const [dRes, pRes] = await Promise.all([getAllDeliverables(200), getProjects()]);
+      if (!cancelled) {
+        setDeliverables(dRes.data);
+        setOutputProjects(pRes.data);
+        setOutputsLoading(false);
+      }
+    }
+    loadOutputs();
+    return () => { cancelled = true; };
+  }, [viewMode]);
+
+  // ── Outputs derived data ────────────────────────────
+  const filteredDeliverables = useMemo(() => {
+    return deliverables.filter((d) => {
+      if (outputTab !== "all" && deliverableStatus(d) !== outputTab) return false;
+      if (outputFilterProject !== "all" && d.project_id !== outputFilterProject) return false;
+      if (outputFilterAgent !== "all" && d.assigned_agent_id !== outputFilterAgent) return false;
+      if (outputSearch.trim()) {
+        const q = outputSearch.toLowerCase();
+        const hay = `${d.task_title ?? ""} ${d.evidence ?? ""} ${d.notes ?? ""} ${d.assigned_agent_name ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [deliverables, outputTab, outputSearch, outputFilterProject, outputFilterAgent]);
+
+  const outputStats = useMemo(() => ({
+    total:    deliverables.length,
+    approved: deliverables.filter((d) => deliverableStatus(d) === "approved").length,
+    pending:  deliverables.filter((d) => deliverableStatus(d) === "pending").length,
+    rework:   deliverables.filter((d) => deliverableStatus(d) === "rework").length,
+    agents:   new Set(deliverables.map((d) => d.assigned_agent_id).filter(Boolean)).size,
+  }), [deliverables]);
+
+  const groupedDeliverables = useMemo(() => {
+    const byTask = new Map<string, Deliverable[]>();
+    for (const d of filteredDeliverables) {
+      const key = d.task_id;
+      if (!byTask.has(key)) byTask.set(key, []);
+      byTask.get(key)!.push(d);
+    }
+    return Array.from(byTask.entries()).map(([taskId, items]) => ({
+      taskId,
+      taskTitle: items[0].task_title,
+      projectName: items[0].project_name,
+      items: items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    }));
+  }, [filteredDeliverables]);
+
+  function toggleDeliverable(id: string) {
+    setOutputExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // ── Create ──────────────────────────────────────────
   async function handleCreate() {
@@ -634,6 +872,16 @@ export default function TasksPage() {
                   onClick={() => setViewMode("table")}
                 >
                   List
+                </button>
+                <button
+                  className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                  style={{
+                    background: viewMode === "outputs" ? "var(--text)" : "transparent",
+                    color: viewMode === "outputs" ? "var(--surface)" : "var(--text-muted)",
+                  }}
+                  onClick={() => setViewMode("outputs")}
+                >
+                  Outputs
                 </button>
               </div>
 
@@ -1243,6 +1491,132 @@ export default function TasksPage() {
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Outputs View */}
+      {viewMode === "outputs" && (
+        <div className="space-y-6">
+          {/* KPI strip */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: "Total",        value: outputStats.total,    color: "var(--text)",    bg: "var(--surface)" },
+              { label: "Approved",     value: outputStats.approved, color: "var(--success)", bg: "rgba(22,163,74,0.06)" },
+              { label: "Pending",      value: outputStats.pending,  color: "var(--warning)", bg: "rgba(217,119,6,0.06)" },
+              { label: "Rework",       value: outputStats.rework,   color: "#f97316",        bg: "rgba(249,115,22,0.06)" },
+              { label: "Contributors", value: outputStats.agents,   color: "var(--accent)",  bg: "var(--accent-soft)" },
+            ].map(({ label, value, color, bg }) => (
+              <div key={label} className="rounded-xl p-4" style={{ background: bg, border: "1px solid var(--border)" }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>{label}</p>
+                <p className="text-3xl font-black tabular-nums mt-1" style={{ color }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1 p-1 rounded-xl w-fit" style={{ background: "var(--surface-muted)" }}>
+            {(["all", "pending", "approved", "rework", "rejected"] as OutputFilterTab[]).map((t) => {
+              const isActive = outputTab === t;
+              const cfg = OUTPUT_TAB_LABELS[t];
+              return (
+                <button
+                  key={t}
+                  onClick={() => setOutputTab(t)}
+                  className="rounded-lg px-4 py-1.5 text-[12px] font-semibold transition-all duration-150"
+                  style={{
+                    background: isActive ? "var(--surface)" : "transparent",
+                    color: isActive ? cfg.color : "var(--text-quiet)",
+                    boxShadow: isActive ? "var(--shadow-card)" : "none",
+                  }}
+                >
+                  {cfg.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search + filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "var(--text-quiet)" }} />
+              <input
+                type="text"
+                placeholder="Search title, evidence, agent…"
+                value={outputSearch}
+                onChange={(e) => setOutputSearch(e.target.value)}
+                className="w-full rounded-lg border pl-9 pr-3 py-2 text-sm"
+                style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+              />
+            </div>
+
+            <select
+              value={outputFilterProject}
+              onChange={(e) => setOutputFilterProject(e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+            >
+              <option value="all">All projects</option>
+              {outputProjects.map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+
+            <select
+              value={outputFilterAgent}
+              onChange={(e) => setOutputFilterAgent(e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+              style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
+            >
+              <option value="all">All agents</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Results */}
+          {outputsLoading ? (
+            <div className="flex items-center gap-2 py-10 justify-center text-sm" style={{ color: "var(--text-muted)" }}>
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading deliverables…
+            </div>
+          ) : filteredDeliverables.length === 0 ? (
+            <div className="rounded-xl border p-10 text-center" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+              <Package className="h-10 w-10 mx-auto mb-3" style={{ color: "var(--text-quiet)" }} />
+              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>No deliverables match these filters</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>
+                {deliverables.length === 0
+                  ? "Once agents submit deliverables, they'll appear here as proof-of-work"
+                  : "Try clearing some filters"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <p className="text-xs" style={{ color: "var(--text-quiet)" }}>
+                Showing {filteredDeliverables.length} deliverable{filteredDeliverables.length !== 1 ? "s" : ""} across {groupedDeliverables.length} task{groupedDeliverables.length !== 1 ? "s" : ""}
+              </p>
+              {groupedDeliverables.map((group) => (
+                <div key={group.taskId} className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <FolderKanban className="h-4 w-4 shrink-0" style={{ color: "var(--text-quiet)" }} />
+                    <p className="text-sm font-bold" style={{ color: "var(--text)" }}>{group.taskTitle ?? "Untitled task"}</p>
+                    {group.projectName && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>
+                        {group.projectName}
+                      </span>
+                    )}
+                    <span className="text-[10px] ml-auto" style={{ color: "var(--text-quiet)" }}>
+                      {group.items.length} item{group.items.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((d) => (
+                      <DeliverableCard key={d.id} d={d} expanded={outputExpanded.has(d.id)} onToggle={() => toggleDeliverable(d.id)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Edit dialog */}

@@ -8,7 +8,6 @@ import { useRealtime } from "@/lib/realtime/use-realtime";
 import type { SystemStatus } from "@/types/dashboard";
 import {
   LayoutDashboard,
-  Network,
   Radio,
   Settings,
   CheckSquare,
@@ -17,12 +16,9 @@ import {
   UserPlus,
   Users,
   Shield,
-  Zap,
   GraduationCap,
   BookOpen,
-  FolderKanban,
   BarChart3,
-  Brain,
   ShieldCheck,
   CalendarIcon,
 } from "lucide-react";
@@ -46,7 +42,6 @@ const sections = [
     items: [
       { title: "Tasks",    href: "/tasks",    icon: CheckSquare },
       { title: "Projects", href: "/projects", icon: BarChart3 },
-      { title: "Outputs",  href: "/outputs",  icon: FolderKanban },
     ],
   },
   {
@@ -64,17 +59,14 @@ const sections = [
       { title: "Calendar",  href: "/calendar",  icon: CalendarIcon },
       { title: "Hiring",    href: "/hiring",    icon: UserPlus },
       { title: "Learning",  href: "/learning",  icon: BookOpen },
-      { title: "Knowledge", href: "/knowledge", icon: Brain },
     ],
   },
   {
     label: "System",
     items: [
-      { title: "Alerts",    href: "/alerts",    icon: Bell },
-      { title: "Hermes",    href: "/hermes",    icon: Zap },
-      { title: "Skills",    href: "/skills",    icon: GraduationCap },
-      { title: "Org Chart", href: "/org-chart", icon: Network },
-      { title: "Settings",  href: "/settings",  icon: Settings },
+      { title: "Alerts",   href: "/alerts",   icon: Bell },
+      { title: "Skills",   href: "/skills",   icon: GraduationCap },
+      { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
 ];
