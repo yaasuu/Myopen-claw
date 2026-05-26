@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 /**
@@ -104,7 +104,21 @@ const SKILL_KEYWORDS: Record<string, { keywords: string[]; category: string; des
   },
 };
 
-export async function POST() {
+function checkCronAuth(req: NextRequest): NextResponse | null {
+  const secret = process.env.CRON_SECRET;
+  if (secret) {
+    const auth = req.headers.get("authorization");
+    if (auth !== `Bearer ${secret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+  return null;
+}
+
+export async function POST(req: NextRequest) {
+  const authError = checkCronAuth(req);
+  if (authError) return authError;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -327,6 +341,6 @@ export async function POST() {
 }
 
 // Also allow GET for manual triggering
-export async function GET() {
-  return POST();
+export async function GET(req: NextRequest) {
+  return POST(req);
 }
