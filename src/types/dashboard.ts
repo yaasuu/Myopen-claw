@@ -124,6 +124,7 @@ export interface FeedEvent {
   summary: string;
   related_task_id: string | null;
   related_agent_id: string | null;
+  project_id?: string | null;
   created_at: string;
 }
 

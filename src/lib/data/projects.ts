@@ -224,7 +224,12 @@ export async function getProjectById(id: string): Promise<{
 
   const taskIds = new Set(tasks.map((t) => t.id));
   const events = ((eventsResult.data ?? []) as FeedEvent[])
-    .filter((event) => event.related_task_id && taskIds.has(event.related_task_id))
+    .filter((event) =>
+      // Task-level events for this project's tasks
+      (event.related_task_id && taskIds.has(event.related_task_id)) ||
+      // Project-level events (governance runs, portfolio reviews, etc.)
+      event.project_id === id
+    )
     .slice(0, 10);
 
   return {
@@ -270,7 +275,7 @@ export async function createProject(input: {
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Project, error: null };
+  return { data: normalizeProject(data as Record<string, unknown>), error: null };
 }
 
 export async function updateProject(
@@ -288,7 +293,7 @@ export async function updateProject(
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Project, error: null };
+  return { data: normalizeProject(data as Record<string, unknown>), error: null };
 }
 
 export async function toggleProjectDeliverable(
@@ -317,7 +322,7 @@ export async function toggleProjectDeliverable(
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Project, error: null };
+  return { data: normalizeProject(data as Record<string, unknown>), error: null };
 }
 
 export async function toggleProjectCriterion(
@@ -346,7 +351,7 @@ export async function toggleProjectCriterion(
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Project, error: null };
+  return { data: normalizeProject(data as Record<string, unknown>), error: null };
 }
 
 export async function setProjectStatusNarrative(
@@ -371,7 +376,7 @@ export async function setProjectStatusNarrative(
     .single();
 
   if (error) return { data: null, error: error.message };
-  return { data: data as Project, error: null };
+  return { data: normalizeProject(data as Record<string, unknown>), error: null };
 }
 
 export async function assignTaskToProject(taskId: string, projectId: string | null): Promise<{ error: string | null }> {

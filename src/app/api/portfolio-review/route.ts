@@ -21,7 +21,7 @@ const SERVICE_KEY     = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.ser
 function buildPrompt(body: Record<string, unknown>): string {
   const { projects = [], healthScores = {}, signals = [], stats = {}, agents = [] } = body as {
     projects: Array<{
-      project_code: string; title: string; status: string;
+      id: string; project_code: string; title: string; status: string;
       open_tasks: number; blocked_tasks: number; completed_tasks: number;
       due_date: string | null; owner_department: string;
     }>;

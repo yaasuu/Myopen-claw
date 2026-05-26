@@ -8,6 +8,8 @@ export async function GET(req: NextRequest) {
     const projectId = searchParams.get("project_id");
 
     const supabase = getSupabaseReadOnly();
+    if (!supabase) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+
     let query = supabase
       .from("goals")
       .select("*")
