@@ -31,7 +31,18 @@ import {
 } from "@/lib/data/governance";
 import { getAgents } from "@/lib/data/agents";
 import { getSpecialistTypes } from "@/lib/data/departments";
-import { getAllDeliverables, type Deliverable } from "@/lib/data/reviews";
+// getAllDeliverables replaced by /api/task-output route
+
+interface TaskOutput {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  submitted_at: string | null;
+  updated_at: string;
+  output_data: Record<string, unknown> | null;
+  agents?: { name: string; emoji: string; specialist_domain: string } | null;
+}
 import { useCanWrite } from "@/lib/auth/use-can-write";
 import { getSupabase } from "@/lib/supabase/client";
 import { useRealtimeMulti } from "@/lib/realtime/use-realtime";
@@ -333,9 +344,12 @@ export default function ProjectDetailPage() {
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
   const [reviews, setReviews]   = useState<ProjectReview[]>([]);
   const [decisions, setDecisions] = useState<ProjectDecision[]>([]);
-  const [deliverableOutputs, setDeliverableOutputs] = useState<Deliverable[]>([]);
+  const [deliverableOutputs, setDeliverableOutputs] = useState<TaskOutput[]>([]);
   const [projectGoals, setProjectGoals] = useState<ProjectGoal[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(false);
+  const [goalsError, setGoalsError] = useState<string | null>(null);
+  const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   // Tabs + sidebar
   const [tab, setTab] = useState<Tab>("overview");
@@ -362,20 +376,16 @@ export default function ProjectDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [result, agentsResult, specResult, deliverablesResult] = await Promise.all([
+      const [result, agentsResult, specResult] = await Promise.all([
         getProjectById(projectId),
         getAgents(),
         getSpecialistTypes(),
-        getAllDeliverables(200),
       ]);
       if (result.error) setError(result.error);
       setProject(result.data);
       setTasks(result.tasks);
       setEvents(result.events);
       setAgents(agentsResult.data);
-      // Outputs for this project
-      const projectDeliverables = (deliverablesResult.data ?? []).filter((d) => d.project_id === projectId);
-      setDeliverableOutputs(projectDeliverables);
 
       if (result.data) {
         setPlan(generateProjectPlan(result.data, agentsResult.data, result.tasks, specResult.data));
@@ -390,28 +400,40 @@ export default function ProjectDetailPage() {
         setDecisions(dcResult.data);
         setHealth(calculateProjectHealth(result.data, result.tasks, msResult.data, rvResult.data));
 
-        // Fetch project goals
-        const supabase = getSupabase();
-        if (supabase && result.data?.id) {
-          const { data: goalsData } = await supabase
-            .from("goals")
-            .select("*")
-            .eq("project_id", result.data.id)
-            .order("created_at", { ascending: true });
+        // Fetch task outputs from API (non-fatal)
+        try {
+          const outputsRes = await fetch(`/api/task-output?project_id=${result.data.id}`);
+          if (outputsRes.ok) setDeliverableOutputs(await outputsRes.json());
+        } catch {
+          // outputs stay empty — non-critical
+        }
 
-          // Build tree
-          const goalMap = new Map<string, ProjectGoal>();
-          const roots: ProjectGoal[] = [];
-          (goalsData || []).forEach((g) => goalMap.set(g.id, { ...g, children: [] }));
-          (goalsData || []).forEach((g) => {
-            const goal = goalMap.get(g.id)!;
-            if (g.parent_goal_id && goalMap.has(g.parent_goal_id)) {
-              goalMap.get(g.parent_goal_id)!.children!.push(goal);
-            } else {
-              roots.push(goal);
-            }
-          });
-          setProjectGoals(roots);
+        // Fetch project goals
+        setGoalsLoading(true);
+        try {
+          const supabase = getSupabase();
+          if (supabase) {
+            const { data: goalsData, error: goalsErr } = await supabase
+              .from("goals")
+              .select("*")
+              .eq("project_id", result.data.id)
+              .order("created_at", { ascending: true });
+            if (goalsErr) throw goalsErr;
+            const goalMap = new Map<string, ProjectGoal>();
+            const roots: ProjectGoal[] = [];
+            (goalsData || []).forEach((g) => goalMap.set(g.id, { ...g, children: [] }));
+            (goalsData || []).forEach((g) => {
+              const goal = goalMap.get(g.id)!;
+              if (g.parent_goal_id && goalMap.has(g.parent_goal_id)) {
+                goalMap.get(g.parent_goal_id)!.children!.push(goal);
+              } else {
+                roots.push(goal);
+              }
+            });
+            setProjectGoals(roots);
+          }
+        } finally {
+          setGoalsLoading(false);
         }
       }
     } catch (err) {
@@ -665,19 +687,24 @@ export default function ProjectDetailPage() {
                   onClick={async () => {
                     const supabase = getSupabase();
                     if (!supabase || !project) return;
-                    const { data } = await supabase
+                    setGoalsError(null);
+                    const { data, error: insertErr } = await supabase
                       .from("goals")
                       .insert({ title: "New Goal", status: "active", project_id: project.id })
                       .select()
                       .single();
-                    if (data) {
-                      setProjectGoals((prev) => [...prev, { ...data, children: [] }]);
-                    }
+                    if (insertErr) { setGoalsError(insertErr.message); return; }
+                    if (data) setProjectGoals((prev) => [...prev, { ...data, children: [] }]);
                   }}
                 >
                   <Target className="h-3 w-3" /> Add Goal
                 </Button>
               </div>
+              {goalsError && (
+                <div className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.06)", color: "var(--danger)" }}>
+                  {goalsError}
+                </div>
+              )}
 
               {goalsLoading ? (
                 <div className="flex items-center justify-center h-24" style={{ color: "var(--text-quiet)" }}>
@@ -699,14 +726,14 @@ export default function ProjectDetailPage() {
                     onClick={async () => {
                       const supabase = getSupabase();
                       if (!supabase || !project) return;
-                      const { data } = await supabase
+                      setGoalsError(null);
+                      const { data, error: insertErr } = await supabase
                         .from("goals")
                         .insert({ title: "New Goal", status: "active", project_id: project.id })
                         .select()
                         .single();
-                      if (data) {
-                        setProjectGoals([{ ...data, children: [] }]);
-                      }
+                      if (insertErr) { setGoalsError(insertErr.message); return; }
+                      if (data) setProjectGoals([{ ...data, children: [] }]);
                     }}
                   >
                     <Target className="h-3 w-3" /> Add First Goal
@@ -843,11 +870,13 @@ export default function ProjectDetailPage() {
                       <div key={d.id} className="flex items-center gap-3 rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
                         <FileCheck className="h-4 w-4 shrink-0" style={{ color: "var(--success)" }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{d.task_title || d.evidence || "Untitled output"}</p>
-                          {d.evidence && d.task_title && <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{d.evidence}</p>}
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--text)" }}>{d.title}</p>
+                          {!!d.output_data?.summary && (
+                            <p className="text-[10px] truncate" style={{ color: "var(--text-quiet)" }}>{String(d.output_data.summary)}</p>
+                          )}
                         </div>
-                        {d.assigned_agent_emoji && <span className="text-sm shrink-0">{d.assigned_agent_emoji}</span>}
-                        <span className="text-[10px] tabular-nums shrink-0" style={{ color: "var(--text-quiet)" }}>{timeAgo(d.created_at)}</span>
+                        {d.agents?.emoji && <span className="text-sm shrink-0">{d.agents.emoji}</span>}
+                        <span className="text-[10px] tabular-nums shrink-0" style={{ color: "var(--text-quiet)" }}>{timeAgo(d.submitted_at ?? d.updated_at)}</span>
                       </div>
                     ))}
                   </div>
@@ -1006,20 +1035,25 @@ export default function ProjectDetailPage() {
                     <div key={d.id} className="rounded-xl border p-4" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
                       <div className="flex items-start gap-2 mb-2">
                         <FileCheck className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "var(--success)" }} />
-                        <p className="text-sm font-semibold leading-snug flex-1" style={{ color: "var(--text)" }}>{d.task_title || "Untitled output"}</p>
+                        <p className="text-sm font-semibold leading-snug flex-1" style={{ color: "var(--text)" }}>{d.title}</p>
+                        <Badge variant="outline" className="text-[9px] shrink-0 capitalize">{d.status}</Badge>
                       </div>
-                      {d.evidence && (
-                        <p className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-muted)" }}>{d.evidence}</p>
-                      )}
-                      {d.notes && (
-                        <p className="text-[11px] italic mb-3 px-2 py-1.5 rounded" style={{ background: "var(--surface-muted)", color: "var(--text-quiet)" }}>{d.notes}</p>
+                      {d.output_data && (
+                        <div className="text-xs leading-relaxed mb-3" style={{ color: "var(--text-muted)" }}>
+                          {d.output_data.summary ? (
+                            <p>{String(d.output_data.summary)}</p>
+                          ) : d.output_data.content ? (
+                            <p>{String(d.output_data.content)}</p>
+                          ) : (
+                            <p className="italic" style={{ color: "var(--text-quiet)" }}>Output recorded</p>
+                          )}
+                        </div>
                       )}
                       <div className="flex items-center gap-3 text-[10px] pt-3 border-t" style={{ borderColor: "var(--border)", color: "var(--text-quiet)" }}>
-                        {d.assigned_agent_emoji && (
-                          <span className="flex items-center gap-1">{d.assigned_agent_emoji} {d.assigned_agent_name}</span>
+                        {d.agents && (
+                          <span className="flex items-center gap-1">{d.agents.emoji} {d.agents.name}</span>
                         )}
-                        <span>{timeAgo(d.created_at)}</span>
-                        <Badge variant="outline" className="text-[9px] ml-auto">{d.outcome}</Badge>
+                        <span>{timeAgo(d.submitted_at ?? d.updated_at)}</span>
                       </div>
                     </div>
                   ))}
@@ -1288,8 +1322,10 @@ export default function ProjectDetailPage() {
                       e.preventDefault();
                       (async () => {
                         setMilestoneSubmitting(true);
-                        await createProjectMilestone({ projectId: project.id, title: milestoneTitle.trim() });
+                        setMilestoneError(null);
+                        const res = await createProjectMilestone({ projectId: project.id, title: milestoneTitle.trim() });
                         setMilestoneSubmitting(false);
+                        if (res.error) { setMilestoneError(res.error); return; }
                         setMilestoneOpen(false);
                         await load();
                       })();
@@ -1298,12 +1334,19 @@ export default function ProjectDetailPage() {
                   autoFocus
                 />
               </div>
+              {milestoneError && (
+                <p className="text-xs rounded-lg px-3 py-2" style={{ background: "rgba(220,38,38,0.06)", color: "var(--danger)" }}>
+                  {milestoneError}
+                </p>
+              )}
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setMilestoneOpen(false)} disabled={milestoneSubmitting}>Cancel</Button>
+                <Button variant="outline" size="sm" onClick={() => { setMilestoneOpen(false); setMilestoneError(null); }} disabled={milestoneSubmitting}>Cancel</Button>
                 <Button size="sm" disabled={milestoneSubmitting || !milestoneTitle.trim()} onClick={async () => {
                   setMilestoneSubmitting(true);
-                  await createProjectMilestone({ projectId: project.id, title: milestoneTitle.trim() });
+                  setMilestoneError(null);
+                  const res = await createProjectMilestone({ projectId: project.id, title: milestoneTitle.trim() });
                   setMilestoneSubmitting(false);
+                  if (res.error) { setMilestoneError(res.error); return; }
                   setMilestoneOpen(false);
                   await load();
                 }}>
@@ -1341,12 +1384,19 @@ export default function ProjectDetailPage() {
                   {blockedTasks.length} blocked task{blockedTasks.length !== 1 ? "s" : ""} will be included as blockers.
                 </p>
               )}
+              {reviewError && (
+                <p className="text-xs rounded-lg px-3 py-2" style={{ background: "rgba(220,38,38,0.06)", color: "var(--danger)" }}>
+                  {reviewError}
+                </p>
+              )}
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setReviewDialogOpen(false)} disabled={reviewSubmitting}>Cancel</Button>
+                <Button variant="outline" size="sm" onClick={() => { setReviewDialogOpen(false); setReviewError(null); }} disabled={reviewSubmitting}>Cancel</Button>
                 <Button size="sm" disabled={reviewSubmitting || !reviewSummary.trim()} onClick={async () => {
                   setReviewSubmitting(true);
-                  await createProjectReview({ projectId: project.id, reviewType: reviewDialogType, summary: reviewSummary.trim(), blockers: blockedTasks.map((t) => t.title) });
+                  setReviewError(null);
+                  const res = await createProjectReview({ projectId: project.id, reviewType: reviewDialogType, summary: reviewSummary.trim(), blockers: blockedTasks.map((t) => t.title) });
                   setReviewSubmitting(false);
+                  if (res.error) { setReviewError(res.error); return; }
                   setReviewDialogOpen(false);
                   await load();
                 }}>
