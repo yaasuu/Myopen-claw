@@ -113,12 +113,7 @@ export function AppSidebar() {
       {/* ── Nav ── */}
       <SidebarContent className="px-2 py-3 flex flex-col gap-0 overflow-y-auto">
         {sections.map((section) => (
-          <div key={section.label} className="mb-3">
-
-            {/* Section label */}
-            <p className="px-2 mb-1 text-[9px] font-bold uppercase tracking-widest select-none" style={{ color: "var(--text-quiet)" }}>
-              {section.label}
-            </p>
+          <div key={section.label} className="mb-2">
 
             {/* Items */}
             <div className="flex flex-col gap-px">
