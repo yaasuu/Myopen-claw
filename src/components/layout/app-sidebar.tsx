@@ -28,7 +28,6 @@ import {
   Brain,
   ShieldCheck,
   CalendarIcon,
-  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -72,7 +71,6 @@ const sections = [
     items: [
       { title: "Approvals", href: "/approvals", icon: ClipboardCheck },
       { title: "Autonomy", href: "/autonomy", icon: Shield },
-      { title: "Goals", href: "/goals", icon: Target },
       { title: "Reviews", href: "/reviews", icon: ShieldCheck },
       { title: "Calendar", href: "/calendar", icon: CalendarIcon },
       { title: "Hiring", href: "/hiring", icon: UserPlus },
