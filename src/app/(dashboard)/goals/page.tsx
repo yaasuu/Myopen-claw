@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ChevronDown, Target, Plus, Loader2, X, Calendar, User } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Goal {
   id: string;
@@ -102,6 +103,16 @@ export default function GoalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
 
+  // New goal dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newStatus, setNewStatus] = useState("active");
+  const [newPriority, setNewPriority] = useState("medium");
+  const [newOwner, setNewOwner] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   async function loadGoals() {
     try {
       const supabase = getSupabase();
@@ -135,6 +146,35 @@ export default function GoalsPage() {
     }
   }
 
+  async function handleCreateGoal() {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          status: newStatus,
+          priority: newPriority || undefined,
+          owner: newOwner.trim() || undefined,
+          due_date: newDueDate || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create goal");
+      setCreateOpen(false);
+      setNewTitle(""); setNewStatus("active"); setNewPriority("medium");
+      setNewOwner(""); setNewDueDate("");
+      loadGoals();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   useEffect(() => {
     loadGoals();
   }, []);
@@ -159,7 +199,7 @@ export default function GoalsPage() {
             Strategic hierarchy · execution targets · mission tree
           </p>
         </div>
-        <Button className="gap-2" disabled title="Goal creation coming soon — add goals via Supabase or the Hello session">
+        <Button className="gap-2" onClick={() => { setCreateError(null); setCreateOpen(true); }}>
           <Plus className="h-4 w-4" /> New Goal
         </Button>
       </div>
@@ -346,6 +386,67 @@ export default function GoalsPage() {
           </div>
         )}
       </div>
+
+      {/* ── New Goal Dialog ── */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Goal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            {createError && (
+              <p className="text-xs text-[var(--danger)] rounded-md border border-red-200 bg-[rgba(239,68,68,0.06)] px-3 py-2">{createError}</p>
+            )}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Title *</label>
+              <input
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                placeholder="e.g. Grow export revenue by 40%"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateGoal()}
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Status</label>
+                <select className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Priority</label>
+                <select className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" value={newPriority} onChange={(e) => setNewPriority(e.target.value)}>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Owner</label>
+                <input className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="e.g. Yas" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Due Date</label>
+                <input type="date" className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
+              <Button className="flex-1 gap-2" onClick={handleCreateGoal} disabled={creating || !newTitle.trim()}>
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Create Goal
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }

@@ -358,15 +358,34 @@ export default function PortfolioPage() {
 
   async function runReview() {
     setRunningReview(true);
-    const r = generatePortfolioReview(projects, healthScores, signals);
-    setReview(r);
     setReviewOpen(true);
-    await logFeedEvent({
-      event_type: "portfolio_review_run",
-      source: "Hermes Orchestrator",
-      summary: `Portfolio review: ${r.topRisks.length} ${r.topRisks.length !== 1 ? "risks" : "risk"}, ${r.bottlenecks.length} ${r.bottlenecks.length !== 1 ? "bottlenecks" : "bottleneck"}`,
-    });
-    setRunningReview(false);
+    try {
+      const res = await fetch("/api/portfolio-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projects,
+          healthScores: Object.fromEntries(healthScores),
+          signals,
+          stats,
+          agents,
+        }),
+      });
+      const r = await res.json();
+      if (!res.ok) throw new Error(r.error || "Review failed");
+      setReview(r);
+      await logFeedEvent({
+        event_type: "portfolio_review_run",
+        source: r.model ?? "Hermes Orchestrator",
+        summary: `AI portfolio review: ${r.topRisks.length} ${r.topRisks.length !== 1 ? "risks" : "risk"}, ${r.bottlenecks.length} ${r.bottlenecks.length !== 1 ? "bottlenecks" : "bottleneck"}`,
+      });
+    } catch {
+      // Fallback to client-side rule-based review
+      const r = generatePortfolioReview(projects, healthScores, signals);
+      setReview(r);
+    } finally {
+      setRunningReview(false);
+    }
   }
 
   // ── Derived ────────────────────────────────────────
@@ -635,9 +654,9 @@ export default function PortfolioPage() {
       )}
 
       {/* ── 6. AI Review drawer ── */}
-      {reviewOpen && review && (
+      {reviewOpen && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setReviewOpen(false)} />
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => { if (!runningReview) setReviewOpen(false); }} />
           <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md p-4 overflow-y-auto" style={{ background: "var(--surface)", borderLeft: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -646,31 +665,40 @@ export default function PortfolioPage() {
                 </div>
                 <h2 className="text-sm font-bold" style={{ color: "var(--text)" }}>AI Portfolio Review</h2>
               </div>
-              <button onClick={() => setReviewOpen(false)} className="rounded-lg p-1 hover:bg-[var(--surface-muted)]">
+              <button onClick={() => setReviewOpen(false)} className="rounded-lg p-1 hover:bg-[var(--surface-muted)]" disabled={runningReview}>
                 <X className="h-4 w-4" style={{ color: "var(--text-quiet)" }} />
               </button>
             </div>
 
-            <p className="text-[10px] mb-4" style={{ color: "var(--text-quiet)" }}>
-              Generated {timeAgo(review.timestamp)} · Hermes Orchestrator
-            </p>
+            {runningReview ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--accent)" }} />
+                <p className="text-sm" style={{ color: "var(--text-quiet)" }}>Gemini is analysing your portfolio…</p>
+              </div>
+            ) : review ? (
+              <>
+                <p className="text-[10px] mb-4" style={{ color: "var(--text-quiet)" }}>
+                  Generated {timeAgo(review.timestamp)} · {(review as PortfolioReview & { model?: string }).model ?? "Hermes Orchestrator"}
+                </p>
 
-            {review.topRisks.length > 0 && (
-              <Section title="Top Risks" icon={AlertOctagon} color="var(--danger)" items={review.topRisks} />
-            )}
-            {review.bottlenecks.length > 0 && (
-              <Section title="Bottlenecks" icon={AlertTriangle} color="var(--warning)" items={review.bottlenecks} />
-            )}
-            {review.projectsNeedingIntervention.length > 0 && (
-              <Section title="Need Intervention" icon={Target} color="var(--info)" items={review.projectsNeedingIntervention} />
-            )}
-            {review.recommendedActions.length > 0 && (
-              <Section title="Recommended Actions" icon={Sparkles} color="var(--accent)" items={review.recommendedActions} />
-            )}
-            <div className="rounded-lg p-3 mt-4" style={{ background: "var(--surface-muted)" }}>
-              <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-quiet)" }}>Most Efficient Dept</p>
-              <p className="text-sm font-semibold" style={{ color: "var(--success)" }}>{review.mostEfficientDept}</p>
-            </div>
+                {review.topRisks.length > 0 && (
+                  <Section title="Top Risks" icon={AlertOctagon} color="var(--danger)" items={review.topRisks} />
+                )}
+                {review.bottlenecks.length > 0 && (
+                  <Section title="Bottlenecks" icon={AlertTriangle} color="var(--warning)" items={review.bottlenecks} />
+                )}
+                {review.projectsNeedingIntervention.length > 0 && (
+                  <Section title="Need Intervention" icon={Target} color="var(--info)" items={review.projectsNeedingIntervention} />
+                )}
+                {review.recommendedActions.length > 0 && (
+                  <Section title="Recommended Actions" icon={Sparkles} color="var(--accent)" items={review.recommendedActions} />
+                )}
+                <div className="rounded-lg p-3 mt-4" style={{ background: "var(--surface-muted)" }}>
+                  <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: "var(--text-quiet)" }}>Most Efficient Dept</p>
+                  <p className="text-sm font-semibold" style={{ color: "var(--success)" }}>{review.mostEfficientDept}</p>
+                </div>
+              </>
+            ) : null}
           </div>
         </>
       )}
