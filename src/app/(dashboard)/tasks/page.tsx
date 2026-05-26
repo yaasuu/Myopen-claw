@@ -1721,272 +1721,242 @@ export default function TasksPage() {
 
       {/* Task Detail Side Panel */}
       <Sheet open={!!sidePanelTask} onOpenChange={(open) => { if (!open) setSidePanelTask(null); }}>
-        <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-[480px] flex flex-col p-0 gap-0 overflow-hidden">
           {sidePanelTask && (
             <>
-              <SheetHeader className="pb-4">
-                <SheetTitle className="text-left text-base font-semibold" style={{ color: "var(--text)" }}>
-                  {sidePanelTask.title}
-                </SheetTitle>
-                <SheetDescription className="text-left">
-                  Task detail and comments · v2
-                </SheetDescription>
-              </SheetHeader>
-
-              {/* Task details */}
-              <div className="space-y-4 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Status</p>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      sidePanelTask.status === "done" ? "bg-emerald-100 text-emerald-700" :
-                      sidePanelTask.status === "approved" ? "bg-green-100 text-green-700" :
-                      sidePanelTask.status === "in-review" ? "bg-violet-100 text-violet-700" :
-                      sidePanelTask.status === "submitted" ? "bg-amber-100 text-amber-700" :
-                      sidePanelTask.status === "dispatched" ? "bg-sky-100 text-sky-700" :
-                      sidePanelTask.status === "in-progress" ? "bg-blue-100 text-blue-700" :
-                      sidePanelTask.status === "rework" ? "bg-orange-100 text-orange-700" :
-                      sidePanelTask.status === "blocked" ? "bg-red-100 text-red-700" :
-                      "bg-[var(--surface-muted)] text-[var(--text-muted)]"
-                    }`}>
-                      {sidePanelTask.status}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Priority</p>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      sidePanelTask.priority === "high" ? "bg-red-100 text-red-700" :
-                      sidePanelTask.priority === "medium" ? "bg-amber-100 text-amber-700" :
-                      "bg-emerald-100 text-emerald-700"
-                    }`}>
-                      {sidePanelTask.priority}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Agent</p>
-                    <p className="text-sm" style={{ color: "var(--text)" }}>
-                      {sidePanelTask.assigned_agent_name ? (
-                        <span>{sidePanelTask.assigned_agent_emoji} {sidePanelTask.assigned_agent_name}</span>
-                      ) : (
-                        <span style={{ color: "var(--text-quiet)" }}>Unassigned</span>
-                      )}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Owner</p>
-                    <p className="text-sm" style={{ color: "var(--text)" }}>{sidePanelTask.owner}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Due date</p>
-                    <p className="text-sm flex items-center gap-1.5" style={{ color: "var(--text)" }}>
-                      <Calendar className="h-3.5 w-3.5" />
-                      {formatDueDate(sidePanelTask.due_date)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>SLA</p>
-                    {(() => {
-                      const sla = getSlaState(sidePanelTask);
-                      return (
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${slaBadgeClass(sla.tone)}`}>
-                          <Clock className="h-3 w-3" />
-                          {sla.label}{sidePanelTask.sla_hours ? ` · ${sidePanelTask.sla_hours}h` : ""}
-                        </span>
-                      );
-                    })()}
-                  </div>
+              {/* ── Header ── */}
+              <div className="px-5 pt-5 pb-4 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
+                {/* Status + Priority chips */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    sidePanelTask.status === "done" || sidePanelTask.status === "approved" ? "bg-emerald-100 text-emerald-700" :
+                    sidePanelTask.status === "in-review" ? "bg-violet-100 text-violet-700" :
+                    sidePanelTask.status === "submitted" ? "bg-amber-100 text-amber-700" :
+                    sidePanelTask.status === "in-progress" ? "bg-blue-100 text-blue-700" :
+                    sidePanelTask.status === "dispatched" ? "bg-sky-100 text-sky-700" :
+                    sidePanelTask.status === "blocked" ? "bg-red-100 text-red-700" :
+                    sidePanelTask.status === "rework" ? "bg-orange-100 text-orange-700" :
+                    "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                  }`}>{sidePanelTask.status}</span>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    sidePanelTask.priority === "high" ? "bg-red-100 text-red-700" :
+                    sidePanelTask.priority === "medium" ? "bg-amber-100 text-amber-700" :
+                    "bg-emerald-100 text-emerald-700"
+                  }`}>{sidePanelTask.priority}</span>
+                  {(() => {
+                    const sla = getSlaState(sidePanelTask);
+                    return (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ml-auto ${slaBadgeClass(sla.tone)}`}>
+                        <Clock className="h-3 w-3" />{sla.label}{sidePanelTask.sla_hours ? ` · ${sidePanelTask.sla_hours}h` : ""}
+                      </span>
+                    );
+                  })()}
                 </div>
 
-                {sidePanelTask.sla_breached && (
-                  <div className="rounded-lg p-3" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--danger)" }}>SLA breach</p>
-                    <p className="text-sm" style={{ color: "var(--danger)" }}>
-                      This task has crossed its SLA limit{sidePanelTask.sla_breached_at ? ` since ${new Date(sidePanelTask.sla_breached_at).toLocaleString()}` : ""}.
-                    </p>
-                  </div>
-                )}
+                {/* Title */}
+                <h2 className="text-base font-bold leading-snug mb-3" style={{ color: "var(--text)" }}>
+                  {sidePanelTask.title}
+                </h2>
 
-                {sidePanelTask.blocker && (
-                  <div className="rounded-lg p-3" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--danger)" }}>Blocker</p>
-                    <p className="text-sm" style={{ color: "var(--danger)" }}>{sidePanelTask.blocker}</p>
-                  </div>
-                )}
+                {/* Meta row */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                  {sidePanelTask.assigned_agent_name && (
+                    <span className="flex items-center gap-1">
+                      <span>{sidePanelTask.assigned_agent_emoji}</span>
+                      <span>{sidePanelTask.assigned_agent_name}</span>
+                    </span>
+                  )}
+                  {sidePanelTask.owner && (
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />{sidePanelTask.owner}
+                    </span>
+                  )}
+                  {sidePanelTask.due_date && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />{formatDueDate(sidePanelTask.due_date)}
+                    </span>
+                  )}
+                </div>
+              </div>
 
+              {/* ── Scrollable body ── */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+
+                {/* Description */}
                 {sidePanelTask.description && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--text-quiet)" }}>Description</p>
-                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>{sidePanelTask.description}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                    {sidePanelTask.description}
+                  </p>
+                )}
+
+                {/* Alerts */}
+                {sidePanelTask.sla_breached && (
+                  <div className="rounded-xl p-3.5 flex items-start gap-2.5" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "var(--danger)" }} />
+                    <div>
+                      <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--danger)" }}>SLA Breached</p>
+                      <p className="text-xs" style={{ color: "var(--danger)" }}>
+                        {sidePanelTask.sla_breached_at ? `Since ${new Date(sidePanelTask.sla_breached_at).toLocaleString()}` : "This task has crossed its SLA limit."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {sidePanelTask.blocker && (
+                  <div className="rounded-xl p-3.5 flex items-start gap-2.5" style={{ background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.15)" }}>
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color: "var(--danger)" }} />
+                    <div>
+                      <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--danger)" }}>Blocker</p>
+                      <p className="text-xs" style={{ color: "var(--danger)" }}>{sidePanelTask.blocker}</p>
+                    </div>
+                  </div>
+                )}
+                {sidePanelTask.requires_yas_approval && sidePanelTask.status !== "done" && (
+                  <div className="rounded-xl p-3.5 flex items-center gap-2.5" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                    <Lock className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />
+                    <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>Yas approval required before done.</p>
                   </div>
                 )}
 
-                {/* Hermes dispatch fields (read-only when already dispatched) */}
+                {/* Hermes dispatch */}
                 {sidePanelTask.owner_agent_id && (
-                  <div className="rounded-lg p-3 space-y-1" style={{ background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>Hermes Dispatch</p>
+                  <div className="rounded-xl p-3.5" style={{ background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                    <p className="text-xs font-semibold mb-1.5" style={{ color: "var(--accent)" }}>Hermes Dispatch</p>
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Owner agent: {agents.find((a) => a.id === sidePanelTask.owner_agent_id)?.name ?? sidePanelTask.owner_agent_id}
+                      {agents.find((a) => a.id === sidePanelTask.owner_agent_id)?.name ?? sidePanelTask.owner_agent_id}
                     </p>
                     {sidePanelTask.dispatch_notes && (
-                      <p className="text-xs italic" style={{ color: "var(--text-quiet)" }}>&ldquo;{sidePanelTask.dispatch_notes}&rdquo;</p>
+                      <p className="text-xs italic mt-1" style={{ color: "var(--text-quiet)" }}>&ldquo;{sidePanelTask.dispatch_notes}&rdquo;</p>
                     )}
                     {sidePanelTask.dispatched_at && (
-                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Dispatched {timeAgo(sidePanelTask.dispatched_at)}</p>
+                      <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>Dispatched {timeAgo(sidePanelTask.dispatched_at)}</p>
                     )}
                   </div>
                 )}
 
-                {/* Greenlight gate (P15) */}
-                {sidePanelTask.requires_yas_approval && sidePanelTask.status !== "done" && (
-                  <div className="rounded-lg p-3 flex items-center gap-2" style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)" }}>
-                    <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--accent)" }} />
-                    <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>Yas approval required before this task can be marked done.</p>
+                {/* Review actions */}
+                {canWrite && sidePanelTask?.status === "in-review" && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold" style={{ color: "var(--text-quiet)" }}>Your review</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button className="rounded-xl border py-2.5 text-xs font-semibold transition-colors hover:bg-emerald-50" style={{ borderColor: "rgba(16,185,129,0.3)", color: "var(--success)" }} onClick={() => handleReview("approved")}>✓ Approve</button>
+                      <button className="rounded-xl border py-2.5 text-xs font-semibold transition-colors hover:bg-amber-50" style={{ borderColor: "rgba(245,158,11,0.3)", color: "var(--warning)" }} onClick={() => handleReview("returned_for_rework")}>↩ Rework</button>
+                      <button className="rounded-xl border py-2.5 text-xs font-semibold transition-colors hover:bg-red-50" style={{ borderColor: "rgba(220,38,38,0.3)", color: "var(--danger)" }} onClick={() => handleReview("rejected")}>✕ Reject</button>
+                    </div>
                   </div>
                 )}
 
-                {/* Edit + Dispatch buttons */}
+                {/* Deliverables */}
+                {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-quiet)" }}>
+                      Deliverables · {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").length}
+                    </p>
+                    <div className="space-y-2">
+                      {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").map((r) => (
+                        <div key={r.id} className="rounded-xl p-3.5" style={{ background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.15)" }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--accent)" }}>
+                              {r.review_stage === "worker_submission" ? "Submission" : r.review_stage ?? "Deliverable"}
+                            </span>
+                            <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(r.created_at)}</span>
+                          </div>
+                          <p className="text-xs whitespace-pre-wrap leading-relaxed" style={{ color: "var(--text)" }}>{r.evidence}</p>
+                          <p className="text-[10px] mt-2" style={{ color: "var(--text-quiet)" }}>by {r.reviewed_by}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Review history */}
+                {reviews.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-quiet)" }}>Review history</p>
+                    <div className="space-y-1.5">
+                      {reviews.map((review) => (
+                        <div key={review.id} className="flex items-start gap-3 py-1.5">
+                          <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
+                            review.outcome === "approved" ? "bg-emerald-500" :
+                            review.outcome === "rejected" ? "bg-red-500" : "bg-amber-500"
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium capitalize" style={{ color: "var(--text)" }}>{review.outcome.replace(/_/g, " ")}</span>
+                              <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>by {review.reviewed_by} · {timeAgo(review.created_at)}</span>
+                            </div>
+                            {review.notes && <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{review.notes}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Comments */}
+                <div>
+                  <p className="text-xs font-semibold mb-3" style={{ color: "var(--text-quiet)" }}>
+                    Comments{comments.length > 0 ? ` · ${comments.length}` : ""}
+                  </p>
+                  {loadingComments ? (
+                    <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <p className="text-xs py-4 text-center" style={{ color: "var(--text-quiet)" }}>No comments yet.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3">
+                          {/* Avatar */}
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                            style={{
+                              background: comment.author_role === "ceo" ? "var(--accent-soft)" : "var(--surface-muted)",
+                              color: comment.author_role === "ceo" ? "var(--accent)" : "var(--text-muted)",
+                            }}>
+                            {comment.author.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2 mb-1">
+                              <span className="text-xs font-semibold" style={{ color: comment.author_role === "ceo" ? "var(--accent)" : "var(--text)" }}>
+                                {comment.author}
+                              </span>
+                              <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(comment.created_at)}</span>
+                            </div>
+                            <p className="text-sm leading-relaxed" style={{ color: "var(--text-muted)" }}>{comment.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Footer: actions + composer ── */}
+              <div className="shrink-0 border-t px-5 py-4 space-y-3" style={{ borderColor: "var(--border)" }}>
+                {/* Edit / Dispatch */}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => { setSidePanelTask(null); openEdit(sidePanelTask); }}>
                     <Pencil className="h-3 w-3" /> Edit
                   </Button>
                   {canWrite && sidePanelTask.status === "pending" && (
                     <Button size="sm" className="gap-1.5 flex-1" style={{ background: "var(--accent)", color: "#fff" }} onClick={() => openDispatchDialog(sidePanelTask)}>
-                      <Send className="h-3 w-3" /> Dispatch via Hermes
+                      <Send className="h-3 w-3" /> Dispatch
                     </Button>
                   )}
                 </div>
-              </div>
-
-              {/* Review actions (only for in-review tasks) */}
-              {canWrite && sidePanelTask?.status === "in-review" && (
-                <div className="pt-3 border-t space-y-2" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Orchestrator Review</p>
-                  <div className="flex gap-2">
-                    <button
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-emerald-300 hover:bg-emerald-50"
-                      style={{ borderColor: "var(--border)", color: "var(--success)" }}
-                      onClick={() => handleReview("approved")}
-                    >
-                      ✓ Approve
-                    </button>
-                    <button
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-amber-300 hover:bg-amber-50"
-                      style={{ borderColor: "var(--border)", color: "var(--warning)" }}
-                      onClick={() => handleReview("returned_for_rework")}
-                    >
-                      ↩ Rework
-                    </button>
-                    <button
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:border-red-300 hover:bg-red-50"
-                      style={{ borderColor: "var(--border)", color: "var(--danger)" }}
-                      onClick={() => handleReview("rejected")}
-                    >
-                      ✕ Reject
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Deliverables (worker submissions with evidence) */}
-              {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").length > 0 && (
-                <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: "var(--accent)" }}>
-                    📦 Deliverables ({reviews.filter((r) => r.evidence && r.evidence.trim() !== "").length})
-                  </p>
-                  <div className="space-y-2">
-                    {reviews.filter((r) => r.evidence && r.evidence.trim() !== "").map((r) => (
-                      <div key={r.id} className="rounded-lg p-3" style={{ background: "var(--accent-soft)", border: "1px solid rgba(99,102,241,0.15)" }}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--accent)" }}>
-                            {r.review_stage === "worker_submission" ? "Worker Submission" : r.review_stage ?? "Deliverable"}
-                          </span>
-                          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(r.created_at)}</span>
-                        </div>
-                        <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text)" }}>{r.evidence}</p>
-                        <p className="text-[10px] mt-1.5" style={{ color: "var(--text-quiet)" }}>by {r.reviewed_by}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Review history */}
-              {reviews.length > 0 && (
-                <div className="pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-quiet)" }}>Review History</p>
-                  <div className="space-y-2">
-                    {reviews.map((review) => (
-                      <div key={review.id} className="rounded-lg p-2.5" style={{ background: "var(--surface-muted)" }}>
-                        <div className="flex items-center justify-between mb-1">
-                          <Badge className={`text-[10px] ${
-                            review.outcome === "approved" ? "bg-emerald-100 text-emerald-700" :
-                            review.outcome === "rejected" ? "bg-red-100 text-red-700" :
-                            "bg-amber-100 text-amber-700"
-                          }`}>{review.outcome.replace(/_/g, " ")}</Badge>
-                          <span className="text-[10px]" style={{ color: "var(--text-quiet)" }}>{timeAgo(review.created_at)}</span>
-                        </div>
-                        {review.notes && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{review.notes}</p>}
-                        {review.evidence && <p className="text-[10px] mt-1 italic" style={{ color: "var(--text-quiet)" }}>Evidence: {review.evidence}</p>}
-                        <p className="text-[10px] mt-1" style={{ color: "var(--text-quiet)" }}>by {review.reviewed_by}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Comments section */}
-              <div className="pt-4 flex flex-col" style={{ minHeight: "300px" }}>
-                <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-quiet)" }}>
-                  Comments ({comments.length})
-                </p>
-
-                {/* Comments list */}
-                <div className="flex-1 space-y-3 overflow-y-auto mb-4">
-                  {loadingComments ? (
-                    <div className="flex items-center gap-2 py-4 text-xs" style={{ color: "var(--text-quiet)" }}>
-                      <Loader2 className="h-3 w-3 animate-spin" /> Loading comments...
-                    </div>
-                  ) : comments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <p className="text-xs mb-1" style={{ color: "var(--text-quiet)" }}>No comments yet</p>
-                      <p className="text-[10px]" style={{ color: "var(--text-quiet)" }}>Start the conversation below.</p>
-                    </div>
-                  ) : (
-                    comments.map((comment) => (
-                      <div key={comment.id} className="rounded-lg p-3" style={{ background: "var(--surface-muted)" }}>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-semibold" style={{ color: comment.author_role === "ceo" ? "var(--accent)" : "var(--text)" }}>
-                            {comment.author}
-                          </span>
-                          <Badge variant="outline" className="text-[10px]">{comment.author_role}</Badge>
-                          <span className="text-[10px] ml-auto" style={{ color: "var(--text-quiet)" }}>
-                            {timeAgo(comment.created_at)}
-                          </span>
-                        </div>
-                        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{comment.content}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Message composer — single line with Send button */}
+                {/* Composer */}
                 {canWrite && (
-                  <div className="flex items-center gap-2 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-2">
                     <input
-                      className="flex-1 rounded-lg border px-3 py-2 text-sm"
-                      style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--text)" }}
-                      placeholder="Type a message..."
+                      className="flex-1 rounded-xl border px-3.5 py-2 text-sm outline-none focus:ring-1"
+                      style={{ background: "var(--surface-muted)", borderColor: "var(--border)", color: "var(--text)" }}
+                      placeholder="Write a comment…"
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleSendComment();
-                        }
-                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendComment(); } }}
                     />
-                    <Button size="sm" onClick={handleSendComment} disabled={sendingComment || !newComment.trim()}>
-                      {sendingComment ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send"}
+                    <Button size="sm" onClick={handleSendComment} disabled={sendingComment || !newComment.trim()} style={{ background: "var(--accent)", color: "#fff" }}>
+                      {sendingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                     </Button>
                   </div>
                 )}
