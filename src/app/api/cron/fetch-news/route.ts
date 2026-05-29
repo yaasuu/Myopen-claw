@@ -68,13 +68,25 @@ async function runFetch(): Promise<NextResponse> {
     return NextResponse.json({ error: error.message, fetched: unique.length }, { status: 500 });
   }
 
-  // 4. Prune items older than 30 days (keep pinned ones)
+  // 4a. Prune items older than 30 days by insert date (keep pinned ones)
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   await supabase
     .from("news_items")
     .delete()
     .lt("created_at", cutoff)
     .eq("is_pinned", false);
+
+  // 4b. Prune stale *news articles* — anything published more than 14 days ago.
+  // Keeps the feed fresh. Excludes "llm-models" (free OpenRouter models are
+  // evergreen, not time-sensitive news) and pinned items. Items with a null
+  // published_at are left untouched (the .lt filter skips nulls).
+  const freshCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("news_items")
+    .delete()
+    .lt("published_at", freshCutoff)
+    .eq("is_pinned", false)
+    .neq("category", "llm-models");
 
   // 5. Log to feed_events (non-critical)
   try {

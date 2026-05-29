@@ -68,8 +68,11 @@ function parseRssItems(xml: string): Array<{
 
 // ── Google News RSS (keyword search) ─────────────────────────────────────────
 
-async function fetchGoogleNews(query: string, category: string, limit = 6): Promise<RawNewsItem[]> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+async function fetchGoogleNews(query: string, category: string, limit = 6, maxAgeDays = 14): Promise<RawNewsItem[]> {
+  // `when:14d` tells Google News to only return items from the last 14 days.
+  const q = `${query} when:${maxAgeDays}d`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+  const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; YasClawNewsBot/1.0)" },
@@ -77,6 +80,10 @@ async function fetchGoogleNews(query: string, category: string, limit = 6): Prom
     if (!res.ok) { console.error(`Google News ${category} HTTP ${res.status}`); return []; }
     const xml = await res.text();
     return parseRssItems(xml)
+      // Safety net: drop anything older than the window (or with no date).
+      .filter((it) => it.pubDate !== null && new Date(it.pubDate).getTime() >= cutoff)
+      // Newest first so the freshest items survive the limit slice.
+      .sort((a, b) => new Date(b.pubDate as string).getTime() - new Date(a.pubDate as string).getTime())
       .slice(0, limit)
       .map((it) => ({
         category,
