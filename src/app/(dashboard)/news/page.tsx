@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { PageShell } from "@/components/dashboard/page-shell";
 import {
-  Newspaper, Sparkles, RefreshCw, Loader2, Pin, ExternalLink, Bot,
+  Newspaper, Sparkles, RefreshCw, Pin, ExternalLink, Bot,
   Cpu, BrainCircuit, Ship, Scale, DollarSign, ShieldCheck,
   Package, AlertTriangle, Zap, Inbox,
 } from "lucide-react";
@@ -22,6 +22,8 @@ interface NewsItem {
   is_read: boolean;
   created_at: string;
 }
+
+type View = "latest" | "category" | "unread" | "pinned";
 
 // ── Category metadata ──────────────────────────────────────────────────────────
 type CatMeta = { key: string; label: string; icon: typeof Bot; rgb: string };
@@ -43,6 +45,39 @@ function meta(cat: string): CatMeta {
   return CAT_MAP.get(cat) ?? { key: cat, label: cat, icon: Newspaper, rgb: "120,120,130" };
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function hostOf(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+function whenOf(it: NewsItem): string {
+  return it.published_at ?? it.created_at;
+}
+function isFresh(iso: string): boolean {
+  return Date.now() - new Date(iso).getTime() < 24 * 60 * 60 * 1000;
+}
+function cleanTitle(t: string): string {
+  return t.replace(/^Free model:\s*/, "").replace(/^Trending model:\s*/, "");
+}
+
+// ── Source favicon (with category-icon fallback) ─────────────────────────────────
+function SourceFavicon({ url, fallback: Fallback, rgb }: { url: string; fallback: typeof Bot; rgb: string }) {
+  const host = hostOf(url);
+  const [err, setErr] = useState(false);
+  if (!host || err) return <Fallback className="h-3.5 w-3.5" style={{ color: `rgb(${rgb})` }} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${host}&sz=64`}
+      alt=""
+      width={14}
+      height={14}
+      loading="lazy"
+      className="rounded-sm shrink-0"
+      onError={() => setErr(true)}
+    />
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function NewsPage() {
   const [items, setItems]     = useState<NewsItem[]>([]);
@@ -51,7 +86,7 @@ export default function NewsPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [activeCat, setActiveCat] = useState<string>("all");
-  const [view, setView] = useState<"all" | "unread" | "pinned">("all");
+  const [view, setView] = useState<View>("latest");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
@@ -86,29 +121,24 @@ export default function NewsPage() {
       });
       if (!res.ok) throw new Error();
     } catch {
-      // revert on failure
-      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...invert(body) } : it)));
+      const revert: Partial<NewsItem> = {};
+      if (typeof body.is_pinned === "boolean") revert.is_pinned = !body.is_pinned;
+      if (typeof body.is_read === "boolean") revert.is_read = !body.is_read;
+      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...revert } : it)));
     }
   }, []);
 
-  function invert(body: Partial<Pick<NewsItem, "is_pinned" | "is_read">>) {
-    const out: Partial<NewsItem> = {};
-    if (typeof body.is_pinned === "boolean") out.is_pinned = !body.is_pinned;
-    if (typeof body.is_read === "boolean") out.is_read = !body.is_read;
-    return out;
-  }
-
-  async function togglePin(e: React.MouseEvent, it: NewsItem) {
+  const togglePin = useCallback(async (e: React.MouseEvent, it: NewsItem) => {
     e.preventDefault(); e.stopPropagation();
     setBusyId(it.id);
     await patch(it.id, { is_pinned: !it.is_pinned });
     setBusyId(null);
-  }
+  }, [patch]);
 
-  function openItem(it: NewsItem) {
+  const openItem = useCallback((it: NewsItem) => {
     if (!it.is_read) patch(it.id, { is_read: true });
     window.open(it.url, "_blank", "noopener,noreferrer");
-  }
+  }, [patch]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const counts = useMemo(() => {
@@ -120,36 +150,75 @@ export default function NewsPage() {
   const unreadCount = useMemo(() => items.filter((i) => !i.is_read).length, [items]);
   const pinnedCount = useMemo(() => items.filter((i) => i.is_pinned).length, [items]);
 
+  const lastSync = useMemo(() => {
+    if (items.length === 0) return null;
+    return items.reduce((max, it) =>
+      new Date(it.created_at) > new Date(max) ? it.created_at : max, items[0].created_at);
+  }, [items]);
+
   const freeModels = useMemo(
     () => items.filter((i) => i.category === "llm-models").slice(0, 6),
     [items]
   );
 
+  const sortByDate = useCallback((a: NewsItem, b: NewsItem) => {
+    if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+    return new Date(whenOf(b)).getTime() - new Date(whenOf(a)).getTime();
+  }, []);
+
+  // Items after category + view filtering (flat views)
   const filtered = useMemo(() => {
-    return items.filter((it) => {
+    const base = items.filter((it) => {
       if (activeCat !== "all" && it.category !== activeCat) return false;
       if (view === "unread" && it.is_read) return false;
       if (view === "pinned" && !it.is_pinned) return false;
       return true;
     });
-  }, [items, activeCat, view]);
+    return [...base].sort(sortByDate);
+  }, [items, activeCat, view, sortByDate]);
 
-  // Sort: pinned first, then newest
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
-      const at = new Date(a.published_at ?? a.created_at).getTime();
-      const bt = new Date(b.published_at ?? b.created_at).getTime();
-      return bt - at;
-    });
-  }, [filtered]);
+  // Top Stories: 3 freshest non-model, non-pinned-priority stories (latest + all only)
+  const showTopStories = view === "latest" && activeCat === "all";
+  const topStories = useMemo(() => {
+    if (!showTopStories) return [];
+    return [...items]
+      .filter((i) => i.category !== "llm-models")
+      .sort((a, b) => new Date(whenOf(b)).getTime() - new Date(whenOf(a)).getTime())
+      .slice(0, 3);
+  }, [items, showTopStories]);
+
+  const topIds = useMemo(() => new Set(topStories.map((t) => t.id)), [topStories]);
+  const gridItems = useMemo(
+    () => (showTopStories ? filtered.filter((i) => !topIds.has(i.id)) : filtered),
+    [filtered, topIds, showTopStories]
+  );
+
+  // By-category grouping
+  const grouped = useMemo(() => {
+    if (view !== "category") return [];
+    const cats = activeCat === "all" ? CATEGORIES.map((c) => c.key) : [activeCat];
+    return cats
+      .map((key) => ({
+        meta: meta(key),
+        items: items.filter((i) => i.category === key).sort(sortByDate),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [items, view, activeCat, sortByDate]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <PageShell>
-        <div className="flex items-center gap-2 py-24 justify-center text-sm" style={{ color: "var(--text-muted)" }}>
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading news…
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-xl border p-4 animate-pulse" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+              <div className="h-3 w-20 rounded mb-3" style={{ background: "var(--surface-muted)" }} />
+              <div className="h-4 w-full rounded mb-2" style={{ background: "var(--surface-muted)" }} />
+              <div className="h-4 w-3/4 rounded mb-3" style={{ background: "var(--surface-muted)" }} />
+              <div className="h-3 w-full rounded mb-1.5" style={{ background: "var(--surface-muted)" }} />
+              <div className="h-3 w-2/3 rounded" style={{ background: "var(--surface-muted)" }} />
+            </div>
+          ))}
         </div>
       </PageShell>
     );
@@ -177,8 +246,7 @@ export default function NewsPage() {
       {/* ── Header ── */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0"
-               style={{ background: "var(--accent-soft)" }}>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl shrink-0" style={{ background: "var(--accent-soft)" }}>
             <Newspaper className="h-5 w-5" style={{ color: "var(--accent)" }} />
           </div>
           <div>
@@ -189,9 +257,13 @@ export default function NewsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {lastSync && (
+            <span className="text-[11px] hidden sm:inline" style={{ color: "var(--text-quiet)" }}>
+              synced {timeAgo(lastSync)}
+            </span>
+          )}
           {unreadCount > 0 && (
-            <span className="rounded-full px-3 py-1.5 text-xs font-semibold tabular-nums"
-                  style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+            <span className="rounded-full px-3 py-1.5 text-xs font-semibold tabular-nums" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
               {unreadCount} unread
             </span>
           )}
@@ -213,21 +285,16 @@ export default function NewsPage() {
       )}
 
       {/* ── Free Models spotlight ── */}
-      {activeCat === "all" && view === "all" && freeModels.length > 0 && (
+      {view === "latest" && activeCat === "all" && freeModels.length > 0 && (
         <div className="rounded-2xl border p-5 relative overflow-hidden"
-             style={{
-               borderColor: "rgba(139,92,246,0.3)",
-               background: "linear-gradient(135deg, rgba(139,92,246,0.10), rgba(59,130,246,0.06))",
-             }}>
+             style={{ borderColor: "rgba(139,92,246,0.3)", background: "linear-gradient(135deg, rgba(139,92,246,0.10), rgba(59,130,246,0.06))" }}>
           <div className="absolute -right-6 -top-6 opacity-10">
             <Sparkles className="h-32 w-32" style={{ color: "rgb(139,92,246)" }} />
           </div>
           <div className="relative">
             <div className="flex items-center gap-2 mb-1">
               <Zap className="h-4 w-4" style={{ color: "rgb(139,92,246)" }} />
-              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "rgb(139,92,246)" }}>
-                Free LLM Models
-              </span>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "rgb(139,92,246)" }}>Free LLM Models</span>
             </div>
             <p className="text-sm font-medium mb-3" style={{ color: "var(--text)" }}>
               {counts["llm-models"] ?? 0} free model{(counts["llm-models"] ?? 0) !== 1 ? "s" : ""} ready to plug into Hermes when you run low on quota
@@ -240,9 +307,7 @@ export default function NewsPage() {
                   className="group flex items-center gap-1.5 rounded-lg border px-3 py-2 text-left transition-all hover:-translate-y-0.5"
                   style={{ background: "var(--surface)", borderColor: "rgba(139,92,246,0.25)", maxWidth: "240px" }}
                 >
-                  <span className="text-[12px] font-semibold truncate" style={{ color: "var(--text)" }}>
-                    {m.title.replace(/^Free model:\s*/, "")}
-                  </span>
+                  <span className="text-[12px] font-semibold truncate" style={{ color: "var(--text)" }}>{cleanTitle(m.title)}</span>
                   <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "rgb(139,92,246)" }} />
                 </button>
               ))}
@@ -251,28 +316,21 @@ export default function NewsPage() {
         </div>
       )}
 
-      {/* ── Category filter bar ── */}
+      {/* ── Category rail ── */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <CatChip active={activeCat === "all"} onClick={() => setActiveCat("all")} label="All" count={items.length} rgb="120,120,130" icon={Newspaper} />
         {CATEGORIES.filter((c) => (counts[c.key] ?? 0) > 0).map((c) => (
-          <CatChip
-            key={c.key}
-            active={activeCat === c.key}
-            onClick={() => setActiveCat(c.key)}
-            label={c.label}
-            count={counts[c.key] ?? 0}
-            rgb={c.rgb}
-            icon={c.icon}
-          />
+          <CatChip key={c.key} active={activeCat === c.key} onClick={() => setActiveCat(c.key)} label={c.label} count={counts[c.key] ?? 0} rgb={c.rgb} icon={c.icon} />
         ))}
       </div>
 
       {/* ── View toggles ── */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 flex-wrap">
         {([
-          { k: "all" as const,    l: "Everything", n: items.length },
-          { k: "unread" as const, l: "Unread",     n: unreadCount },
-          { k: "pinned" as const, l: "Pinned",     n: pinnedCount },
+          { k: "latest" as View,   l: "Latest",      n: items.length },
+          { k: "category" as View, l: "By category", n: 0 },
+          { k: "unread" as View,   l: "Unread",      n: unreadCount },
+          { k: "pinned" as View,   l: "Pinned",      n: pinnedCount },
         ]).map((v) => {
           const active = view === v.k;
           return (
@@ -280,40 +338,60 @@ export default function NewsPage() {
               key={v.k}
               onClick={() => setView(v.k)}
               className="rounded-full px-3 py-1 text-[11px] font-semibold transition-colors"
-              style={{
-                background: active ? "var(--text)" : "var(--surface-muted)",
-                color:      active ? "var(--surface)" : "var(--text-muted)",
-              }}
+              style={{ background: active ? "var(--text)" : "var(--surface-muted)", color: active ? "var(--surface)" : "var(--text-muted)" }}
             >
-              {v.l} {v.n > 0 && <span className="tabular-nums opacity-70">· {v.n}</span>}
+              {v.l}{v.n > 0 && <span className="tabular-nums opacity-70"> · {v.n}</span>}
             </button>
           );
         })}
       </div>
 
-      {/* ── Feed ── */}
-      {sorted.length === 0 ? (
-        <div className="rounded-xl border py-20 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-          <Inbox className="h-10 w-10 mx-auto mb-2" style={{ color: "var(--text-quiet)" }} />
-          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            {items.length === 0 ? "No news yet" : "Nothing matches these filters"}
-          </p>
-          <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>
-            {items.length === 0
-              ? "The daily fetch runs at 5 AM — check back soon."
-              : "Try a different category or view."}
-          </p>
+      {/* ── Top Stories band ── */}
+      {showTopStories && topStories.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--text-quiet)" }}>Top Stories</span>
+            <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {topStories.map((it) => (
+              <FeaturedCard key={it.id} item={it} busy={busyId === it.id} onOpen={() => openItem(it)} onTogglePin={(e) => togglePin(e, it)} />
+            ))}
+          </div>
         </div>
+      )}
+
+      {/* ── Feed ── */}
+      {view === "category" ? (
+        grouped.length === 0 ? (
+          <EmptyState hasItems={items.length > 0} />
+        ) : (
+          <div className="space-y-6">
+            {grouped.map((g) => (
+              <section key={g.meta.key}>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
+                        style={{ background: `rgba(${g.meta.rgb},0.12)`, color: `rgb(${g.meta.rgb})` }}>
+                    <g.meta.icon className="h-3.5 w-3.5" /> {g.meta.label}
+                  </span>
+                  <span className="text-[10px] tabular-nums" style={{ color: "var(--text-quiet)" }}>{g.items.length}</span>
+                  <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {g.items.map((it) => (
+                    <NewsCard key={it.id} item={it} busy={busyId === it.id} onOpen={() => openItem(it)} onTogglePin={(e) => togglePin(e, it)} />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )
+      ) : gridItems.length === 0 && topStories.length === 0 ? (
+        <EmptyState hasItems={items.length > 0} />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {sorted.map((it) => (
-            <NewsCard
-              key={it.id}
-              item={it}
-              busy={busyId === it.id}
-              onOpen={() => openItem(it)}
-              onTogglePin={(e) => togglePin(e, it)}
-            />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {gridItems.map((it) => (
+            <NewsCard key={it.id} item={it} busy={busyId === it.id} onOpen={() => openItem(it)} onTogglePin={(e) => togglePin(e, it)} />
           ))}
         </div>
       )}
@@ -321,10 +399,21 @@ export default function NewsPage() {
   );
 }
 
+// ── Empty state ──────────────────────────────────────────────────────────────
+function EmptyState({ hasItems }: { hasItems: boolean }) {
+  return (
+    <div className="rounded-xl border py-20 text-center" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+      <Inbox className="h-10 w-10 mx-auto mb-2" style={{ color: "var(--text-quiet)" }} />
+      <p className="text-sm font-medium" style={{ color: "var(--text)" }}>{hasItems ? "Nothing matches these filters" : "No news yet"}</p>
+      <p className="text-xs mt-1" style={{ color: "var(--text-quiet)" }}>
+        {hasItems ? "Try a different category or view." : "The daily fetch runs at 5 AM — check back soon."}
+      </p>
+    </div>
+  );
+}
+
 // ── Category chip ────────────────────────────────────────────────────────────
-function CatChip({
-  active, onClick, label, count, rgb, icon: Icon,
-}: {
+function CatChip({ active, onClick, label, count, rgb, icon: Icon }: {
   active: boolean; onClick: () => void; label: string; count: number; rgb: string; icon: typeof Bot;
 }) {
   return (
@@ -344,75 +433,83 @@ function CatChip({
   );
 }
 
-// ── News card ────────────────────────────────────────────────────────────────
-function NewsCard({
-  item, busy, onOpen, onTogglePin,
-}: {
+// ── Featured (Top Stories) card ──────────────────────────────────────────────
+function FeaturedCard({ item, busy, onOpen, onTogglePin }: {
   item: NewsItem; busy: boolean; onOpen: () => void; onTogglePin: (e: React.MouseEvent) => void;
 }) {
   const m = meta(item.category);
   const Icon = m.icon;
-  const when = item.published_at ?? item.created_at;
-
+  const when = whenOf(item);
   return (
     <div
       onClick={onOpen}
-      className="group relative flex flex-col rounded-xl border p-4 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)]"
-      style={{
-        background: "var(--surface)",
-        borderColor: item.is_pinned ? `rgba(${m.rgb},0.35)` : "var(--border)",
-        opacity: item.is_read ? 0.72 : 1,
-      }}
+      className="group relative flex flex-col rounded-xl border p-5 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] overflow-hidden"
+      style={{ background: "var(--surface)", borderColor: item.is_pinned ? `rgba(${m.rgb},0.4)` : "var(--border)", minHeight: "190px" }}
     >
-      {/* top row */}
+      <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: `rgb(${m.rgb})` }} />
       <div className="flex items-center gap-2 mb-2">
-        <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-              style={{ background: `rgba(${m.rgb},0.12)`, color: `rgb(${m.rgb})` }}>
-          <Icon className="h-3 w-3" />
-          {m.label}
+        <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `rgba(${m.rgb},0.12)`, color: `rgb(${m.rgb})` }}>
+          <Icon className="h-3 w-3" /> {m.label}
         </span>
-        {!item.is_read && (
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent)" }} title="Unread" />
+        {isFresh(when) && (
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "var(--success)", color: "#fff" }}>New</span>
         )}
-        <span className="ml-auto text-[10px] tabular-nums" style={{ color: "var(--text-quiet)" }}>
-          {timeAgo(when)}
-        </span>
-        <button
-          onClick={onTogglePin}
-          disabled={busy}
-          className="rounded-md p-1 transition-colors hover:bg-[var(--surface-muted)]"
-          title={item.is_pinned ? "Unpin" : "Pin"}
-        >
-          <Pin
-            className="h-3.5 w-3.5"
-            style={{
-              color: item.is_pinned ? `rgb(${m.rgb})` : "var(--text-quiet)",
-              fill: item.is_pinned ? `rgb(${m.rgb})` : "transparent",
-            }}
-          />
+        <button onClick={onTogglePin} disabled={busy} className="ml-auto rounded-md p-1 transition-colors hover:bg-[var(--surface-muted)]" title={item.is_pinned ? "Unpin" : "Pin"}>
+          <Pin className="h-3.5 w-3.5" style={{ color: item.is_pinned ? `rgb(${m.rgb})` : "var(--text-quiet)", fill: item.is_pinned ? `rgb(${m.rgb})` : "transparent" }} />
         </button>
       </div>
-
-      {/* title */}
-      <h3 className="text-sm font-semibold leading-snug mb-1 group-hover:text-[var(--accent)] transition-colors"
-          style={{ color: "var(--text)" }}>
-        {item.title}
+      <h3 className="text-[15px] font-bold leading-snug mb-1.5 line-clamp-3 group-hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text)" }}>
+        {cleanTitle(item.title)}
       </h3>
+      {item.summary && <p className="text-[12px] leading-relaxed line-clamp-2 mb-3" style={{ color: "var(--text-muted)" }}>{item.summary}</p>}
+      <div className="mt-auto flex items-center gap-1.5 pt-1">
+        <SourceFavicon url={item.url} fallback={Icon} rgb={m.rgb} />
+        <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>{item.source}</span>
+        <span className="text-[11px] tabular-nums ml-auto" style={{ color: "var(--text-quiet)" }}>{timeAgo(when)}</span>
+      </div>
+    </div>
+  );
+}
 
-      {/* summary */}
-      {item.summary && (
-        <p className="text-[12px] leading-relaxed line-clamp-3 mb-3" style={{ color: "var(--text-muted)" }}>
-          {item.summary}
-        </p>
-      )}
-
-      {/* footer */}
-      <div className="mt-auto flex items-center gap-2 pt-1">
-        <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>
-          {item.source}
+// ── Standard news card ─────────────────────────────────────────────────────────
+function NewsCard({ item, busy, onOpen, onTogglePin }: {
+  item: NewsItem; busy: boolean; onOpen: () => void; onTogglePin: (e: React.MouseEvent) => void;
+}) {
+  const m = meta(item.category);
+  const Icon = m.icon;
+  const when = whenOf(item);
+  return (
+    <div
+      onClick={onOpen}
+      className="group relative flex flex-col rounded-xl border p-4 pl-5 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] overflow-hidden"
+      style={{ background: "var(--surface)", borderColor: item.is_pinned ? `rgba(${m.rgb},0.35)` : "var(--border)", opacity: item.is_read ? 0.72 : 1, minHeight: "150px" }}
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${m.rgb})` }} />
+      {/* top row */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `rgba(${m.rgb},0.12)`, color: `rgb(${m.rgb})` }}>
+          <Icon className="h-3 w-3" /> {m.label}
         </span>
-        <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ color: "var(--accent)" }}>
+        {isFresh(when) && (
+          <span className="rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "var(--success)", color: "#fff" }}>New</span>
+        )}
+        {!item.is_read && !isFresh(when) && <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent)" }} title="Unread" />}
+        <span className="ml-auto text-[10px] tabular-nums" style={{ color: "var(--text-quiet)" }}>{timeAgo(when)}</span>
+        <button onClick={onTogglePin} disabled={busy} className="rounded-md p-1 transition-colors hover:bg-[var(--surface-muted)]" title={item.is_pinned ? "Unpin" : "Pin"}>
+          <Pin className="h-3.5 w-3.5" style={{ color: item.is_pinned ? `rgb(${m.rgb})` : "var(--text-quiet)", fill: item.is_pinned ? `rgb(${m.rgb})` : "transparent" }} />
+        </button>
+      </div>
+      {/* title */}
+      <h3 className="text-sm font-semibold leading-snug mb-1 line-clamp-2 group-hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text)" }}>
+        {cleanTitle(item.title)}
+      </h3>
+      {/* summary */}
+      {item.summary && <p className="text-[12px] leading-relaxed line-clamp-3 mb-3" style={{ color: "var(--text-muted)" }}>{item.summary}</p>}
+      {/* footer */}
+      <div className="mt-auto flex items-center gap-1.5 pt-1">
+        <SourceFavicon url={item.url} fallback={Icon} rgb={m.rgb} />
+        <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>{item.source}</span>
+        <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--accent)" }}>
           Open <ExternalLink className="h-3 w-3" />
         </span>
       </div>
