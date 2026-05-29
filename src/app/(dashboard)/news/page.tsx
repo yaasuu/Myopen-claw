@@ -21,6 +21,7 @@ interface NewsItem {
   is_pinned: boolean;
   is_read: boolean;
   created_at: string;
+  image_url?: string | null; // optional thumbnail (og:image), populated by backend fetch
 }
 
 type View = "latest" | "category" | "unread" | "pinned";
@@ -433,6 +434,61 @@ function CatChip({ active, onClick, label, count, rgb, icon: Icon }: {
   );
 }
 
+// ── Card media header (thumbnail OR gradient-icon fallback) ───────────────────
+function CardMedia({ item, m, Icon, height, busy, onTogglePin }: {
+  item: NewsItem; m: CatMeta; Icon: typeof Bot; height: number;
+  busy: boolean; onTogglePin: (e: React.MouseEvent) => void;
+}) {
+  const [imgErr, setImgErr] = useState(false);
+  const hasImg = !!item.image_url && !imgErr;
+  const when = whenOf(item);
+  return (
+    <div className="relative w-full overflow-hidden" style={{ height }}>
+      {hasImg ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={item.image_url as string}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImgErr(true)}
+          />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0) 45%, rgba(0,0,0,0.05))" }} />
+        </>
+      ) : (
+        <div className="w-full h-full flex items-center justify-center"
+             style={{ background: `linear-gradient(135deg, rgba(${m.rgb},0.20), rgba(${m.rgb},0.05))` }}>
+          <Icon style={{ color: `rgb(${m.rgb})`, width: height * 0.38, height: height * 0.38, opacity: 0.28 }} />
+        </div>
+      )}
+
+      {/* category pill */}
+      <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide backdrop-blur-sm"
+            style={{ background: hasImg ? "rgba(0,0,0,0.55)" : `rgba(${m.rgb},0.14)`, color: hasImg ? "#fff" : `rgb(${m.rgb})` }}>
+        <Icon className="h-3 w-3" /> {m.label}
+      </span>
+
+      {/* NEW badge */}
+      {isFresh(when) && (
+        <span className="absolute left-2 bottom-2 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "var(--success)", color: "#fff" }}>New</span>
+      )}
+
+      {/* pin */}
+      <button
+        onClick={onTogglePin}
+        disabled={busy}
+        className="absolute right-2 top-2 rounded-md p-1 transition-colors backdrop-blur-sm hover:opacity-80"
+        style={{ background: hasImg ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.55)" }}
+        title={item.is_pinned ? "Unpin" : "Pin"}
+      >
+        <Pin className="h-3.5 w-3.5"
+             style={{ color: item.is_pinned ? `rgb(${m.rgb})` : (hasImg ? "#fff" : "var(--text-quiet)"), fill: item.is_pinned ? `rgb(${m.rgb})` : "transparent" }} />
+      </button>
+    </div>
+  );
+}
+
 // ── Featured (Top Stories) card ──────────────────────────────────────────────
 function FeaturedCard({ item, busy, onOpen, onTogglePin }: {
   item: NewsItem; busy: boolean; onOpen: () => void; onTogglePin: (e: React.MouseEvent) => void;
@@ -443,29 +499,20 @@ function FeaturedCard({ item, busy, onOpen, onTogglePin }: {
   return (
     <div
       onClick={onOpen}
-      className="group relative flex flex-col rounded-xl border p-5 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] overflow-hidden"
-      style={{ background: "var(--surface)", borderColor: item.is_pinned ? `rgba(${m.rgb},0.4)` : "var(--border)", minHeight: "190px" }}
+      className="group relative flex flex-col rounded-xl border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] overflow-hidden"
+      style={{ background: "var(--surface)", borderColor: item.is_pinned ? `rgba(${m.rgb},0.4)` : "var(--border)" }}
     >
-      <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: `rgb(${m.rgb})` }} />
-      <div className="flex items-center gap-2 mb-2">
-        <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `rgba(${m.rgb},0.12)`, color: `rgb(${m.rgb})` }}>
-          <Icon className="h-3 w-3" /> {m.label}
-        </span>
-        {isFresh(when) && (
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "var(--success)", color: "#fff" }}>New</span>
-        )}
-        <button onClick={onTogglePin} disabled={busy} className="ml-auto rounded-md p-1 transition-colors hover:bg-[var(--surface-muted)]" title={item.is_pinned ? "Unpin" : "Pin"}>
-          <Pin className="h-3.5 w-3.5" style={{ color: item.is_pinned ? `rgb(${m.rgb})` : "var(--text-quiet)", fill: item.is_pinned ? `rgb(${m.rgb})` : "transparent" }} />
-        </button>
-      </div>
-      <h3 className="text-[15px] font-bold leading-snug mb-1.5 line-clamp-3 group-hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text)" }}>
-        {cleanTitle(item.title)}
-      </h3>
-      {item.summary && <p className="text-[12px] leading-relaxed line-clamp-2 mb-3" style={{ color: "var(--text-muted)" }}>{item.summary}</p>}
-      <div className="mt-auto flex items-center gap-1.5 pt-1">
-        <SourceFavicon url={item.url} fallback={Icon} rgb={m.rgb} />
-        <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>{item.source}</span>
-        <span className="text-[11px] tabular-nums ml-auto" style={{ color: "var(--text-quiet)" }}>{timeAgo(when)}</span>
+      <CardMedia item={item} m={m} Icon={Icon} height={144} busy={busy} onTogglePin={onTogglePin} />
+      <div className="flex flex-col flex-1 p-4">
+        <h3 className="text-[15px] font-bold leading-snug mb-1.5 line-clamp-2 group-hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text)" }}>
+          {cleanTitle(item.title)}
+        </h3>
+        {item.summary && <p className="text-[12px] leading-relaxed line-clamp-2 mb-3" style={{ color: "var(--text-muted)" }}>{item.summary}</p>}
+        <div className="mt-auto flex items-center gap-1.5 pt-1">
+          <SourceFavicon url={item.url} fallback={Icon} rgb={m.rgb} />
+          <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>{item.source}</span>
+          <span className="text-[11px] tabular-nums ml-auto" style={{ color: "var(--text-quiet)" }}>{timeAgo(when)}</span>
+        </div>
       </div>
     </div>
   );
@@ -477,41 +524,26 @@ function NewsCard({ item, busy, onOpen, onTogglePin }: {
 }) {
   const m = meta(item.category);
   const Icon = m.icon;
-  const when = whenOf(item);
   return (
     <div
       onClick={onOpen}
-      className="group relative flex flex-col rounded-xl border p-4 pl-5 cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] overflow-hidden"
-      style={{ background: "var(--surface)", borderColor: item.is_pinned ? `rgba(${m.rgb},0.35)` : "var(--border)", opacity: item.is_read ? 0.72 : 1, minHeight: "150px" }}
+      className="group relative flex flex-col rounded-xl border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] overflow-hidden"
+      style={{ background: "var(--surface)", borderColor: item.is_pinned ? `rgba(${m.rgb},0.35)` : "var(--border)", opacity: item.is_read ? 0.72 : 1 }}
     >
-      <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: `rgb(${m.rgb})` }} />
-      {/* top row */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `rgba(${m.rgb},0.12)`, color: `rgb(${m.rgb})` }}>
-          <Icon className="h-3 w-3" /> {m.label}
-        </span>
-        {isFresh(when) && (
-          <span className="rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: "var(--success)", color: "#fff" }}>New</span>
-        )}
-        {!item.is_read && !isFresh(when) && <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent)" }} title="Unread" />}
-        <span className="ml-auto text-[10px] tabular-nums" style={{ color: "var(--text-quiet)" }}>{timeAgo(when)}</span>
-        <button onClick={onTogglePin} disabled={busy} className="rounded-md p-1 transition-colors hover:bg-[var(--surface-muted)]" title={item.is_pinned ? "Unpin" : "Pin"}>
-          <Pin className="h-3.5 w-3.5" style={{ color: item.is_pinned ? `rgb(${m.rgb})` : "var(--text-quiet)", fill: item.is_pinned ? `rgb(${m.rgb})` : "transparent" }} />
-        </button>
-      </div>
-      {/* title */}
-      <h3 className="text-sm font-semibold leading-snug mb-1 line-clamp-2 group-hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text)" }}>
-        {cleanTitle(item.title)}
-      </h3>
-      {/* summary */}
-      {item.summary && <p className="text-[12px] leading-relaxed line-clamp-3 mb-3" style={{ color: "var(--text-muted)" }}>{item.summary}</p>}
-      {/* footer */}
-      <div className="mt-auto flex items-center gap-1.5 pt-1">
-        <SourceFavicon url={item.url} fallback={Icon} rgb={m.rgb} />
-        <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>{item.source}</span>
-        <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--accent)" }}>
-          Open <ExternalLink className="h-3 w-3" />
-        </span>
+      <CardMedia item={item} m={m} Icon={Icon} height={112} busy={busy} onTogglePin={onTogglePin} />
+      <div className="flex flex-col flex-1 p-4">
+        <h3 className="text-sm font-semibold leading-snug mb-1 line-clamp-2 group-hover:text-[var(--accent)] transition-colors" style={{ color: "var(--text)" }}>
+          {cleanTitle(item.title)}
+        </h3>
+        {item.summary && <p className="text-[12px] leading-relaxed line-clamp-3 mb-3" style={{ color: "var(--text-muted)" }}>{item.summary}</p>}
+        <div className="mt-auto flex items-center gap-1.5 pt-1">
+          <SourceFavicon url={item.url} fallback={Icon} rgb={m.rgb} />
+          <span className="text-[11px] font-medium truncate" style={{ color: "var(--text-quiet)" }}>{item.source}</span>
+          {!item.is_read && <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent)" }} title="Unread" />}
+          <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "var(--accent)" }}>
+            Open <ExternalLink className="h-3 w-3" />
+          </span>
+        </div>
       </div>
     </div>
   );
