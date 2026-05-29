@@ -21,6 +21,7 @@ import {
   BarChart3,
   ShieldCheck,
   CalendarIcon,
+  Newspaper,
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,6 +36,7 @@ const sections = [
     items: [
       { title: "Dashboard",  href: "/overview",   icon: LayoutDashboard },
       { title: "Live Feed",  href: "/live-feed",  icon: Radio },
+      { title: "News",       href: "/news",       icon: Newspaper },
     ],
   },
   {
