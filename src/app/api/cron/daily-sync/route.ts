@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkCronAuth } from "@/lib/auth/cron-auth";
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret so this endpoint can't be called by anyone publicly
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  // Fail-closed: refuse unless a valid CRON_SECRET bearer is presented.
+  const authError = checkCronAuth(req);
+  if (authError) return authError;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

@@ -21,9 +21,9 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from("tasks")
       .select(`
-        id, title, description, status, priority, assigned_agent,
+        id, title, description, status, priority, assigned_agent_id,
         output_data, submitted_at, updated_at,
-        agents!assigned_agent_id (name, emoji, specialist_domain)
+        agents!assigned_agent_id (name, emoji, domain)
       `)
       .eq("id", taskId)
       .single();
@@ -39,9 +39,9 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from("tasks")
       .select(`
-        id, title, status, priority, assigned_agent, submitted_at, updated_at,
+        id, title, status, priority, assigned_agent_id, submitted_at, updated_at,
         output_data,
-        agents!assigned_agent_id (name, emoji, specialist_domain)
+        agents!assigned_agent_id (name, emoji, domain)
       `)
       .eq("project_id", projectId)
       .not("output_data", "is", null)

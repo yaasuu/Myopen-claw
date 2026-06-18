@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// SECURITY TODO: this endpoint is unauthenticated and runs under the anon key.
+// EC2 Hermes calls it to create tasks / log heartbeats, so gating it behind a
+// bearer secret requires updating the EC2 caller in lockstep. Wiring left for a
+// session with EC2 SSH access. Planned: gate every action except the
+// browser-triggered "check_and_draft_lessons" behind a shared secret.
+
 export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -250,24 +256,6 @@ export async function POST(request: Request) {
       .select("*")
       .eq("task_id", body.task_id)
       .order("created_at", { ascending: true });
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ data });
-  }
-
-  // Log feed event directly
-  if (body.action === "log_feed_event") {
-    const { data, error } = await supabase
-      .from("feed_events")
-      .insert({
-        event_type: body.event_type,
-        source: body.source ?? "Hermes Orchestrator",
-        summary: body.summary,
-        related_task_id: body.related_task_id ?? null,
-        related_agent_id: body.related_agent_id ?? null,
-      })
-      .select()
-      .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ data });

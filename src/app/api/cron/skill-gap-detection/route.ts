@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkCronAuth } from "@/lib/auth/cron-auth";
 
 /**
  * POST /api/cron/skill-gap-detection
@@ -103,17 +104,6 @@ const SKILL_KEYWORDS: Record<string, { keywords: string[]; category: string; des
     description: "Report generation and analytics",
   },
 };
-
-function checkCronAuth(req: NextRequest): NextResponse | null {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-  return null;
-}
 
 export async function POST(req: NextRequest) {
   const authError = checkCronAuth(req);

@@ -1,14 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+// NOTE: this is the MANUAL sync endpoint — the office page "Sync now" button
+// calls it from the browser, so it stays open (no CRON_SECRET). The automated
+// daily roll-up is /api/cron/daily-sync (fail-closed, scheduled in vercel.json).
+// This route is intentionally NOT on a schedule to avoid a daily_notes
+// upsert collision with daily-sync (both upsert onConflict: "date").
+export async function GET() {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

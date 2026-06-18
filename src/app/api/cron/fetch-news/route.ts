@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { fetchAllNews } from "@/lib/news/sources";
+import { checkCronAuth } from "@/lib/auth/cron-auth";
 
 /**
  * GET/POST /api/cron/fetch-news
@@ -11,17 +12,6 @@ import { fetchAllNews } from "@/lib/news/sources";
  *
  * Protected by CRON_SECRET (if set) — Authorization: Bearer <secret>
  */
-
-function checkCronAuth(req: NextRequest): NextResponse | null {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-  return null;
-}
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
